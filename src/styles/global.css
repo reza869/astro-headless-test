@@ -1,0 +1,326 @@
+@import "tailwindcss";
+
+/* ============================================================
+   L'ÉDITION — design tokens (Tailwind v4 @theme)
+   Publication-first fashion house. Bright off-white base,
+   tri-color accent system (coral / green / blue), Big Shoulders
+   Display + Manrope. Tokens are both CSS vars and TW utilities.
+   ============================================================ */
+@theme {
+  /* Accents — coral leads; green + blue support */
+  --color-coral: #d95846;        /* primary accent — CTAs, labels */
+  --color-coral-hover: #b94234;
+  --color-coral-soft: #fce3de;
+  --color-green: #5a9761;        /* secondary — tags, categories */
+  --color-green-hover: #44784a;
+  --color-green-soft: #e4f0e6;
+  --color-blue: #4576e7;         /* tertiary — links, info */
+  --color-blue-hover: #2f5cc8;
+  --color-blue-soft: #e6ecfd;
+
+  /* Surfaces & ink */
+  --color-dark: #151719;         /* dark sections, footer */
+  --color-dark-hover: #24272a;
+  --color-bg-deep: #090a0b;      /* deepest near-black */
+  --color-bg-light: #f8f8f4;     /* page background — soft off-white */
+  --color-surface: #ffffff;      /* cards / inner content */
+  --color-surface-cool: #eef1f3; /* cool gray sections */
+  --color-white: #ffffff;
+
+  /* Text */
+  --color-text-primary: #111315;
+  --color-text-secondary: #555d63;
+  --color-text-muted: #8d969c;
+  --color-border: #dde2e5;
+
+  /* Type families */
+  --font-heading: "Big Shoulders Display", sans-serif;
+  --font-body: "Manrope", sans-serif;
+
+  /* Radius — refined, gentle */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;          /* chips / badges / icon buttons only */
+
+  /* Responsive section rhythm — 50px on mobile, smoothly scaling up to the
+     desktop default via clamp(). Use py-section / pt-section / pb-section
+     (and the -sm variant) instead of ad-hoc py-[120px] or py-20 md:py-[…],
+     so every section shares one consistent, jump-free vertical rhythm. */
+  --spacing-section: clamp(3.125rem, 8vw, 7.5rem);         /* 50 → 120 */
+  --spacing-section-sm: clamp(3.125rem, 6.5vw, 5.625rem);  /* 50 → 90  */
+  --spacing-hero: clamp(3.125rem, 4.5vw, 3.75rem);         /* 50 → 60  */
+
+  /* Motion */
+  --ease-std: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Layered shadows — depth over borders */
+  --shadow-xs: 0 1px 2px rgba(17, 19, 21, 0.04);
+  --shadow-sm: 0 2px 8px rgba(17, 19, 21, 0.06);
+  --shadow-md: 0 8px 24px rgba(17, 19, 21, 0.08);
+  --shadow-lg: 0 20px 48px rgba(17, 19, 21, 0.12);
+
+  /* Z-index scale */
+  --z-header: 40;
+  --z-overlay: 90;
+  --z-drawer: 100;
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: var(--font-body);
+    color: var(--color-text-primary);
+    background: var(--color-bg-light);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    line-height: 1.65;
+    font-size: 16px;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    margin: 0;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  img {
+    display: block;
+    max-width: 100%;
+  }
+
+  button {
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  /* On-brand focus ring */
+  :focus-visible {
+    outline: 2px solid var(--color-coral);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    background: var(--color-dark);
+    color: var(--color-bg-light);
+  }
+}
+
+/* ============================================================
+   Typography utilities — the design system type scale.
+   Map straight to the .h1–.btn classes from the style guide.
+   ============================================================ */
+@utility h1 {
+  font-family: var(--font-heading);
+  font-size: clamp(3rem, 7vw, 5rem);   /* ~48 → 80px */
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -1px;
+}
+@utility h2 {
+  font-family: var(--font-heading);
+  font-size: clamp(2.25rem, 5vw, 3.5rem); /* ~36 → 56px */
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.5px;
+}
+@utility h3 {
+  font-family: var(--font-heading);
+  font-size: clamp(2rem, 4vw, 2.75rem);   /* ~32 → 44px */
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.25px;
+}
+@utility h4 {
+  font-family: var(--font-heading);
+  font-size: clamp(1.5rem, 3vw, 2rem);    /* ~24 → 32px */
+  font-weight: 600;
+  line-height: 1.1;
+}
+@utility h6 {
+  font-family: var(--font-body);
+  font-size: 0.8125rem;                   /* 13px */
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+}
+
+@utility body-large {
+  font-size: 1.125rem;  /* 18px */
+  line-height: 1.7;
+}
+@utility body-regular {
+  font-size: 1rem;      /* 16px */
+  line-height: 1.65;
+}
+@utility body-small {
+  font-size: 0.875rem;  /* 14px */
+  line-height: 1.5;
+}
+
+@utility product-name {
+  font-size: 0.9375rem; /* 15px */
+  font-weight: 600;
+  line-height: 1.4;
+}
+@utility product-price {
+  font-size: 0.875rem;  /* 14px */
+  font-weight: 500;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ALL-CAPS button label */
+@utility btn {
+  font-family: var(--font-body);
+  font-size: 0.8125rem; /* 13px */
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+/* Section label — coral star lead + subtle trailing line (designer mark). */
+@utility mag-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-body);
+  font-size: 0.6875rem; /* 11px */
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--color-coral);
+}
+.mag-label::before {
+  content: "✦";
+  font-size: 0.625rem; /* 10px */
+  line-height: 1;
+  color: var(--color-coral);
+}
+.mag-label::after {
+  content: "";
+  width: 28px;
+  height: 2px;
+  background: var(--color-coral);
+  opacity: 0.4;
+}
+
+/* ============================================================
+   Layout utilities
+   ============================================================ */
+@utility container-mag {
+  width: 100%;
+  max-width: 1550px;
+  margin-inline: auto;
+  padding-inline: 3.5%;
+}
+
+@utility transition-fluid {
+  transition-timing-function: var(--ease-out-soft);
+  transition-duration: 300ms;
+}
+
+/* ============================================================
+   Component helpers
+   ============================================================ */
+@layer components {
+  /* GSAP reveal targets start hidden; JS animates them in.
+     Reduced-motion + no-JS fallbacks below keep content visible. */
+  [data-reveal],
+  [data-enter] {
+    opacity: 0;
+  }
+
+  /* Rich text from Shopify (descriptionHtml / page body). */
+  .rte {
+    color: var(--color-text-secondary);
+    line-height: 1.7;
+  }
+  .rte > * + * {
+    margin-top: 1rem;
+  }
+  .rte h2,
+  .rte h3,
+  .rte h4 {
+    color: var(--color-text-primary);
+    margin-top: 2rem;
+  }
+  .rte a {
+    color: var(--color-blue);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .rte strong {
+    color: var(--color-text-primary);
+    font-weight: 600;
+  }
+  .rte ul,
+  .rte ol {
+    padding-left: 1.25rem;
+  }
+  .rte ul { list-style: disc; }
+  .rte ol { list-style: decimal; }
+  .rte li + li { margin-top: 0.4rem; }
+  .rte img {
+    border-radius: var(--radius-md);
+    margin-block: 1.5rem;
+  }
+  .rte blockquote {
+    border-left: 2px solid var(--color-coral);
+    padding-left: 1rem;
+    font-style: italic;
+    color: var(--color-text-primary);
+  }
+}
+
+/* ============================================================
+   Reduced motion + no-JS — never leave reveal targets hidden.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  [data-reveal],
+  [data-enter] {
+    opacity: 1 !important;
+  }
+}
+
+/* If JS never runs, content must still render. */
+.no-js [data-reveal],
+.no-js [data-enter] {
+  opacity: 1 !important;
+}

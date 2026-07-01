@@ -1,0 +1,36 @@
+---
+// ============================================================
+//  Price — mono tabular money with optional sale strikethrough.
+// ============================================================
+import { formatMoney, isOnSale } from '~/lib/utils';
+import type { Money } from '~/lib/shopify/types';
+import { cn } from '~/lib/utils';
+
+interface Props {
+  price: Money;
+  compareAt?: Money | null;
+  /** Prefix with "From" for price ranges (min variant price). */
+  from?: boolean;
+  class?: string;
+  size?: 'sm' | 'md' | 'lg';
+}
+
+const { price, compareAt = null, from = false, class: className, size = 'md' } = Astro.props;
+
+const onSale = isOnSale(price, compareAt);
+const sizeClass = { sm: 'text-sm', md: 'text-[0.95rem]', lg: 'text-xl' }[size];
+---
+
+<span class={cn('font-mono tabular inline-flex items-baseline gap-2', sizeClass, className)}>
+  {from && <span class="text-text-muted text-[0.7em] uppercase tracking-wider">From</span>}
+  <span class={cn('font-medium', onSale ? 'text-coral' : 'text-text-primary')}>
+    {formatMoney(price.amount, price.currencyCode)}
+  </span>
+  {
+    onSale && compareAt && (
+      <s class="text-text-muted font-normal decoration-1">
+        {formatMoney(compareAt.amount, compareAt.currencyCode)}
+      </s>
+    )
+  }
+</span>

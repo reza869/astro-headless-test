@@ -1,0 +1,100 @@
+---
+// ============================================================
+//  /collections/[handle] — a single collection with the EXACT
+//  design + functionality of /collections/all. The only diffs:
+//  the hero shows this collection's title + description (clamped
+//  to 3 lines), and the control deck opens with this collection's
+//  tab active + the grid filtered to its products. Everything else
+//  (deck, refine, sort, grid, CTA, islands) is the shared
+//  ShopCatalogue component.
+// ============================================================
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import ShopCatalogue from '~/components/shop/ShopCatalogue.astro';
+import { getShopProducts, getAllCollections } from '~/lib/shopify';
+import { toShopItems, catalogueCurrency } from '~/lib/shop-catalogue';
+import type { Collection, ProductCard } from '~/lib/shopify/types';
+
+const { handle } = Astro.params;
+
+let raw: ProductCard[] = [];
+let collections: Collection[] = [];
+let loadError = false;
+try {
+  [raw, collections] = await Promise.all([getShopProducts({ pageSize: 48 }), getAllCollections()]);
+} catch (err) {
+  console.error('[collection] load failed:', (err as Error).message);
+  loadError = true;
+}
+
+const items = toShopItems(raw);
+const currency = catalogueCurrency(raw);
+
+// Canonical collection (title + description) for the hero.
+const collection = collections.find((c) => c.handle === handle) ?? null;
+// The exact tab title to activate — resolved from the loaded products so it
+// always matches a Browse tab (falls back to the collection's own title).
+const initialCat =
+  raw.flatMap((p) => p.collections ?? []).find((c) => c.handle === handle)?.title ??
+  collection?.title ??
+  null;
+
+// Genuinely unknown handle → 404 (a real, but empty/out-of-range collection
+// still renders via initialCat / the catalogue load error path).
+const notFound = !loadError && !collection && !initialCat;
+if (loadError) Astro.response.status = 503;
+else if (notFound) Astro.response.status = 404;
+
+const title = collection?.title ?? initialCat ?? (handle ?? '').replace(/-/g, ' ');
+const description = (collection?.description ?? '').trim();
+
+// Stats scoped to this collection's products.
+const inCol = initialCat ? items.filter((i) => i.cats.includes(initialCat)) : items;
+const products = inCol.length;
+const designers = new Set(inCol.map((i) => i.vendor).filter(Boolean)).size;
+const categories = new Set(inCol.flatMap((i) => i.cats)).size;
+
+const esc = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+const hero = {
+  eyebrow: 'Collection · Issue N°02',
+  titleHtml: `${esc(title)}<em class="not-italic text-coral">.</em>`,
+  intro:
+    description ||
+    `Explore the ${title} edit — ${products} piece${products === 1 ? '' : 's'}, hand-selected and editor-styled.`,
+  clampIntro: true,
+  products,
+  designers,
+  categories,
+};
+---
+
+{
+  notFound ? (
+    <BaseLayout title="Collection not found">
+      <div class="container-mag flex flex-col items-center py-28 text-center">
+        <span class="mag-label mb-3">Error 404</span>
+        <h1 class="h2">Collection not found</h1>
+        <p class="mt-3 text-text-secondary">We couldn't find that collection.</p>
+        <a
+          href="/collections"
+          class="mt-6 inline-flex items-center justify-center gap-2.5 rounded-xs bg-dark px-[26px] py-[15px] text-[12.5px] font-bold uppercase tracking-[1.4px] text-white transition-colors duration-300 hover:bg-dark-hover"
+        >
+          All collections
+        </a>
+      </div>
+    </BaseLayout>
+  ) : (
+    <BaseLayout title={title} description={description || `Shop the ${title} collection.`}>
+      <ShopCatalogue
+        items={items}
+        currency={currency}
+        hero={hero}
+        initialCat={initialCat}
+        loadError={loadError}
+        errorTitle="Collection unavailable"
+        errorBody="We couldn't load this collection right now. Please try again shortly."
+      />
+    </BaseLayout>
+  )
+}

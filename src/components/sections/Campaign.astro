@@ -1,0 +1,176 @@
+---
+// ============================================================
+//  Campaign — designer "CAMPAIGN OFFERS" section (#campaign).
+//  Two large editorial offer cards (coral + dark) with a full-
+//  bleed image, diagonal brand gradient, a glass discount badge,
+//  campaign eyebrow, Big-Shoulders headline with coral accent,
+//  feature list, CTA + promo code. Presentational, no props.
+// ============================================================
+import Icon from '~/components/ui/Icon.astro';
+import { CAMPAIGN_COLLECTIONS } from '~/config/site';
+
+interface Offer {
+  variant: 'coral' | 'dark';
+  img: string;
+  disc: { big: string; label: string };
+  eyebrow: string;
+  eyebrowIcon: 'star' | 'shield';
+  title: string;
+  em: string;
+  sub: string;
+  feats: string[];
+  cta: string;
+  ctaBtn: 'btn-light' | 'btn-coral';
+  href: string;
+  code: { icon: 'package' | 'heart'; text: string };
+  terms: string;
+}
+
+const offers: Offer[] = [
+  {
+    variant: 'coral',
+    img: '/images/Campaign 01.png',
+    disc: { big: '40%', label: 'Off' },
+    eyebrow: 'Mid-Season Campaign',
+    eyebrowIcon: 'star',
+    title: 'The Edit,',
+    em: 'Reduced.',
+    sub: 'A curated selection of season-defining pieces, now up to 40% off for a limited time.',
+    feats: ['Extra 10% for members at checkout', 'Free shipping & easy returns'],
+    cta: 'Shop the Event',
+    ctaBtn: 'btn-light',
+    href: `/collections/${CAMPAIGN_COLLECTIONS.midSeason}`,
+    code: { icon: 'package', text: 'EDIT40' },
+    terms: '*Ends Sunday at midnight. Selected styles only.',
+  },
+  {
+    variant: 'dark',
+    img: '/images/Campaign 02.png',
+    disc: { big: '2×', label: 'Points' },
+    eyebrow: 'Members Campaign',
+    eyebrowIcon: 'shield',
+    title: 'Double',
+    em: 'Rewards',
+    sub: 'Earn twice the points on every order and unlock early access to Resort 2026.',
+    feats: ['Early access to new collections', 'Birthday gifts & private events'],
+    cta: 'Join the Club',
+    ctaBtn: 'btn-coral',
+    href: `/collections/${CAMPAIGN_COLLECTIONS.members}`,
+    code: { icon: 'heart', text: 'Free to join' },
+    terms: '*Points apply automatically for L’ÉDITION members.',
+  },
+];
+---
+
+<section id="campaign" class="pb-section">
+  <div class="container-mag">
+    <div class="grid grid-cols-1 gap-[22px] lg:grid-cols-2">
+      {
+        offers.map((o) => (
+          <article
+            data-reveal
+            class:list={[
+              'offer relative flex min-h-[420px] overflow-hidden rounded-xl text-white md:min-h-[480px]',
+              o.variant,
+            ]}
+          >
+            {/* Full-bleed media + diagonal brand gradient (::after) */}
+            <div class="of-media absolute inset-0">
+              <img
+                src={o.img}
+                alt=""
+                loading="lazy"
+                data-reveal-img
+                class="h-full w-full object-cover"
+              />
+            </div>
+
+            {/* Glass discount badge */}
+            <div class="absolute right-5 top-5 z-[3] flex h-[84px] w-[84px] flex-col items-center justify-center rounded-full bg-white/15 text-center shadow-[inset_0_0_0_1px_rgba(255,255,255,0.32)] backdrop-blur-[10px] md:right-8 md:top-8 md:h-[108px] md:w-[108px]">
+              <b class="font-heading text-[28px] font-extrabold leading-[0.8] md:text-[36px]">{o.disc.big}</b>
+              <span class="mt-1 text-[9px] uppercase tracking-[1.2px]">{o.disc.label}</span>
+            </div>
+
+            <div class="relative z-[2] flex max-w-full flex-col justify-center px-7 py-10 pr-[104px] md:max-w-[74%] md:px-[50px] md:py-12">
+              <span
+                class:list={[
+                  'of-camp mb-[18px] inline-flex items-center gap-[7px] self-start rounded-pill px-[13px] py-[7px] text-[9.5px] font-extrabold uppercase tracking-[1.6px]',
+                  o.variant === 'coral' ? 'bg-white text-coral-hover' : 'bg-coral text-white',
+                ]}
+              >
+                <Icon name={o.eyebrowIcon} size={12} /> {o.eyebrow}
+              </span>
+
+              <h3 class="font-heading text-[clamp(36px,3.8vw,54px)] font-extrabold leading-[0.88] tracking-[-0.5px]">
+                {o.title}{' '}
+                <em class:list={['not-italic', o.variant === 'dark' && 'text-coral']}>{o.em}</em>
+              </h3>
+
+              <p class="mb-5 mt-[14px] max-w-[300px] text-[14px] leading-[1.55] text-white/80">
+                {o.sub}
+              </p>
+
+              <ul class="mb-[26px] flex flex-col gap-[9px]">
+                {o.feats.map((f) => (
+                  <li class="flex items-center gap-[10px] text-[12px] font-medium text-white/80">
+                    <Icon
+                      name="check"
+                      size={15}
+                      class={o.variant === 'dark' ? 'text-green' : 'text-white'}
+                    />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+
+              <div class="flex flex-wrap items-center gap-3">
+                <a
+                  href={o.href}
+                  class:list={[
+                    'btn inline-flex items-center gap-2 rounded-sm px-6 py-[15px] transition-fluid',
+                    o.ctaBtn === 'btn-light'
+                      ? 'bg-white text-dark hover:bg-white/90'
+                      : 'bg-coral text-white hover:bg-coral-hover',
+                  ]}
+                >
+                  {o.cta} <Icon name="arrowRight" size={15} />
+                </a>
+                <span class="inline-flex items-center gap-[7px] rounded-xs px-4 py-3 text-[11.5px] font-bold uppercase tracking-[1px] shadow-[inset_0_0_0_1.5px_rgba(255,255,255,0.4)]">
+                  <Icon name={o.code.icon} size={14} /> {o.code.text}
+                </span>
+              </div>
+
+              <p class="mt-4 text-[11px] tracking-[0.2px] text-white/60">{o.terms}</p>
+            </div>
+          </article>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  /* Diagonal brand gradient over the media — can't express the exact
+     multi-stop angle cleanly with utilities, so scope it here. */
+  .offer .of-media::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+  .offer.coral .of-media::after {
+    background: linear-gradient(
+      105deg,
+      var(--color-coral) 0%,
+      color-mix(in srgb, var(--color-coral) 88%, transparent) 46%,
+      color-mix(in srgb, var(--color-coral) 22%, transparent) 100%
+    );
+  }
+  .offer.dark .of-media::after {
+    background: linear-gradient(
+      105deg,
+      var(--color-dark) 0%,
+      color-mix(in srgb, var(--color-dark) 88%, transparent) 46%,
+      color-mix(in srgb, var(--color-dark) 20%, transparent) 100%
+    );
+  }
+</style>

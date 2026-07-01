@@ -1,0 +1,57 @@
+---
+// ============================================================
+//  CollectionCard — image (or topographic fallback) with the
+//  title overlaid; links to the collection PLP.
+// ============================================================
+import type { Collection } from '~/lib/shopify/types';
+import Contour from '~/components/ui/Contour.astro';
+import Icon from '~/components/ui/Icon.astro';
+import { cn } from '~/lib/utils';
+
+interface Props {
+  collection: Collection;
+  class?: string;
+  ratio?: string;
+}
+const { collection, class: className = '', ratio = 'aspect-[4/5]' } = Astro.props;
+const hasImage = !!collection.image?.url;
+---
+
+<a
+  href={`/collections/${collection.handle}`}
+  class={cn('group relative block overflow-hidden rounded-xl border border-border', ratio, className)}
+  aria-label={collection.title}
+>
+  {
+    hasImage ? (
+      <img
+        src={collection.image!.url}
+        alt={collection.image!.altText ?? collection.title}
+        loading="lazy"
+        class="h-full w-full object-cover transition-transform duration-[700ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.05]"
+      />
+    ) : (
+      <div class="contour-field grid h-full w-full place-items-center bg-dark text-white">
+        <Contour class="opacity-20" />
+        <Icon name="grid" size={36} class="opacity-40" />
+      </div>
+    )
+  }
+
+  <div
+    class:list={[
+      'absolute inset-0 flex flex-col justify-end p-5',
+      hasImage ? 'bg-gradient-to-t from-ink/65 via-ink/10 to-transparent' : '',
+    ]}
+  >
+    <p class="text-[11px] font-bold uppercase tracking-[1.8px] text-white/70">Collection</p>
+    <div class="mt-1 flex items-center justify-between gap-3">
+      <h3 class="masthead text-2xl uppercase text-white">{collection.title}</h3>
+      <span
+        class="grid h-9 w-9 shrink-0 translate-y-1 place-items-center rounded-full border border-white/40 text-white opacity-0 transition-fluid group-hover:translate-y-0 group-hover:opacity-100"
+      >
+        <Icon name="arrowUpRight" size={16} />
+      </span>
+    </div>
+  </div>
+</a>

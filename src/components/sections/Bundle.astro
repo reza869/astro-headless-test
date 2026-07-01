@@ -1,0 +1,371 @@
+---
+// ============================================================
+//  Bundle — "Style the Set" interactive bundle builder. A 3-up
+//  product slider (prev/next) where tapping a card toggles it in/out
+//  of the bundle; the dark summary recomputes lines, the 15% saving,
+//  free-gift progress and totals live. "Add Bundle to Bag" adds every
+//  selected variant + applies the bundle discount. Backed by real
+//  Shopify products (variantId ⇒ functional cart).
+// ============================================================
+import Icon from '~/components/ui/Icon.astro';
+import { getProducts } from '~/lib/shopify';
+import { formatMoney } from '~/lib/utils';
+
+let pool: Awaited<ReturnType<typeof getProducts>>['items'] = [];
+try {
+  pool = (await getProducts({ pageSize: 8, sortKey: 'BEST_SELLING' })).items;
+} catch (err) {
+  console.error('[bundle] product load failed:', (err as Error).message);
+}
+
+const currency = pool[0]?.priceRange.minVariantPrice.currencyCode ?? 'USD';
+const GIFT_THRESHOLD = 600; // spend to unlock the free gift
+
+const products = pool.slice(0, 6).map((p) => {
+  const amount = Number(p.priceRange.minVariantPrice.amount);
+  return {
+    variantId: p.variantId ?? '',
+    handle: p.handle,
+    name: p.title,
+    cat: p.vendor || "L'ÉDITION",
+    amount,
+    price: formatMoney(amount, currency),
+    img: p.featuredImage?.url ?? '',
+  };
+});
+
+// Default selection: first two pieces (matches the editor-curated set).
+const defaultSel = products.map((_, i) => i < 2);
+const initSubtotal = products.reduce((s, p, i) => (defaultSel[i] ? s + p.amount : s), 0);
+const initDiscount = Math.round(initSubtotal * 0.15);
+const initTotal = initSubtotal - initDiscount;
+const initRemaining = Math.max(0, GIFT_THRESHOLD - initTotal);
+const initProgress = Math.min(100, (initTotal / GIFT_THRESHOLD) * 100);
+const fmt = (n: number) => formatMoney(n, currency);
+
+const hasProducts = products.length > 0;
+---
+
+{
+  hasProducts && (
+    <section class="container-mag pb-section">
+      <div
+        class="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]"
+        data-bundle
+        data-currency={currency}
+        data-gift={GIFT_THRESHOLD}
+      >
+        {/* ===== Left — selectable slider ===== */}
+        <div class="flex min-w-0 flex-col rounded-xl bg-surface p-4 shadow-sm sm:p-6 md:p-[30px]" data-reveal>
+          <div class="mb-5 flex items-center justify-between gap-4">
+            <h4 class="font-heading text-2xl font-bold">Style the Set</h4>
+            <div class="flex items-center gap-3">
+              <span class="hidden items-center gap-[7px] text-[11px] font-bold uppercase tracking-[0.5px] text-green sm:inline-flex">
+                <Icon name="plus" size={15} /> Tap to add / remove
+              </span>
+              <button
+                type="button"
+                data-bundle-prev
+                aria-label="Previous"
+                class="grid h-9 w-9 place-items-center rounded-full bg-surface-cool text-text-primary transition-fluid hover:bg-dark hover:text-white"
+              >
+                <Icon name="arrowRight" size={16} class="rotate-180" />
+              </button>
+              <button
+                type="button"
+                data-bundle-next
+                aria-label="Next"
+                class="grid h-9 w-9 place-items-center rounded-full bg-surface-cool text-text-primary transition-fluid hover:bg-dark hover:text-white"
+              >
+                <Icon name="arrowRight" size={16} />
+              </button>
+            </div>
+          </div>
+
+          <div class="bundle-rail flex snap-x snap-mandatory gap-[14px] overflow-x-auto pb-1" data-rail>
+            {products.map((p, i) => (
+              <button
+                type="button"
+                data-bundle-card
+                data-index={i}
+                data-variant={p.variantId}
+                data-name={p.name}
+                data-price={p.amount}
+                aria-pressed={defaultSel[i] ? 'true' : 'false'}
+                class:list={[
+                  'bundle-card relative flex w-[38%] flex-none snap-start flex-col overflow-hidden rounded-md bg-bg-light text-left sm:w-[calc(33.333%_-_10px)]',
+                  defaultSel[i] && 'is-selected',
+                ]}
+              >
+                <div class="relative aspect-[3/4] overflow-hidden bg-surface-cool">
+                  <span class="bundle-badge absolute right-2.5 top-2.5 z-[2] grid h-7 w-7 place-items-center rounded-pill shadow-xs">
+                    <span class="ic-check"><Icon name="check" size={15} /></span>
+                    <span class="ic-plus"><Icon name="plus" size={15} /></span>
+                  </span>
+                  <img src={p.img ?? ''} alt={p.name} loading="lazy" class="h-full w-full object-cover" />
+                </div>
+                <div class="px-3 pb-3 pt-2.5">
+                  <div class="text-[9.5px] font-bold uppercase tracking-[1px] text-green">{p.cat}</div>
+                  <div class="my-1 line-clamp-2 font-heading text-[15px] font-bold leading-tight sm:text-lg">{p.name}</div>
+                  <div class="text-[13px] font-bold">{p.price}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <div class="mt-auto flex flex-wrap items-center gap-[18px] pt-[22px]">
+            <span class="flex items-center gap-[9px] text-[12.5px] font-semibold text-text-secondary">
+              <Icon name="grid" size={18} class="text-green" />
+              <span class="font-heading text-[15px] text-text-primary" data-bundle-count>
+                {defaultSel.filter(Boolean).length}
+              </span>{' '}
+              of {products.length} selected
+            </span>
+            <span class="flex items-center gap-[9px] text-[12.5px] font-semibold text-text-secondary">
+              <Icon name="truck" size={18} class="text-green" /> Free shipping on the set
+            </span>
+            <span class="flex items-center gap-[9px] text-[12.5px] font-semibold text-text-secondary">
+              <Icon name="shield" size={18} class="text-green" /> 30-day returns
+            </span>
+          </div>
+        </div>
+
+        {/* ===== Right — live summary ===== */}
+        <div class="flex min-w-0 flex-col rounded-xl bg-dark p-5 text-white sm:p-6 md:p-[30px]" data-reveal>
+          <span class="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[2px] text-white/80">
+            <span class="text-coral">✦</span> Frequently Styled Together
+          </span>
+          <h3 class="mt-2 font-heading text-[clamp(28px,3vw,40px)] font-extrabold leading-[0.95]">
+            The Everyday <span class="text-coral">Luxe</span> Bundle
+          </h3>
+          <p class="mb-4 mt-2 text-[13px] leading-[1.55] text-white/70">
+            Editor-curated essentials that work together — bundle and save 15%.
+          </p>
+
+          <div data-bundle-lines>
+            {products.map((p, i) =>
+              defaultSel[i] ? (
+                <div class="flex items-center justify-between py-2 text-[13px] text-white/80 shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]">
+                  <span>{p.name}</span>
+                  <span>{p.price}</span>
+                </div>
+              ) : null,
+            )}
+          </div>
+          <div
+            class="flex items-center justify-between py-2 text-[13px] font-semibold text-green shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]"
+            data-bundle-discount
+          >
+            <span>Bundle discount (15%)</span>
+            <span>-{fmt(initDiscount)}</span>
+          </div>
+
+          {/* Free-gift progress */}
+          <div class="my-[14px]" data-gift-wrap>
+            <p class="mb-2 flex items-center gap-[7px] text-[11.5px] text-white/70" data-gift-text>
+              <Icon name="package" size={15} class="text-green" />
+              Add <b class="mx-1 text-green">{fmt(initRemaining)}</b> more for a free silk scarf
+            </p>
+            <div class="h-[7px] overflow-hidden rounded-pill bg-white/10">
+              <div class="h-full rounded-pill bg-green" style={`width:${initProgress}%`} data-gift-bar />
+            </div>
+          </div>
+
+          <div class="mb-1.5 mt-[14px] flex items-baseline justify-between">
+            <span class="text-[11px] uppercase tracking-[1px] text-white/70">Bundle Total</span>
+            <div class="flex items-baseline gap-[9px]">
+              <b class="font-heading text-[38px] font-extrabold" data-bundle-total>{fmt(initTotal)}</b>
+              <span class="text-[15px] text-white/45 line-through" data-bundle-subtotal>{fmt(initSubtotal)}</span>
+            </div>
+          </div>
+
+          <span class="mb-4 inline-flex items-center gap-1.5 self-start rounded-pill bg-green px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-white">
+            <Icon name="check" size={13} /> Save <span data-bundle-save>{fmt(initDiscount)}</span>
+          </span>
+
+          <button
+            type="button"
+            data-add-bundle
+            class="btn mt-auto inline-flex w-full items-center justify-center gap-2 rounded-sm bg-coral px-6 py-[15px] text-white transition-fluid hover:bg-coral-hover disabled:opacity-60 data-[loading]:pointer-events-none"
+          >
+            <span class="ab-label inline-flex items-center gap-2">
+              Add Bundle to Bag <Icon name="bag" size={16} />
+            </span>
+            <span class="ab-spin hidden">
+              <span class="block h-4 w-4 animate-spin rounded-pill border-2 border-current border-t-transparent" />
+            </span>
+          </button>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+<style>
+  .bundle-rail {
+    scrollbar-width: none;
+  }
+  .bundle-rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Card states — selected = full opacity + green frame + check badge */
+  .bundle-card {
+    opacity: 0.45;
+    box-shadow: inset 0 0 0 2px transparent;
+    transition: opacity 0.3s, box-shadow 0.3s;
+  }
+  .bundle-card.is-selected {
+    opacity: 1;
+    box-shadow: inset 0 0 0 2px var(--color-green);
+  }
+  .bundle-badge {
+    background: #fff;
+    color: var(--color-text-muted);
+  }
+  .bundle-card.is-selected .bundle-badge {
+    background: var(--color-green);
+    color: #fff;
+  }
+  .bundle-badge .ic-plus {
+    display: flex;
+  }
+  .bundle-badge .ic-check {
+    display: none;
+  }
+  .bundle-card.is-selected .bundle-badge .ic-plus {
+    display: none;
+  }
+  .bundle-card.is-selected .bundle-badge .ic-check {
+    display: flex;
+  }
+
+  [data-add-bundle][data-loading] .ab-label {
+    display: none;
+  }
+  [data-add-bundle][data-loading] .ab-spin {
+    display: block;
+  }
+</style>
+
+<script>
+  import { addItem, applyDiscountCode } from '~/stores/cart';
+
+  // Must exist as a real 15%-off discount in Shopify admin to apply at checkout.
+  const BUNDLE_CODE = 'BUNDLE15';
+
+  function initBundle(): void {
+    document.querySelectorAll<HTMLElement>('[data-bundle]').forEach((root) => {
+      if (root.dataset.bound) return;
+      root.dataset.bound = 'true';
+
+      const currency = root.dataset.currency || 'USD';
+      const gift = Number(root.dataset.gift) || 0;
+      const cards = Array.from(root.querySelectorAll<HTMLElement>('[data-bundle-card]'));
+      const linesEl = root.querySelector<HTMLElement>('[data-bundle-lines]');
+      const discountEl = root.querySelector<HTMLElement>('[data-bundle-discount]');
+      const totalEl = root.querySelector<HTMLElement>('[data-bundle-total]');
+      const subtotalEl = root.querySelector<HTMLElement>('[data-bundle-subtotal]');
+      const saveEl = root.querySelector<HTMLElement>('[data-bundle-save]');
+      const countEl = root.querySelector<HTMLElement>('[data-bundle-count]');
+      const giftText = root.querySelector<HTMLElement>('[data-gift-text]');
+      const giftBar = root.querySelector<HTMLElement>('[data-gift-bar]');
+      const addBtn = root.querySelector<HTMLButtonElement>('[data-add-bundle]');
+
+      const money = (n: number) => {
+        try {
+          return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(n);
+        } catch {
+          return `$${Math.round(n)}`;
+        }
+      };
+
+      const recompute = () => {
+        const selected = cards.filter((c) => c.classList.contains('is-selected'));
+        let subtotal = 0;
+        if (linesEl) {
+          linesEl.innerHTML = selected
+            .map((c) => {
+              const price = Number(c.dataset.price) || 0;
+              subtotal += price;
+              return `<div class="flex items-center justify-between py-2 text-[13px] text-white/80 shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]"><span>${c.dataset.name}</span><span>${money(price)}</span></div>`;
+            })
+            .join('');
+        } else {
+          selected.forEach((c) => (subtotal += Number(c.dataset.price) || 0));
+        }
+
+        const discount = Math.round(subtotal * 0.15);
+        const total = subtotal - discount;
+
+        if (discountEl) {
+          discountEl.style.display = discount > 0 ? '' : 'none';
+          const amt = discountEl.querySelector('span:last-child');
+          if (amt) amt.textContent = `-${money(discount)}`;
+        }
+        if (totalEl) totalEl.textContent = money(total);
+        if (subtotalEl) {
+          subtotalEl.textContent = money(subtotal);
+          subtotalEl.style.display = discount > 0 ? '' : 'none';
+        }
+        if (saveEl) saveEl.textContent = money(discount);
+        if (countEl) countEl.textContent = String(selected.length);
+
+        // Free-gift progress
+        const remaining = Math.max(0, gift - total);
+        if (giftBar) giftBar.style.width = `${Math.min(100, (total / gift) * 100)}%`;
+        if (giftText) {
+          giftText.innerHTML =
+            remaining > 0
+              ? `Add <b class="mx-1 text-green">${money(remaining)}</b> more for a free silk scarf`
+              : `<b class="text-green">Free silk scarf unlocked</b> — nice set.`;
+        }
+
+        if (addBtn) addBtn.disabled = selected.length === 0;
+      };
+
+      // Toggle selection on card tap.
+      cards.forEach((card) => {
+        card.addEventListener('click', () => {
+          const on = card.classList.toggle('is-selected');
+          card.setAttribute('aria-pressed', String(on));
+          recompute();
+        });
+      });
+
+      // Slider arrows.
+      const rail = root.querySelector<HTMLElement>('[data-rail]');
+      const prev = root.querySelector<HTMLButtonElement>('[data-bundle-prev]');
+      const next = root.querySelector<HTMLButtonElement>('[data-bundle-next]');
+      if (rail) {
+        const page = () => Math.max(rail.clientWidth * 0.8, 200);
+        prev?.addEventListener('click', () => rail.scrollBy({ left: -page(), behavior: 'smooth' }));
+        next?.addEventListener('click', () => rail.scrollBy({ left: page(), behavior: 'smooth' }));
+      }
+
+      // Add the selected bundle, then apply the discount + open the drawer.
+      addBtn?.addEventListener('click', async () => {
+        const selected = cards.filter((c) => c.classList.contains('is-selected') && c.dataset.variant);
+        if (!selected.length) return;
+        addBtn.setAttribute('data-loading', '');
+        addBtn.disabled = true;
+        root.querySelector('.ab-label')?.classList.add('hidden');
+        root.querySelector('.ab-spin')?.classList.remove('hidden');
+        try {
+          for (const c of selected) await addItem(c.dataset.variant!, 1, { open: false });
+          await applyDiscountCode([BUNDLE_CODE]); // opens the drawer
+        } finally {
+          addBtn.removeAttribute('data-loading');
+          addBtn.disabled = false;
+          root.querySelector('.ab-label')?.classList.remove('hidden');
+          root.querySelector('.ab-spin')?.classList.add('hidden');
+        }
+      });
+
+      recompute();
+    });
+  }
+
+  initBundle();
+  document.addEventListener('astro:page-load', initBundle);
+</script>

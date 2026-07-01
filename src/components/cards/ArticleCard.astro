@@ -1,0 +1,132 @@
+---
+// ============================================================
+//  ArticleCard — light editorial card (designer Blog.html .bcard):
+//  image (3:2) with a coloured category chip, then a white body
+//  with title, excerpt, and a top-bordered meta row (monogram
+//  avatar · author · date · read time). Data-true from a Shopify
+//  ArticleCard; whole card links to the detail page.
+// ============================================================
+import { categoryTone } from '~/lib/article-utils';
+import type { ArticleCard } from '~/lib/shopify/types';
+
+interface Props {
+  article: ArticleCard;
+  /** Eager-load the first row's images (above the fold). */
+  eager?: boolean;
+  class?: string;
+}
+
+const { article, eager = false, class: className = '' } = Astro.props;
+
+const date = article.publishedAt
+  ? new Date(article.publishedAt).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
+  : '';
+const cat = article.tags?.[0] ?? article.blogTitle ?? 'Journal';
+const tone = categoryTone(cat);
+const author = article.author?.name ?? 'The Editors';
+const initials = author
+  .split(' ')
+  .map((p) => p[0])
+  .slice(0, 2)
+  .join('')
+  .toUpperCase();
+
+const chipTone: Record<string, string> = {
+  coral: 'bg-coral-soft text-coral-hover',
+  green: 'bg-green-soft text-green-hover',
+  blue: 'bg-blue-soft text-blue-hover',
+};
+const href = `/blog/${article.handle}`;
+---
+
+<article
+  class:list={['bcard group relative flex flex-col rounded-lg bg-surface', className]}
+  data-article-card
+  data-category={cat.toLowerCase()}
+>
+  <a href={href} class="relative block aspect-[3/2] overflow-hidden rounded-t-lg bg-surface-cool">
+    <span
+      class:list={[
+        'absolute left-3.5 top-3.5 z-[2] rounded-pill px-[11px] py-1.5 text-[10.5px] font-extrabold uppercase tracking-[0.8px] backdrop-blur-sm',
+        chipTone[tone],
+      ]}
+    >
+      {cat}
+    </span>
+    {
+      article.image ? (
+        <img
+          src={article.image.url}
+          alt={article.image.altText ?? article.title}
+          loading={eager ? 'eager' : 'lazy'}
+          decoding="async"
+          class="h-full w-full object-cover transition-transform duration-[900ms] ease-[cubic-bezier(0.22,0.61,0.36,1)] group-hover:scale-[1.05]"
+        />
+      ) : (
+        <span class="grid h-full place-items-center bg-gradient-to-br from-coral-soft via-surface-cool to-blue-soft text-text-muted/60">
+          <span class="font-heading text-2xl font-bold">L'ÉDITION</span>
+        </span>
+      )
+    }
+  </a>
+
+  <div class="flex flex-1 flex-col p-[22px_22px_24px]">
+    <h3 class="mb-2.5 font-heading text-[23px] font-bold leading-[1.05]">
+      <a href={href} class="transition-fluid hover:text-coral">{article.title}</a>
+    </h3>
+    <p class="mb-[18px] flex-1 text-[13.5px] leading-[1.6] text-text-secondary">{article.excerpt}</p>
+    <div class="flex items-center gap-2.5 border-t border-border pt-[15px] text-xs text-text-muted">
+      <span class="grid h-[30px] w-[30px] flex-none place-items-center rounded-pill bg-dark text-[10px] font-bold text-white">
+        {initials}
+      </span>
+      <b class="font-semibold text-text-primary">{author}</b>
+      <span>·</span>
+      <span>{date}</span>
+      <span>·</span>
+      <span>{article.readMinutes} min</span>
+    </div>
+  </div>
+</article>
+
+<style>
+  /* Buttery hover lift: animate ONLY transform (GPU-composited) so the
+     rise never stutters. The deeper shadow fades in on a separate
+     pseudo-element via opacity — also composited — instead of
+     transitioning box-shadow (CPU paint = the jank we were seeing). */
+  .bcard {
+    box-shadow: var(--shadow-xs);
+    transform: translateZ(0);
+    transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .bcard::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    box-shadow: var(--shadow-lg);
+    opacity: 0;
+    transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+  }
+  .bcard:hover {
+    transform: translateY(-7px);
+  }
+  .bcard:hover::after {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bcard,
+    .bcard::after {
+      transition: none;
+    }
+    .bcard:hover {
+      transform: none;
+    }
+  }
+</style>

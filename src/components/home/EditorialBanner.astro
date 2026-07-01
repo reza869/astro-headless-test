@@ -1,0 +1,57 @@
+---
+// ============================================================
+//  EditorialBanner — full-bleed split promo. Image one side,
+//  large statement + CTA the other. Reversible.
+// ============================================================
+import Button from '~/components/ui/Button.astro';
+import Contour from '~/components/ui/Contour.astro';
+
+interface Props {
+  eyebrow: string;
+  title: string;
+  body: string;
+  href: string;
+  ctaLabel?: string;
+  imageUrl?: string | null;
+  imageAlt?: string;
+  reverse?: boolean;
+}
+const {
+  eyebrow,
+  title,
+  body,
+  href,
+  ctaLabel = 'Discover',
+  imageUrl,
+  imageAlt = '',
+  reverse = false,
+} = Astro.props;
+---
+
+<section class="wrap py-16 md:py-20">
+  <div class="grid items-stretch overflow-hidden rounded-2xl border border-border bg-dark text-white md:grid-cols-2">
+    {/* Image */}
+    <div class={`relative min-h-[18rem] ${reverse ? 'md:order-2' : ''}`}>
+      {
+        imageUrl ? (
+          <img src={imageUrl} alt={imageAlt} class="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+        ) : (
+          <div class="contour-field h-full w-full">
+            <Contour class="opacity-25" />
+          </div>
+        )
+      }
+    </div>
+
+    {/* Copy */}
+    <div class="contour-field flex flex-col justify-center gap-5 p-8 md:p-14">
+      <Contour class="opacity-[0.12]" />
+      <p class="text-[11px] font-bold uppercase tracking-[1.8px] text-coral">{eyebrow}</p>
+      <h2 class="masthead text-4xl uppercase md:text-5xl">{title}</h2>
+      <p class="max-w-md text-white/70">{body}</p>
+      <div>
+        <Button href={href} variant="accent" size="lg">{ctaLabel}</Button>
+      </div>
+    </div>
+  </div>
+</section>

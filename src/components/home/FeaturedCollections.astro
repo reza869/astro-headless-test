@@ -1,0 +1,30 @@
+---
+// Home — featured collections grid.
+import type { Collection } from '~/lib/shopify/types';
+import SectionHeading from '~/components/ui/SectionHeading.astro';
+import CollectionCard from '~/components/collection/CollectionCard.astro';
+
+interface Props {
+  collections: Collection[];
+}
+const { collections } = Astro.props;
+const featured = collections.slice(0, 3);
+---
+
+{
+  featured.length > 0 && (
+    <section class="wrap py-16 md:py-20">
+      <SectionHeading
+        eyebrow="Browse"
+        title="Shop by collection"
+        href="/collections"
+        class="mb-8"
+      />
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 md:gap-6">
+        {featured.map((c) => (
+          <CollectionCard collection={c} />
+        ))}
+      </div>
+    </section>
+  )
+}

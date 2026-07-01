@@ -1,0 +1,328 @@
+---
+// ============================================================
+//  Search — unified results across products, the journal and
+//  pages. Magazine-native: hero + search box, a results bar with
+//  type-filter tabs + live count, and a grid of typed cards
+//  (ProductCard · ArticleCard · Page card). Client-side tab
+//  filtering; server-side query + pagination via the Storefront
+//  multi-type search.
+// ============================================================
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import ProductCard from '~/components/cards/ProductCard.astro';
+import ArticleCard from '~/components/cards/ArticleCard.astro';
+import Icon from '~/components/ui/Icon.astro';
+import { searchCatalog } from '~/lib/shopify';
+import type { SearchHit } from '~/lib/shopify';
+import { paginationUrls } from '~/lib/pagination';
+
+export const prerender = false;
+
+const url = Astro.url;
+const q = (url.searchParams.get('q') ?? '').trim();
+const after = url.searchParams.get('after');
+const before = url.searchParams.get('before');
+
+let hits: SearchHit[] = [];
+let total = 0;
+let counts = { all: 0, product: 0, article: 0, page: 0 };
+let prevUrl: string | null = null;
+let nextUrl: string | null = null;
+let loadError = false;
+
+if (q) {
+  try {
+    const res = await searchCatalog({ query: q, pageSize: 24, after, before });
+    hits = res.hits;
+    total = res.totalCount;
+    counts = res.counts;
+    ({ prevUrl, nextUrl } = paginationUrls(url, res.pageInfo));
+  } catch (err) {
+    console.error('[search] load failed:', (err as Error).message);
+    loadError = true;
+  }
+}
+
+// Type filter tabs — only surface a type that has hits on this page.
+const tabs = [
+  { key: 'all', label: 'All', n: counts.all },
+  { key: 'product', label: 'Products', n: counts.product },
+  { key: 'article', label: 'Journal', n: counts.article },
+  { key: 'page', label: 'Pages', n: counts.page },
+].filter((t) => t.key === 'all' || t.n > 0);
+---
+
+<BaseLayout
+  title={q ? `Search · ${q}` : 'Search'}
+  description="Search the house — products, journal stories and pages."
+>
+  {/* ===================== HERO + SEARCH BOX ===================== */}
+  <section class="py-hero">
+    <div class="container-mag" data-enter data-stagger>
+      <span class="mag-label mb-[18px]">Search · The House</span>
+
+      <div class="flex flex-col items-start justify-between gap-6 lg:flex-row lg:items-end">
+        <h1 class="h1 uppercase">
+          Search<em class="not-italic text-coral">.</em>
+        </h1>
+        <p class="max-w-[440px] pt-3 text-base leading-[1.65] text-text-secondary">
+          {
+            q ? (
+              <>
+                Showing matches for <b class="font-semibold text-text-primary">“{q}”</b> — across
+                products, the journal and pages.
+              </>
+            ) : (
+              <>Find anything in the house — pieces from the catalogue, journal stories and pages.</>
+            )
+          }
+        </p>
+      </div>
+
+      {/* Search box — GET form, re-queries this page */}
+      <form
+        method="get"
+        action="/search"
+        role="search"
+        class="mt-9 flex w-full max-w-[560px] items-center gap-2 rounded-pill bg-surface py-2 pl-4 pr-2 shadow-xs ring-1 ring-inset ring-border transition-fluid focus-within:ring-coral"
+      >
+        <span class="grid h-9 w-9 flex-none place-items-center text-text-muted">
+          <Icon name="search" size={19} />
+        </span>
+        <label for="q" class="sr-only">Search the store</label>
+        <input
+          id="q"
+          type="search"
+          name="q"
+          value={q}
+          placeholder="Search products, journal, pages…"
+          autocomplete="off"
+          autofocus={!q}
+          class="min-w-0 flex-1 bg-transparent text-[15px] text-text-primary outline-none placeholder:text-text-muted"
+        />
+        <button
+          type="submit"
+          class="btn flex-none rounded-pill bg-coral px-6 py-3 text-white transition-fluid hover:bg-coral-hover"
+        >
+          Search
+        </button>
+      </form>
+    </div>
+  </section>
+
+  {
+    !q ? (
+      /* ── No query yet ─────────────────────────────────────── */
+      <section class="pb-section">
+        <div class="container-mag flex flex-col items-center rounded-xl bg-surface py-20 text-center">
+          <span class="mb-4 grid h-16 w-16 place-items-center rounded-pill bg-surface-cool text-text-muted">
+            <Icon name="search" size={26} />
+          </span>
+          <h2 class="h3">What are you looking for?</h2>
+          <p class="mt-3 max-w-[420px] text-text-secondary">
+            Type a term above to search across the catalogue, the journal and our pages.
+          </p>
+        </div>
+      </section>
+    ) : hits.length === 0 ? (
+      /* ── No matches / error ───────────────────────────────── */
+      <section class="pb-section">
+        <div class="container-mag flex flex-col items-center rounded-xl bg-surface py-20 text-center">
+          <span class="mb-4 grid h-16 w-16 place-items-center rounded-pill bg-surface-cool text-text-muted">
+            <Icon name="pencil" size={26} />
+          </span>
+          <h2 class="h3">{loadError ? 'Search unavailable' : 'No matches'}</h2>
+          <p class="mt-3 max-w-[440px] text-text-secondary">
+            {loadError
+              ? 'We could not run that search right now. Please try again shortly.'
+              : `Nothing matched “${q}”. Try a different term or browse the catalogue.`}
+          </p>
+          <a
+            href="/collections/all"
+            class="btn mt-6 inline-flex h-12 items-center gap-2 rounded-sm bg-dark px-6 text-white transition-fluid hover:bg-dark-hover"
+          >
+            Browse the catalogue <Icon name="arrowRight" size={16} />
+          </a>
+        </div>
+      </section>
+    ) : (
+      /* ── Results ──────────────────────────────────────────── */
+      <section class="pb-section">
+        <div class="container-mag">
+          {/* Header row */}
+          <div class="flex flex-wrap items-end justify-between gap-[18px] pb-[22px]">
+            <div data-reveal>
+              <span class="mag-label mb-3.5">Search Results</span>
+              <h2 class="font-heading text-[clamp(30px,3.4vw,46px)] font-extrabold leading-[0.95] tracking-[-0.5px]">
+                {total} <em class="not-italic text-coral">{total === 1 ? 'result' : 'results'}</em>
+              </h2>
+            </div>
+            <div class="inline-flex items-center gap-2 pb-[5px] text-[13px] font-semibold text-text-secondary">
+              <Icon name="search" size={16} class="text-coral" />
+              <span data-search-count>
+                Showing {counts.all} of {counts.all} {counts.all === 1 ? 'result' : 'results'}
+              </span>
+            </div>
+          </div>
+
+          {/* Type filter tabs */}
+          <div
+            class="mb-8 flex flex-wrap items-center gap-2 border-b border-border pb-[26px]"
+            role="group"
+            aria-label="Filter results by type"
+            data-search-tabs
+          >
+            {tabs.map((t, i) => (
+              <button
+                type="button"
+                data-kind-tab={t.key}
+                aria-pressed={i === 0 ? 'true' : 'false'}
+                class="btab inline-flex items-center gap-2 rounded-pill px-[15px] py-[9px] text-[12.5px] font-semibold ring-1 ring-inset ring-border transition-fluid hover:ring-text-muted"
+              >
+                {t.label}
+                <span class="tc rounded-pill px-2 py-0.5 text-[10.5px] font-bold">{t.n}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Results grid */}
+          <div
+            class="grid grid-cols-1 items-start gap-6 sm:grid-cols-2 lg:grid-cols-3"
+            data-search-grid
+          >
+            {hits.map((hit, i) => (
+              <div data-search-card data-kind={hit.kind}>
+                {hit.kind === 'product' && <ProductCard product={hit.item} eager={i < 3} />}
+                {hit.kind === 'article' && <ArticleCard article={hit.item} eager={i < 3} />}
+                {hit.kind === 'page' && (
+                  <article class="pcard group relative flex h-full flex-col justify-between rounded-lg bg-surface p-6 shadow-xs ring-1 ring-inset ring-border transition-fluid hover:-translate-y-[5px] hover:shadow-md">
+                    <div>
+                      <span class="inline-flex items-center gap-1.5 rounded-pill bg-surface-cool px-3 py-1 text-[10px] font-bold uppercase tracking-[1px] text-text-muted">
+                        <Icon name="files" size={12} /> Page
+                      </span>
+                      <h3 class="mt-4 font-heading text-[22px] font-bold leading-tight">
+                        <a href={`/pages/${hit.item.handle}`} class="transition-fluid hover:text-coral">
+                          {hit.item.title}
+                        </a>
+                      </h3>
+                      {hit.item.summary && (
+                        <p class="mt-2.5 line-clamp-3 text-[13.5px] leading-[1.6] text-text-secondary">
+                          {hit.item.summary}
+                        </p>
+                      )}
+                    </div>
+                    <a
+                      href={`/pages/${hit.item.handle}`}
+                      class="mt-6 inline-flex items-center gap-[9px] text-xs font-extrabold uppercase tracking-[1.2px] text-text-primary transition-[gap,color] duration-200 hover:gap-3.5 hover:text-coral"
+                    >
+                      Read page <Icon name="arrowRight" size={15} />
+                    </a>
+                  </article>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Empty-after-filter message */}
+          <p data-search-empty class="hidden py-[50px] text-center text-sm text-text-muted">
+            No results of this type on this page.
+          </p>
+
+          {/* Pagination */}
+          {(prevUrl || nextUrl) && (
+            <nav
+              class="mt-12 flex items-center justify-center gap-3"
+              aria-label="Search results pages"
+            >
+              <a
+                href={prevUrl ?? '#'}
+                aria-disabled={!prevUrl}
+                class:list={[
+                  'inline-flex h-11 items-center gap-2 rounded-sm px-5 text-[12.5px] font-bold uppercase tracking-[1px] transition-fluid',
+                  prevUrl
+                    ? 'bg-surface text-text-primary shadow-xs hover:bg-dark hover:text-white'
+                    : 'pointer-events-none bg-surface-cool text-text-muted',
+                ]}
+              >
+                <Icon name="arrowRight" size={15} class="rotate-180" /> Prev
+              </a>
+              <a
+                href={nextUrl ?? '#'}
+                aria-disabled={!nextUrl}
+                class:list={[
+                  'inline-flex h-11 items-center gap-2 rounded-sm px-5 text-[12.5px] font-bold uppercase tracking-[1px] transition-fluid',
+                  nextUrl
+                    ? 'bg-surface text-text-primary shadow-xs hover:bg-dark hover:text-white'
+                    : 'pointer-events-none bg-surface-cool text-text-muted',
+                ]}
+              >
+                Next <Icon name="arrowRight" size={15} />
+              </a>
+            </nav>
+          )}
+        </div>
+      </section>
+    )
+  }
+
+  {/* ===================== TYPE FILTER LOGIC ===================== */}
+  <script>
+    // Client-side type filtering for the results grid + live count.
+    // Idempotent + View-Transition safe; no network.
+    function initSearchFilter(): void {
+      const bar = document.querySelector<HTMLElement>('[data-search-tabs]');
+      const grid = document.querySelector<HTMLElement>('[data-search-grid]');
+      if (!bar || !grid || bar.dataset.bound) return;
+      bar.dataset.bound = 'true';
+
+      const cards = Array.from(grid.querySelectorAll<HTMLElement>('[data-search-card]'));
+      const empty = document.querySelector<HTMLElement>('[data-search-empty]');
+      const countEl = document.querySelector<HTMLElement>('[data-search-count]');
+      const pills = Array.from(bar.querySelectorAll<HTMLButtonElement>('[data-kind-tab]'));
+      const total = cards.length;
+
+      const apply = (kind: string): void => {
+        let shown = 0;
+        cards.forEach((card) => {
+          const match = kind === 'all' || card.dataset.kind === kind;
+          card.style.display = match ? '' : 'none';
+          if (match) shown++;
+        });
+        if (empty) empty.classList.toggle('hidden', shown > 0);
+        if (countEl) {
+          countEl.textContent = `Showing ${shown} of ${total} ${shown === 1 ? 'result' : 'results'}`;
+        }
+        pills.forEach((p) => p.setAttribute('aria-pressed', String(p.dataset.kindTab === kind)));
+      };
+
+      bar.addEventListener('click', (e) => {
+        const pill = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-kind-tab]');
+        if (pill) apply(pill.dataset.kindTab ?? 'all');
+      });
+    }
+
+    initSearchFilter();
+    document.addEventListener('astro:page-load', initSearchFilter);
+  </script>
+</BaseLayout>
+
+<style>
+  /* Active tab — coral fill + light count badge (matches the Journal tabs). */
+  .btab .tc {
+    background: var(--color-surface-cool);
+    color: var(--color-text-muted);
+    transition: all 0.2s;
+  }
+  .btab:hover .tc {
+    color: var(--color-text-primary);
+  }
+  .btab[aria-pressed='true'] {
+    background: var(--color-coral);
+    color: #fff;
+    box-shadow: none;
+    --tw-ring-color: transparent;
+  }
+  .btab[aria-pressed='true'] .tc {
+    background: rgba(255, 255, 255, 0.26);
+    color: #fff;
+  }
+</style>

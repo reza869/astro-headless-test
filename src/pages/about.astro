@@ -1,0 +1,672 @@
+---
+// ============================================================
+//  About — "The House of L'ÉDITION". Editorial about-page built
+//  section by section from the designer's About mockup:
+//  masthead/hero · manifesto · story · stats · values ·
+//  timeline · craftsmanship · people · newsletter CTA.
+// ============================================================
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import Icon from '~/components/ui/Icon.astro';
+import Cta from '~/components/sections/Cta.astro';
+
+const stats = [
+  { icon: 'flag', num: '2014', label: 'Founded in Paris', note: 'A decade of considered design' },
+  { icon: 'globe', num: '40', em: '+', label: 'Countries Served', note: 'Read & worn worldwide' },
+  { icon: 'book', num: '12', label: 'Issues Each Year', note: 'One considered edit a month' },
+  { icon: 'scissors', num: '90', em: '%', label: 'Made in Italy & France', note: 'In small family-run ateliers' },
+] as const;
+
+const values = [
+  {
+    no: '01',
+    icon: 'pen',
+    name: 'Editorial First',
+    desc: 'We design like we publish — with a point of view. Every collection tells a story worth keeping, not just a trend worth chasing.',
+  },
+  {
+    no: '02',
+    icon: 'scissors',
+    name: 'True Craft',
+    desc: 'Made in family-run ateliers in Italy and France, with natural fibres and construction meant to be repaired, not replaced.',
+  },
+  {
+    no: '03',
+    icon: 'leaf',
+    name: 'Responsible by Design',
+    desc: 'Fewer, better pieces. Certified materials, recycled packaging and carbon-neutral shipping — sustainability as a starting point, not an afterthought.',
+  },
+  {
+    no: '04',
+    icon: 'infinity',
+    name: 'Built to Last',
+    desc: 'We measure success in years of wear, not weeks of hype. A L’ÉDITION piece should feel as right a decade from now as it does today.',
+  },
+] as const;
+
+const timeline = [
+  {
+    year: '2014',
+    title: 'Issue N° 01',
+    desc: 'L’ÉDITION is founded in a one-room studio on Rue Saint-Honoré. The first capsule — twelve pieces — sells out in a week.',
+  },
+  {
+    year: '2017',
+    title: 'The Italian Mills',
+    desc: 'We partner with family-run mills in Biella and Como, beginning the relationships that still define our cloth today.',
+  },
+  {
+    year: '2020',
+    title: 'The Journal Goes Live',
+    desc: 'Our editorial platform launches — pairing every collection with the writing, photography and people behind it.',
+  },
+  {
+    year: '2022',
+    title: 'Certified Responsible',
+    desc: 'Our supply chain earns RWS and GOTS certification, and all shipping becomes carbon-neutral.',
+  },
+  {
+    year: '2026',
+    title: 'Volume IX',
+    desc: 'Now read in over forty countries — still made by the same hands, in the same spirit, from the same address.',
+  },
+] as const;
+
+const craftPoints = [
+  {
+    no: '01',
+    title: 'Natural Fibres',
+    desc: 'Italian wool, French linen, Mongolian cashmere and vegetable-tanned leather.',
+  },
+  {
+    no: '02',
+    title: 'Small-Batch Ateliers',
+    desc: 'Family workshops in Italy & France — never mass production lines.',
+  },
+  {
+    no: '03',
+    title: 'Built to Be Repaired',
+    desc: 'Complimentary repairs for life on every L’ÉDITION garment.',
+  },
+] as const;
+
+const people = [
+  {
+    no: '01',
+    img: '/images/Testimonial 01.png',
+    name: 'Camille Auclair',
+    role: 'Founder & Creative Director',
+    bio: 'Founded L’ÉDITION in 2014 after a decade in fashion publishing. Still edits every collection, piece by piece.',
+  },
+  {
+    no: '02',
+    img: '/images/Testimonial 02.png',
+    name: 'Marco Devis',
+    role: 'Head of Atelier',
+    bio: 'Third-generation tailor from Biella. Oversees every mill relationship and the standards behind our cloth.',
+  },
+  {
+    no: '03',
+    img: '/images/Testimonial 03.png',
+    name: 'Yuki Tanaka',
+    role: 'Editor, The Journal',
+    bio: 'Writes the stories behind each issue — the people, places and process that make a collection worth keeping.',
+  },
+] as const;
+
+const description =
+  'The House of L’ÉDITION — a Paris fashion house run like a publishing house. A decade of considered design, true craft and clothes made to be kept.';
+---
+
+<BaseLayout title="About" description={description}>
+  {/* ===================== MASTHEAD / HERO ===================== */}
+  <section class="pb-16 pt-[30px] md:pb-[64px]">
+    <div class="container-mag">
+      {/* Folio rule */}
+      <div
+        class="flex flex-wrap items-center justify-between gap-3.5 border-b border-border px-0.5 pb-[18px] text-[11px] font-bold uppercase tracking-[1.6px] text-text-muted"
+      >
+        <span>L'ÉDITION — The House</span>
+        <span class="text-coral">Our Story</span>
+        <span>Volume IX · SS 2026</span>
+      </div>
+
+      {/* Hero */}
+      <div
+        class="relative mt-7 flex min-h-[clamp(440px,74vh,700px)] items-end overflow-hidden rounded-xl bg-surface-cool"
+        data-enter
+        data-stagger
+      >
+        <img
+          src="/images/ab-hero-img.png"
+          alt="L'ÉDITION Atelier"
+          class="absolute inset-0 h-full w-full object-cover"
+          data-reveal-img
+        />
+        <div
+          class="ab-hero-grad pointer-events-none absolute inset-0"
+          aria-hidden="true"
+        >
+        </div>
+
+        {/* Seal */}
+        <div
+          class="absolute right-[26px] top-[26px] z-[3] flex h-[106px] w-[106px] flex-col items-center justify-center rounded-full bg-coral text-center text-white shadow-md"
+        >
+          <span class="text-[9px] uppercase tracking-[2px] opacity-90">Since</span>
+          <span class="my-0.5 font-heading text-[32px] font-extrabold leading-none">2014</span>
+          <span class="text-[9px] uppercase tracking-[2px] opacity-90">Paris</span>
+        </div>
+
+        {/* Decorative vertical caption — hidden below md, where the full-width
+            hero copy would otherwise run under it. */}
+        <span
+          class="ab-vert absolute bottom-[34px] right-[30px] z-[3] hidden text-[11px] font-semibold uppercase tracking-[2px] text-white/70 md:block"
+        >
+          The House of L'ÉDITION
+        </span>
+
+        <div class="relative z-[2] max-w-[780px] p-7 sm:p-10 md:p-[clamp(28px,4vw,56px)]">
+          <span class="ab-label ab-label--light mb-4">Our Story</span>
+          <h1
+            class="font-heading text-[clamp(46px,7vw,102px)] font-extrabold uppercase leading-[0.86] tracking-[-1px] text-white"
+          >
+            A Publication<br /><em class="not-italic text-coral">You Can Wear</em>
+          </h1>
+          <p class="mt-[18px] max-w-[540px] text-base leading-[1.65] text-white/85">
+            We began with an idea — that fashion deserves the gravitas of editorial and the
+            precision of a great atelier. A decade on, we still make clothes the way a magazine
+            is made: with intention, on every page.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {/* ===================== MANIFESTO ===================== */}
+  <section class="py-section-sm text-center">
+    <div class="container-mag">
+      <div class="mx-auto max-w-[880px]" data-reveal>
+        <div class="font-heading text-[120px] font-extrabold leading-[0.5] text-coral-soft">“</div>
+        <span class="ab-label ab-label--center mb-[22px] mt-2.5 justify-center">Our Manifesto</span>
+        <p
+          class="font-heading text-[clamp(28px,3.4vw,46px)] font-semibold leading-[1.14] tracking-[-0.3px] text-text-primary"
+        >
+          A wardrobe should read like a well-edited magazine — considered, enduring, and entirely
+          your own. Not <em class="not-italic text-coral">more</em> clothing, but the
+          <em class="not-italic text-coral">right</em> clothing, made to outlive the season that
+          introduced it.
+        </p>
+        <div class="mt-[30px] flex items-center justify-center gap-3.5">
+          <span class="h-px w-[46px] bg-border"></span>
+          <span class="text-[13px] text-text-muted">
+            With intention,
+            <span class="block font-heading text-[18px] font-bold text-text-primary"
+              >The Editors of L'ÉDITION</span
+            >
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {/* ===================== OUR STORY ===================== */}
+  <section class="pb-section-sm pt-6">
+    <div class="container-mag">
+      <div
+        class="mb-[46px] flex flex-wrap items-center justify-between gap-4 border-b border-border pb-5"
+        data-reveal
+      >
+        <span class="ab-label">How It Began</span>
+        <span class="text-[11px] font-bold uppercase tracking-[1.6px] text-text-muted">
+          Chapter One · Est. 2014 · Paris
+        </span>
+      </div>
+
+      <div class="grid items-stretch gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-[54px]">
+        {/* Text column */}
+        <div data-reveal>
+          <h2 class="ab-h2 mb-6">From a <em class="not-italic text-coral">Page</em><br />to a Practice</h2>
+          <p class="text-[17px] leading-[1.75] text-text-secondary">
+            <span
+              class="float-left mr-3 mt-2 font-heading text-[76px] font-extrabold leading-[0.7] text-coral"
+              >I</span
+            >n 2014, a one-room studio in the 1st arrondissement set out to answer a quiet question:
+            what if a fashion house worked like a publishing house? Each collection an issue, each
+            piece a feature, each season a considered edit.
+          </p>
+          <div
+            class="my-[26px] rounded-r-md border-l-[3px] border-coral bg-surface px-[22px] py-[18px] shadow-xs"
+          >
+            <q class="font-heading text-[22px] font-semibold leading-[1.2] text-text-primary [quotes:none]">
+              We don't chase the season. We edit it — releasing fewer pieces, designed to be kept.
+            </q>
+            <cite
+              class="mt-2.5 block text-[11px] font-bold uppercase not-italic tracking-[1.6px] text-coral"
+            >
+              The Founding Principle
+            </cite>
+          </div>
+          <p class="text-[15px] leading-[1.75] text-text-secondary">
+            A decade on, we work with the same family-run mills and ateliers, and we still write
+            about what we make — because a garment, like a story, is better understood than simply
+            consumed. The studio has never moved. The address is the same; so is the intention.
+          </p>
+          <div class="mt-6 flex items-center gap-3">
+            <span class="h-px w-10 bg-border"></span>
+            <span class="text-[12px] font-semibold uppercase tracking-[1.4px] text-text-muted">
+              Rue Saint-Honoré, Paris · MMXIV
+            </span>
+          </div>
+        </div>
+
+        {/* Media column */}
+        <div
+          class="relative min-h-[440px] overflow-hidden rounded-xl bg-surface-cool lg:min-h-[560px]"
+          data-reveal
+        >
+          <span
+            class="absolute left-[18px] top-[18px] z-[2] rounded-pill bg-coral px-4 py-1 font-heading text-[28px] font-extrabold text-white shadow-sm"
+            >'14</span
+          >
+          <img
+            src="/images/ab-story-img.png"
+            alt="The Studio — Rue Saint-Honoré, Paris"
+            class="h-full w-full object-cover"
+            loading="lazy"
+            data-reveal-img
+          />
+          <span
+            class="absolute inset-x-[18px] bottom-4 rounded-sm bg-dark/40 px-3.5 py-[9px] text-[12px] text-white backdrop-blur-[4px]"
+          >
+            The Studio — Rue Saint-Honoré, Paris
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {/* ===================== STATS ===================== */}
+  <section class="py-6" data-stats>
+    <div class="container-mag">
+      <div
+        class="rounded-xl bg-dark px-6 py-[46px] sm:px-10 md:px-[clamp(22px,4vw,56px)]"
+        data-reveal
+      >
+        <div class="mb-[38px] text-center">
+          <span class="ab-label ab-label--dark ab-label--center justify-center">By the Numbers</span>
+          <h2 class="mt-3.5 font-heading text-[clamp(28px,3vw,40px)] font-extrabold leading-[0.95] text-white">
+            A decade, <em class="not-italic text-coral">measured</em>
+          </h2>
+        </div>
+        <div class="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-0">
+          {
+            stats.map((s, i) => (
+              <div
+                class:list={[
+                  'px-6 py-2 text-center',
+                  i > 0 && 'lg:shadow-[inset_1px_0_0_rgba(255,255,255,.13)]',
+                ]}
+              >
+                <span class="mb-3.5 inline-flex text-coral">
+                  {s.icon === 'flag' && <Icon name="mapPin" size={26} />}
+                  {s.icon === 'globe' && <Icon name="globe" size={26} />}
+                  {s.icon === 'book' && <Icon name="package" size={26} />}
+                  {s.icon === 'scissors' && <Icon name="filter" size={26} />}
+                </span>
+                <div
+                  class="font-heading text-[clamp(38px,3.6vw,56px)] font-extrabold leading-none text-white"
+                  data-counter
+                  data-target={s.num}
+                >{s.num}{'em' in s && s.em && <em class="not-italic text-coral">{s.em}</em>}</div>
+                <div class="mt-2.5 text-[12.5px] font-bold tracking-[0.4px] text-white">
+                  {s.label}
+                </div>
+                <div class="mt-1.5 text-[12px] leading-[1.45] text-white/55">{s.note}</div>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {/* ===================== VALUES ===================== */}
+  <section class="py-section-sm">
+    <div class="container-mag">
+      <div class="mx-auto mb-12 max-w-[600px] text-center" data-reveal>
+        <span class="ab-label ab-label--center justify-center">What We Stand For</span>
+        <h2 class="ab-h2 my-3.5">Four <em class="not-italic text-coral">Principles</em></h2>
+        <p class="text-[15px] leading-[1.65] text-text-secondary">
+          Every decision we make — from a single button to an entire campaign — answers to these
+          four ideas. They are the house, written down.
+        </p>
+      </div>
+      <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4" data-reveal data-stagger>
+        {
+          values.map((v, i) => (
+            <div class="rounded-lg bg-surface p-6 shadow-xs transition-[transform,box-shadow] duration-200 hover:-translate-y-1 hover:shadow-md">
+              <div class="font-heading text-[30px] font-extrabold text-border">{v.no}</div>
+              <span
+                class:list={[
+                  'my-4 block',
+                  i === 1 ? 'text-green' : i === 2 ? 'text-blue' : 'text-coral',
+                ]}
+              >
+                {v.icon === 'pen' && <Icon name="star" size={34} />}
+                {v.icon === 'scissors' && <Icon name="filter" size={34} />}
+                {v.icon === 'leaf' && <Icon name="mountain" size={34} />}
+                {v.icon === 'infinity' && <Icon name="rotate" size={34} />}
+              </span>
+              <h3 class="mb-2.5 font-heading text-[23px] font-bold">{v.name}</h3>
+              <p class="text-[13.5px] leading-[1.65] text-text-secondary">{v.desc}</p>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  {/* ===================== TIMELINE ===================== */}
+  <section class="pb-section-sm pt-section-sm">
+    <div class="container-mag">
+      <div class="mx-auto mb-[50px] max-w-[560px] text-center" data-reveal>
+        <span class="ab-label ab-label--center justify-center">The Archive</span>
+        <h2 class="ab-h2 my-3.5">A Decade, <em class="not-italic text-coral">Edited</em></h2>
+        <p class="text-[15px] text-text-secondary">
+          Ten years of issues, ateliers and quiet milestones.
+        </p>
+      </div>
+
+      <div class="ab-timeline relative mx-auto max-w-[940px]" data-reveal data-stagger>
+        {
+          timeline.map((t) => (
+            <div class="ab-timeline-item relative box-border w-full pb-9 pl-8 md:w-1/2 md:px-[42px]">
+              <div class="ab-timeline-dot absolute top-2 h-4 w-4 rounded-full bg-coral shadow-[0_0_0_4px_var(--color-bg-light)]" />
+              <div class="ab-timeline-card inline-block max-w-none rounded-lg bg-surface px-6 py-[22px] text-left shadow-xs md:max-w-[370px]">
+                <div class="font-heading text-[24px] font-extrabold text-coral">{t.year}</div>
+                <h3 class="my-1 font-heading text-[20px] font-bold">{t.title}</h3>
+                <p class="text-[13.5px] leading-[1.6] text-text-secondary">{t.desc}</p>
+              </div>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  {/* ===================== CRAFTSMANSHIP ===================== */}
+  <section class="pb-section-sm pt-6">
+    <div class="container-mag">
+      <div class="grid items-center gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:gap-[54px]">
+        {/* Figure */}
+        <div
+          class="relative min-h-[440px] overflow-hidden rounded-xl bg-surface-cool lg:min-h-[560px]"
+          data-reveal
+        >
+          <img
+            src="/images/ab-craft-img.png"
+            alt="The Atelier — Biella, Italy"
+            class="h-full w-full object-cover"
+            loading="lazy"
+            data-reveal-img
+          />
+          <div class="absolute left-5 top-5 rounded-md bg-surface px-[18px] py-3 text-center shadow-sm">
+            <div class="font-heading text-[26px] font-extrabold leading-none text-coral">10yrs</div>
+            <div class="mt-[3px] text-[10px] font-bold uppercase tracking-[1px] text-text-muted">
+              Repairs, Free
+            </div>
+          </div>
+          <span
+            class="absolute bottom-4 left-[18px] rounded-sm bg-dark/45 px-3.5 py-2 text-[12px] text-white backdrop-blur-[4px]"
+          >
+            The Atelier — Biella, Italy
+          </span>
+        </div>
+
+        {/* Content */}
+        <div data-reveal>
+          <span class="ab-label">The Making</span>
+          <h2 class="ab-h2 my-3.5 mb-[18px]">Made by <em class="not-italic text-coral">Hand</em>,<br />Meant to Stay</h2>
+          <p class="mb-[26px] text-[15.5px] leading-[1.75] text-text-secondary">
+            We work only with ateliers we know by name. Each piece passes through a small number of
+            skilled hands — cut, sewn and finished slowly, the way it should be.
+          </p>
+          <div class="flex flex-col gap-[18px]">
+            {
+              craftPoints.map((p) => (
+                <div class="flex items-start gap-4">
+                  <span class="flex h-[42px] w-[42px] flex-none items-center justify-center rounded-pill bg-coral-soft font-heading text-[18px] font-extrabold text-coral">
+                    {p.no}
+                  </span>
+                  <div>
+                    <strong class="mb-[3px] block text-[15px] font-bold">{p.title}</strong>
+                    <span class="text-[13px] leading-[1.55] text-text-secondary">{p.desc}</span>
+                  </div>
+                </div>
+              ))
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {/* ===================== PEOPLE ===================== */}
+  <section class="pb-section-sm pt-6">
+    <div class="container-mag">
+      <div class="mx-auto mb-[50px] max-w-[560px] text-center" data-reveal>
+        <span class="ab-label ab-label--center justify-center">The Editors</span>
+        <h2 class="ab-h2 my-3.5">The People <em class="not-italic text-coral">Behind It</em></h2>
+        <p class="text-[15px] text-text-secondary">
+          A small team, one studio, and a shared obsession with getting it right.
+        </p>
+      </div>
+      <div class="grid grid-cols-1 gap-[26px] sm:grid-cols-2 lg:grid-cols-3" data-reveal data-stagger>
+        {
+          people.map((person, i) => (
+            <div class:list={[i === 1 && 'lg:mt-9']}>
+              <div class="relative aspect-[4/5] overflow-hidden rounded-lg bg-surface-cool">
+                <span class="absolute left-3.5 top-3.5 z-[2] flex h-[38px] w-[38px] items-center justify-center rounded-pill bg-coral font-heading text-[18px] font-extrabold text-white">
+                  {person.no}
+                </span>
+                <img
+                  src={person.img}
+                  alt={person.name}
+                  class="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+              <div class="px-1 pt-[18px]">
+                <div class="font-heading text-[24px] font-bold">{person.name}</div>
+                <div class="my-1 mb-2.5 text-[12px] font-bold uppercase tracking-[1px] text-coral">
+                  {person.role}
+                </div>
+                <p class="text-[13.5px] leading-[1.65] text-text-secondary">{person.bio}</p>
+              </div>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  {/* ===================== NEWSLETTER CTA ===================== */}
+  {/* Shared closing CTA — identical to Home and every other page. */}
+  <Cta />
+
+  {/* ============================================================
+       Stat count-up — animate each number 0 → target the first time
+       the "By the Numbers" panel scrolls into view (mirrors the
+       designer's countUp: 1200ms, cubic ease-out, suffix kept).
+       Written as `is:inline` PLAIN JS on purpose: Astro was dropping
+       the hoisted/bundled page-level script, so we inject it verbatim
+       to guarantee it runs in the browser.
+       ============================================================ */}
+  <script is:inline>
+    (function () {
+      function initStatCounters() {
+        var section = document.querySelector('[data-stats]');
+        if (!section || section.dataset.counted) return;
+
+        var counters = Array.prototype.slice.call(section.querySelectorAll('[data-counter]'));
+        if (!counters.length) return;
+
+        var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        function run(el) {
+          var em = el.querySelector('em');
+          var suffix = em ? em.outerHTML : '';
+          var target = parseInt(
+            (el.getAttribute('data-target') || el.textContent || '').replace(/[^0-9]/g, ''),
+            10,
+          );
+          if (!target) return;
+          if (reduce) {
+            el.innerHTML = target + suffix;
+            return;
+          }
+          var dur = 1200;
+          var t0 = performance.now();
+          (function tick(t) {
+            var p = Math.min(1, (t - t0) / dur);
+            var eased = 1 - Math.pow(1 - p, 3); // ease-out cubic
+            el.innerHTML = Math.round(target * eased) + suffix;
+            if (p < 1) requestAnimationFrame(tick);
+          })(t0);
+        }
+
+        var io = new IntersectionObserver(
+          function (entries) {
+            for (var k = 0; k < entries.length; k++) {
+              if (!entries[k].isIntersecting) continue;
+              section.dataset.counted = 'true';
+              counters.forEach(run);
+              io.disconnect();
+              break;
+            }
+          },
+          { threshold: 0.3 },
+        );
+        io.observe(section);
+      }
+
+      initStatCounters();
+      document.addEventListener('astro:page-load', initStatCounters);
+    })();
+  </script>
+</BaseLayout>
+
+<style>
+  /* ============================================================
+     Decorative-only effects the design tokens / utilities can't
+     express: the editorial "✦ … —" kicker, hero gradient + vertical
+     label, and the centred timeline spine with alternating sides.
+     ============================================================ */
+
+  /* Editorial kicker: coral ✦ star + trailing rule (matches mag-label). */
+  .ab-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 11px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 2.6px;
+    text-transform: uppercase;
+    color: var(--color-text-primary);
+  }
+  .ab-label::before {
+    content: "\2726";
+    color: var(--color-coral);
+    font-size: 14px;
+    line-height: 0;
+    flex: none;
+  }
+  .ab-label::after {
+    content: "";
+    flex: none;
+    width: 24px;
+    height: 1px;
+    background: var(--color-border);
+  }
+  .ab-label--light {
+    color: #fff;
+  }
+  .ab-label--light::after {
+    background: rgba(255, 255, 255, 0.45);
+  }
+  .ab-label--dark {
+    color: #fff;
+  }
+  .ab-label--dark::after {
+    background: rgba(255, 255, 255, 0.25);
+  }
+  .ab-label--center {
+    justify-content: center;
+  }
+
+  /* Hero gradient scrim + vertical caption. */
+  .ab-hero-grad {
+    background: linear-gradient(180deg, rgba(9, 10, 11, 0.05) 0%, rgba(9, 10, 11, 0.62) 80%);
+  }
+  .ab-vert {
+    writing-mode: vertical-rl;
+  }
+
+  /* H2 display: a touch larger than the global .h2 to match the mockup. */
+  .ab-h2 {
+    font-family: var(--font-heading);
+    font-size: clamp(40px, 5vw, 66px);
+    font-weight: 800;
+    line-height: 0.92;
+    letter-spacing: -0.5px;
+  }
+
+  /* Timeline — single left spine on mobile, centred alternating on desktop. */
+  .ab-timeline::before {
+    content: "";
+    position: absolute;
+    left: 7px;
+    top: 6px;
+    bottom: 6px;
+    width: 2px;
+    background: var(--color-border);
+  }
+  .ab-timeline-item .ab-timeline-dot {
+    left: -1px;
+  }
+
+  @media (min-width: 768px) {
+    .ab-timeline::before {
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    .ab-timeline-item:nth-child(odd) {
+      left: 0;
+      text-align: right;
+    }
+    .ab-timeline-item:nth-child(even) {
+      left: 50%;
+      text-align: left;
+    }
+    .ab-timeline-item:nth-child(odd) .ab-timeline-dot {
+      right: -8px;
+      left: auto;
+    }
+    .ab-timeline-item:nth-child(even) .ab-timeline-dot {
+      left: -8px;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    /* NB: do NOT pre-hide [data-reveal-img] here — the image-reveal tween
+       only animates clip-path/scale (never opacity), so an opacity:0 start
+       would leave scroll-revealed images stuck invisible. They reveal via
+       the clip-path wipe instead, matching the rest of the site. */
+    [data-reveal] {
+      opacity: 0;
+    }
+    [data-enter] {
+      opacity: 0;
+    }
+  }
+</style>

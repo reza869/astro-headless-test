@@ -1,0 +1,376 @@
+---
+// ============================================================
+//  ShopCatalogue — the designed catalogue body shared by
+//  /collections/all and /collections/[handle]. Renders the hero +
+//  control deck + product grid + CTA over REAL Shopify data
+//  (passed in pre-flattened), and drives the project islands
+//  (cart / wishlist / quick-view). `initialCat` pre-activates a
+//  collection tab + filters the grid to it (the single-collection
+//  page); everything else is identical between the two routes.
+// ============================================================
+import Cta from '~/components/sections/Cta.astro';
+import ShopHero from '~/components/shop/ShopHero.astro';
+import ShopDeck from '~/components/shop/ShopDeck.astro';
+import '~/styles/shop-clone.css';
+import type { ShopItem } from '~/lib/shop-catalogue';
+
+interface Hero {
+  eyebrow?: string;
+  titleHtml?: string;
+  intro?: string;
+  clampIntro?: boolean;
+  products?: number;
+  designers?: number;
+  categories?: number;
+}
+interface Props {
+  items: ShopItem[];
+  currency: string;
+  hero?: Hero;
+  /** Collection title to pre-activate + filter the grid to (else "All"). */
+  initialCat?: string | null;
+  loadError?: boolean;
+  errorTitle?: string;
+  errorBody?: string;
+}
+
+const {
+  items,
+  currency,
+  hero = {},
+  initialCat = null,
+  loadError = false,
+  errorTitle = 'Catalogue unavailable',
+  errorBody = "We couldn't load the catalogue right now. Please try again shortly.",
+} = Astro.props;
+
+// Escape `<` so a product title containing "</script>" can't break out.
+const shopData = JSON.stringify({ items, currency, initialCat }).replace(/</g, '\\u003c');
+---
+
+{/* Phosphor icon font — the control deck + product cards use `ph` icons. */}
+<script is:inline src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+
+<div class="shop-clone">
+  <ShopHero {...hero} />
+
+  <section class="pb-section-sm pt-section-sm">
+    <div class="container-mag">
+      {
+        loadError ? (
+          <div class="flex flex-col items-center rounded-lg bg-surface py-24 text-center shadow-[var(--sh-xs)]">
+            <i class="ph ph-warning-circle text-[44px] text-text-muted" />
+            <h3 class="mt-4 font-heading text-[30px] font-bold">{errorTitle}</h3>
+            <p class="mt-2 text-[14px] text-text-secondary">{errorBody}</p>
+          </div>
+        ) : (
+          <ShopDeck />
+        )
+      }
+    </div>
+  </section>
+
+  <Cta />
+</div>
+
+{/* Catalogue data for the client controller (no client re-fetch). */}
+<script type="application/json" id="shopData" set:html={shopData}></script>
+
+{/* ====================================================================
+     Shop controller — Shop.html deck/refine/grid behaviour over the REAL
+     loaded catalogue. Reuses the project islands: cart (addItem), wishlist
+     ($wishlist / toggleWishlist) and the global quick-view event.
+     ==================================================================== */}
+<script>
+  import { addItem } from '~/stores/cart';
+  import { $wishlist, toggleWishlist } from '~/stores/wishlist';
+  import { formatMoney } from '~/lib/utils';
+
+  interface ShopItem {
+    id: string; handle: string; title: string; cats: string[]; type: string; vendor: string;
+    price: number; was: number | null; off: number | null; img: string; alt: string;
+    inStock: boolean; variantId: string | null; isNew: boolean;
+    colors: { name: string; hex: string }[]; createdAt: string | null;
+  }
+
+  const dataEl = document.getElementById('shopData');
+  if (dataEl) {
+    const DATA = JSON.parse(dataEl.textContent || '{}') as {
+      items: ShopItem[]; currency: string; initialCat?: string | null;
+    };
+    const items: ShopItem[] = DATA.items || [];
+    const CURRENCY = DATA.currency || 'USD';
+    const $ = (s: string) => document.querySelector(s) as HTMLElement;
+    const money = (n: number) => formatMoney(n, CURRENCY);
+
+    /* ── Facets from the real catalogue ─────────────────────── */
+    const catCounts: Record<string, number> = {};
+    items.forEach((p) => p.cats.forEach((c) => (catCounts[c] = (catCounts[c] || 0) + 1)));
+    const cats = Object.keys(catCounts).sort();
+    const vendors = [...new Set(items.map((p) => p.vendor).filter(Boolean))].sort();
+    const colorMap = new Map<string, string>();
+    items.forEach((p) => p.colors.forEach((c) => { if (!colorMap.has(c.name)) colorMap.set(c.name, c.hex); }));
+    const palette = [...colorMap.entries()].map(([name, hex]) => ({ name, hex }));
+    const prices = items.map((p) => p.price);
+    const MINP = 0;
+    const MAXP = Math.max(100, Math.ceil((Math.max(...prices, 0) || 100) / 50) * 50);
+    const FREE_SHIP = 150;
+    const q = Math.round(MAXP / 4 / 10) * 10 || 1;
+    const PRICE_BUCKETS = [
+      { label: `Under ${money(q)}`, min: 0, max: q },
+      { label: `${money(q)} – ${money(q * 2)}`, min: q, max: q * 2 },
+      { label: `${money(q * 2)} – ${money(q * 3)}`, min: q * 2, max: q * 3 },
+      { label: `${money(q * 3)} +`, min: q * 3, max: MAXP },
+    ];
+    const DEALS = [
+      { k: 'sale', label: 'On Sale' }, { k: 'newin', label: 'New In' },
+      { k: 'stock', label: 'In Stock' }, { k: 'freeship', label: 'Free Ship' },
+    ];
+
+    /* ── State ──────────────────────────────────────────────── */
+    interface State {
+      cats: Set<string>; pmin: number; pmax: number; vendors: Set<string>;
+      sale: boolean; newin: boolean; stock: boolean; freeship: boolean;
+      colors: Set<string>; sort: string; view: number; shown: number; [k: string]: unknown;
+    }
+    const state: State = { cats: new Set(), pmin: MINP, pmax: MAXP, vendors: new Set(), sale: false, newin: false, stock: false, freeship: false, colors: new Set(), sort: 'featured', view: 4, shown: 8 };
+    const PAGE = 8;
+
+    // Pre-activate a collection tab (single-collection page).
+    if (DATA.initialCat && catCounts[DATA.initialCat]) state.cats.add(DATA.initialCat);
+
+    /* ── Build deck controls ────────────────────────────────── */
+    const tabBase = 'deck-tab relative inline-flex flex-none items-center gap-[9px] whitespace-nowrap px-[17px] py-4 font-heading text-[17px] font-bold uppercase tracking-[0.4px] text-text-secondary transition-colors duration-200 hover:text-text-primary';
+    const cntCls = 'cnt rounded-pill bg-surface-cool px-2 py-0.5 text-[10.5px] font-bold text-text-muted';
+    if (cats.length > 1) {
+      $('#catStrip').innerHTML =
+        `<button class="${tabBase} active" data-v="">All <span class="${cntCls}">${items.length}</span></button>` +
+        cats.map((c) => `<button class="${tabBase}" data-v="${c}">${c} <span class="${cntCls}">${catCounts[c]}</span></button>`).join('');
+    } else {
+      const row = $('#catStrip').closest('.deck-tabsrow') as HTMLElement | null;
+      if (row) row.style.display = 'none';
+    }
+
+    $('#dpBuckets').innerHTML = PRICE_BUCKETS.map((b) => `<button class="dp-bucket rounded-xs bg-surface px-[13px] py-2 text-[11.5px] font-semibold text-text-secondary transition-all duration-200 hover:bg-border" data-min="${b.min}" data-max="${b.max}">${b.label}</button>`).join('');
+
+    const designerGroup = $('#dpBrands').parentElement as HTMLElement;
+    if (vendors.length) {
+      $('#dpBrands').innerHTML = vendors.map((b) => `<button class="dp-chip rounded-pill px-[13px] py-2 text-[12px] font-semibold text-text-secondary shadow-[inset_0_0_0_1px_var(--color-border)] transition-all duration-200 hover:text-text-primary hover:shadow-[inset_0_0_0_1px_var(--color-text-muted)]" data-v="${b}">${b}</button>`).join('');
+    } else {
+      designerGroup.style.display = 'none';
+    }
+
+    $('#dpDeals').innerHTML = DEALS.map((d) => `<button class="dp-toggle inline-flex items-center gap-[7px] rounded-pill px-[13px] py-[9px] text-[12px] font-semibold text-text-secondary shadow-[inset_0_0_0_1px_var(--color-border)] transition-all duration-200 hover:text-text-primary" data-k="${d.k}">${d.label}</button>`).join('');
+
+    const colourGroup = $('#dpColors').parentElement as HTMLElement;
+    if (palette.length) {
+      $('#dpColors').innerHTML = palette.map((c) => `<i data-v="${c.name}" title="${c.name}" class="relative h-[30px] w-[30px] cursor-pointer rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,0.12)] transition-transform duration-200 hover:scale-110" style="background:${c.hex}"></i>`).join('');
+    } else {
+      colourGroup.style.display = 'none';
+    }
+
+    { const dt = document.getElementById('diTotal'); if (dt) dt.textContent = String(items.length); }
+
+    /* ── Filter + sort ──────────────────────────────────────── */
+    function getFiltered(): ShopItem[] {
+      const list = items.filter((p) => {
+        if (state.cats.size && !p.cats.some((c) => state.cats.has(c))) return false;
+        if (p.price < state.pmin || p.price > state.pmax) return false;
+        if (state.vendors.size && !state.vendors.has(p.vendor)) return false;
+        if (state.sale && !p.was) return false;
+        if (state.newin && !p.isNew) return false;
+        if (state.stock && !p.inStock) return false;
+        if (state.freeship && p.price < FREE_SHIP) return false;
+        if (state.colors.size && !p.colors.some((c) => state.colors.has(c.name))) return false;
+        return true;
+      });
+      const s = state.sort;
+      if (s === 'price-asc') list.sort((a, b) => a.price - b.price);
+      else if (s === 'price-desc') list.sort((a, b) => b.price - a.price);
+      else if (s === 'new') list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      // 'featured' keeps the best-selling order returned by Shopify.
+      return list;
+    }
+
+    function cardHTML(p: ShopItem): string {
+      const tags: string[] = [];
+      if (p.isNew) tags.push('<span class="rounded-pill bg-coral px-[11px] py-1.5 text-[9.5px] font-bold uppercase tracking-[0.8px] text-white">New</span>');
+      if (p.off) tags.push(`<span class="rounded-pill bg-dark px-[11px] py-1.5 text-[9.5px] font-bold uppercase tracking-[0.8px] text-white">-${p.off}%</span>`);
+      const href = `/products/${p.handle}`;
+      const swatches = p.colors.length
+        ? `<div class="flex gap-[5px]">${p.colors.slice(0, 5).map((c) => `<i class="h-3.5 w-3.5 rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,0.12)]" style="background:${c.hex}" title="${c.name}"></i>`).join('')}</div>`
+        : '<span></span>';
+      const add = p.inStock && p.variantId
+        ? `<button class="pc-add add-to-cart absolute bottom-3.5 left-3.5 right-3.5 z-[2] flex translate-y-3 items-center justify-center gap-2 rounded-sm bg-dark py-[13px] text-[11.5px] font-bold uppercase tracking-[1px] text-white opacity-0 transition-all duration-[400ms] ease-[var(--ez)] hover:bg-coral group-hover:translate-y-0 group-hover:opacity-100" data-variant="${p.variantId}"><i class="ph ph-shopping-bag text-[17px]"></i> Add to Bag</button>`
+        : '';
+      return `<article class="pcard group relative overflow-hidden rounded-lg bg-surface shadow-[var(--sh-xs)] transition-[box-shadow,transform] duration-[400ms] hover:-translate-y-[5px] hover:shadow-[var(--sh-md)]">
+    <div class="relative aspect-[3/4] overflow-hidden bg-surface-cool">
+      <div class="absolute left-3.5 top-3.5 z-[2] flex flex-col gap-1.5">${tags.join('')}</div>
+      <div class="absolute right-3 top-3 z-[3] flex flex-col gap-2">
+        <button class="card-wish grid h-10 w-10 translate-x-3 place-items-center rounded-full bg-white/[0.94] opacity-0 shadow-[var(--sh-xs)] transition-all duration-[350ms] ease-[var(--ez)] hover:bg-coral hover:text-white group-hover:translate-x-0 group-hover:opacity-100" data-id="${p.id}" aria-label="Save to wishlist"><i class="ph ph-heart text-[18px]"></i></button>
+        <button class="quick-view grid h-10 w-10 translate-x-3 place-items-center rounded-full bg-white/[0.94] opacity-0 shadow-[var(--sh-xs)] transition-all duration-[350ms] ease-[var(--ez)] [transition-delay:0.05s] hover:bg-coral hover:text-white group-hover:translate-x-0 group-hover:opacity-100" data-handle="${p.handle}" aria-label="Quick view"><i class="ph ph-eye text-[18px]"></i></button>
+      </div>
+      <a href="${href}" aria-label="${p.title}"><img src="${p.img}" alt="${p.alt}" loading="lazy" class="h-full w-full object-cover transition-transform duration-[1000ms] ease-[var(--ez)] group-hover:scale-105"></a>
+      ${add}
+    </div>
+    <div class="px-[17px] pb-[18px] pt-4">
+      <span class="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[1.1px] text-green">${p.type}</span>
+      <div class="my-2 mb-[9px] font-heading text-[21px] font-bold leading-[0.98] text-text-primary"><a href="${href}">${p.title}</a></div>
+      <div class="mb-[11px] flex items-center justify-between">${swatches}${p.vendor ? `<span class="text-[11px] font-semibold text-text-muted">${p.vendor}</span>` : ''}</div>
+      <div class="flex items-center justify-between pt-3 shadow-[inset_0_1px_0_var(--color-border)]">
+        <span class="text-[16px] font-bold">${money(p.price)}${p.was ? `<span class="ml-1.5 text-[12.5px] font-medium text-text-muted line-through">${money(p.was)}</span>` : ''}</span>
+        <span class="inline-flex items-center gap-1.5 text-[10.5px] font-semibold tracking-[0.3px] ${p.inStock ? 'text-green' : 'text-text-muted'}"><i class="ph ph-${p.inStock ? 'check-circle' : 'x-circle'} text-[13px]"></i> ${p.inStock ? 'In stock' : 'Sold out'}</span>
+      </div>
+    </div>
+  </article>`;
+    }
+    const PROMO = `<div class="col-span-full relative flex min-h-[260px] overflow-hidden rounded-xl text-white">
+    <img src="/images/Campaign 01.png" alt="" class="absolute inset-0 h-full w-full object-cover">
+    <div class="absolute inset-0 bg-[linear-gradient(100deg,var(--color-dark)_0%,rgba(21,23,25,0.84)_44%,rgba(21,23,25,0.2)_100%)]"></div>
+    <div class="absolute inset-0 bg-dark/45 sm:hidden"></div>
+    <div class="relative z-[2] flex max-w-full flex-col justify-center px-6 py-8 sm:max-w-[72%] sm:px-[46px] sm:py-10 lg:max-w-[60%]">
+      <span class="mb-3 inline-flex items-center gap-2.5 text-[10.5px] font-bold uppercase tracking-[1.8px] text-coral-soft before:h-0.5 before:w-[22px] before:bg-coral before:content-['']">Mid-Season Event</span>
+      <h3 class="font-heading text-[clamp(32px,3.4vw,46px)] font-extrabold leading-[0.9] tracking-[-0.5px]">Up to 40% off <em class="not-italic text-coral">The Edit</em></h3>
+      <p class="my-3 mb-5 max-w-[340px] text-[14px] text-white/[0.84]">A curated selection of season-defining pieces, now at a special price.</p>
+      <a href="/products" class="inline-flex w-fit items-center justify-center gap-2.5 rounded-xs bg-white px-[26px] py-[15px] text-[12.5px] font-bold uppercase tracking-[1.4px] text-text-primary shadow-[var(--sh-xs)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-dark hover:text-white">Shop the Event <i class="ph ph-arrow-right text-[16px]"></i></a>
+    </div>
+  </div>`;
+
+    function render(): void {
+      const list = getFiltered();
+      $('#totalCount').textContent = String(items.length);
+      $('#showCount').textContent = String(list.length);
+      const slice = list.slice(0, state.shown);
+      const html = slice.map(cardHTML);
+      if (slice.length >= 8) html.splice(8, 0, PROMO);
+      $('#shopGrid').innerHTML = html.join('');
+      $('#shopGrid').classList.toggle('cols4', state.view === 4);
+      $('#shownCount').textContent = String(slice.length);
+      $('#shopEmpty').style.display = list.length ? 'none' : 'block';
+      $('#shopGrid').style.display = list.length ? '' : 'none';
+      if (list.length > state.shown) {
+        $('#loadWrap').style.display = 'flex';
+        $('#lwCount').textContent = `You've viewed ${slice.length} of ${list.length}`;
+        $('#lwFill').style.width = (slice.length / list.length) * 100 + '%';
+      } else {
+        $('#loadWrap').style.display = 'none';
+      }
+      renderChips();
+      bindCards();
+      paintWishlist();
+    }
+
+    /* ── Active chips ───────────────────────────────────────── */
+    const DEAL_LBL: Record<string, string> = { sale: 'On sale', newin: 'New arrivals', stock: 'In stock', freeship: 'Free shipping' };
+    const achipCls = 'achip inline-flex items-center gap-2 rounded-pill bg-coral-soft px-3.5 py-2 text-[12px] font-semibold text-coral-hover';
+    const xi = '<i class="ph ph-x cursor-pointer text-[13px] hover:text-text-primary"></i>';
+    function renderChips(): void {
+      const chips: string[] = [];
+      state.cats.forEach((v) => chips.push(`<span class="${achipCls}" data-rm="cat" data-v="${v}">${v} ${xi}</span>`));
+      if (state.pmin > MINP || state.pmax < MAXP) chips.push(`<span class="${achipCls}" data-rm="price">${money(state.pmin)} – ${money(state.pmax)} ${xi}</span>`);
+      state.vendors.forEach((v) => chips.push(`<span class="${achipCls}" data-rm="vendor" data-v="${v}">${v} ${xi}</span>`));
+      (['sale', 'newin', 'stock', 'freeship'] as const).forEach((k) => { if (state[k]) chips.push(`<span class="${achipCls}" data-rm="deal" data-v="${k}">${DEAL_LBL[k]} ${xi}</span>`); });
+      state.colors.forEach((v) => chips.push(`<span class="${achipCls}" data-rm="color" data-v="${v}">${v} ${xi}</span>`));
+      if (chips.length) chips.push('<span class="achip cursor-pointer bg-transparent text-[11px] font-bold uppercase tracking-[0.4px] text-text-muted hover:text-coral" id="chipClear">Clear all</span>');
+      $('#activeChips').innerHTML = chips.join('');
+      $('#activeChips').style.display = chips.length ? 'flex' : 'none';
+      document.querySelectorAll('#activeChips .achip[data-rm] i').forEach((i) =>
+        i.addEventListener('click', (e) => {
+          const c = (e.target as HTMLElement).closest('.achip') as HTMLElement;
+          removeFilter(c.dataset.rm as string, c.dataset.v as string);
+        }),
+      );
+      const cc = document.getElementById('chipClear'); if (cc) (cc as HTMLElement).onclick = clearAll;
+      syncFilterUI();
+    }
+    function removeFilter(rm: string, v: string): void {
+      if (rm === 'cat') state.cats.delete(v);
+      else if (rm === 'price') { state.pmin = MINP; state.pmax = MAXP; }
+      else if (rm === 'vendor') state.vendors.delete(v);
+      else if (rm === 'deal') state[v] = false;
+      else if (rm === 'color') state.colors.delete(v);
+      state.shown = PAGE; render();
+    }
+    function syncFilterUI(): void {
+      document.querySelectorAll<HTMLElement>('#dpBuckets .dp-bucket').forEach((o) => o.classList.toggle('on', +o.dataset.min! === state.pmin && +o.dataset.max! === state.pmax));
+      document.querySelectorAll<HTMLElement>('#dpBrands .dp-chip').forEach((o) => o.classList.toggle('on', state.vendors.has(o.dataset.v!)));
+      document.querySelectorAll<HTMLElement>('#dpDeals .dp-toggle').forEach((o) => o.classList.toggle('on', Boolean(state[o.dataset.k!])));
+      document.querySelectorAll<HTMLElement>('#dpColors i').forEach((o) => o.classList.toggle('on', state.colors.has(o.dataset.v!)));
+      ($('#pMin') as HTMLInputElement).value = String(state.pmin);
+      ($('#pMax') as HTMLInputElement).value = String(state.pmax);
+      $('#pMinL').textContent = money(state.pmin);
+      $('#pMaxL').textContent = money(state.pmax);
+      $('#pFill').style.left = (state.pmin / MAXP) * 100 + '%';
+      $('#pFill').style.right = 100 - (state.pmax / MAXP) * 100 + '%';
+      document.querySelectorAll<HTMLElement>('.deck-tab').forEach((p) => {
+        const v = p.dataset.v;
+        p.classList.toggle('active', v === '' ? state.cats.size === 0 : state.cats.size === 1 && state.cats.has(v!));
+      });
+      const n = ((state.pmin > MINP || state.pmax < MAXP) ? 1 : 0) + state.vendors.size + (state.sale ? 1 : 0) + (state.newin ? 1 : 0) + (state.stock ? 1 : 0) + (state.freeship ? 1 : 0) + state.colors.size;
+      $('#refineNum').textContent = String(n);
+      $('#refineOpen').classList.toggle('has', n > 0);
+    }
+
+    /* ── Refine bindings ────────────────────────────────────── */
+    ($('#pMin') as HTMLInputElement).max = String(MAXP);
+    ($('#pMax') as HTMLInputElement).max = String(MAXP);
+    ($('#pMax') as HTMLInputElement).value = String(MAXP);
+    document.querySelectorAll<HTMLElement>('#dpBuckets .dp-bucket').forEach((o) =>
+      o.addEventListener('click', () => {
+        const mn = +o.dataset.min!, mx = +o.dataset.max!;
+        if (state.pmin === mn && state.pmax === mx) { state.pmin = MINP; state.pmax = MAXP; }
+        else { state.pmin = mn; state.pmax = mx; }
+        state.shown = PAGE; render();
+      }),
+    );
+    ($('#pMin') as HTMLInputElement).addEventListener('input', () => { state.pmin = Math.min(+($('#pMin') as HTMLInputElement).value, state.pmax - 10); state.shown = PAGE; render(); });
+    ($('#pMax') as HTMLInputElement).addEventListener('input', () => { state.pmax = Math.max(+($('#pMax') as HTMLInputElement).value, state.pmin + 10); state.shown = PAGE; render(); });
+    document.querySelectorAll<HTMLElement>('#dpBrands .dp-chip').forEach((o) => o.addEventListener('click', () => { if (state.vendors.has(o.dataset.v!)) state.vendors.delete(o.dataset.v!); else state.vendors.add(o.dataset.v!); state.shown = PAGE; render(); }));
+    document.querySelectorAll<HTMLElement>('#dpDeals .dp-toggle').forEach((o) => o.addEventListener('click', () => { const k = o.dataset.k!; state[k] = !state[k]; state.shown = PAGE; render(); }));
+    document.querySelectorAll<HTMLElement>('#dpColors i').forEach((o) => o.addEventListener('click', () => { if (state.colors.has(o.dataset.v!)) state.colors.delete(o.dataset.v!); else state.colors.add(o.dataset.v!); state.shown = PAGE; render(); }));
+    document.querySelectorAll<HTMLElement>('.deck-tab').forEach((p) => p.addEventListener('click', () => { const v = p.dataset.v; state.cats.clear(); if (v) state.cats.add(v); state.shown = PAGE; render(); }));
+    function clearAll(): void { state.cats.clear(); state.pmin = MINP; state.pmax = MAXP; state.vendors.clear(); state.sale = false; state.newin = false; state.stock = false; state.freeship = false; state.colors.clear(); state.shown = PAGE; render(); }
+    ($('#clearAll') as HTMLElement).onclick = clearAll;
+    ($('#emptyClear') as HTMLElement).onclick = clearAll;
+
+    /* sort / view / load-more / refine open */
+    document.querySelectorAll<HTMLElement>('.sortpill').forEach((b) =>
+      b.addEventListener('click', () => {
+        state.sort = b.dataset.sort!;
+        document.querySelectorAll('.sortpill').forEach((x) => x.classList.remove('on'));
+        b.classList.add('on'); render();
+      }),
+    );
+    document.querySelectorAll<HTMLElement>('#viewToggle button').forEach((b) =>
+      b.addEventListener('click', () => {
+        state.view = +b.dataset.view!;
+        document.querySelectorAll('#viewToggle button').forEach((x) => x.classList.remove('on'));
+        b.classList.add('on'); render();
+      }),
+    );
+    ($('#loadMore') as HTMLElement).onclick = () => { state.shown += PAGE; render(); };
+    function setRefine(open: boolean): void { $('#deck').classList.toggle('open', open); $('#refineOpen').classList.toggle('open-state', open); }
+    ($('#refineOpen') as HTMLElement).onclick = () => setRefine(!$('#deck').classList.contains('open'));
+    ($('#refineApply') as HTMLElement).onclick = () => setRefine(false);
+
+    /* ── Card actions → project islands ─────────────────────── */
+    function bindCards(): void {
+      document.querySelectorAll<HTMLElement>('.add-to-cart').forEach((b) => { if (b.dataset.b) return; b.dataset.b = '1'; b.addEventListener('click', (e) => { e.preventDefault(); const id = b.dataset.variant; if (id) addItem(id, 1); }); });
+      document.querySelectorAll<HTMLElement>('.card-wish').forEach((b) => { if (b.dataset.b) return; b.dataset.b = '1'; b.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); toggleWishlist(b.dataset.id!); }); });
+      document.querySelectorAll<HTMLElement>('.quick-view').forEach((b) => { if (b.dataset.b) return; b.dataset.b = '1'; b.addEventListener('click', (e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent('quickview:open', { detail: { handle: b.dataset.handle } })); }); });
+    }
+    /* Reflect saved wishlist state on the cards (filled coral heart). */
+    function paintWishlist(): void {
+      const saved = new Set($wishlist.get());
+      document.querySelectorAll<HTMLElement>('.card-wish').forEach((b) => {
+        const on = saved.has(b.dataset.id!);
+        const ic = b.querySelector('i') as HTMLElement;
+        ic.classList.toggle('ph-fill', on); ic.classList.toggle('ph-heart', !on);
+        b.style.color = on ? 'var(--color-coral)' : '';
+      });
+    }
+    $wishlist.subscribe(paintWishlist);
+
+    render();
+  }
+</script>

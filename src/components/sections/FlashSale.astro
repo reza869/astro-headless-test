@@ -1,0 +1,258 @@
+---
+// ============================================================
+//  FlashSale — dark promo panel: live countdown header + a
+//  horizontal product slider (prev/next arrows). Cards are backed
+//  by real Shopify products (variantId ⇒ functional Add to Bag);
+//  the discount / sold / stock figures are editorial styling.
+// ============================================================
+import Icon from '~/components/ui/Icon.astro';
+import { getProducts } from '~/lib/shopify';
+import { formatMoney } from '~/lib/utils';
+
+let pool: Awaited<ReturnType<typeof getProducts>>['items'] = [];
+try {
+  pool = (await getProducts({ pageSize: 8, sortKey: 'BEST_SELLING' })).items;
+} catch (err) {
+  console.error('[flash-sale] product load failed:', (err as Error).message);
+}
+
+// Editorial flash figures, cycled across the live products.
+const FLASH_META = [
+  { disc: 40, sold: 91, left: 4, hot: true },
+  { disc: 30, sold: 83, left: 7, hot: true },
+  { disc: 30, sold: 78, left: 11, hot: false },
+  { disc: 25, sold: 69, left: 14, hot: false },
+  { disc: 35, sold: 64, left: 6, hot: true },
+  { disc: 20, sold: 52, left: 16, hot: false },
+];
+
+const currency = pool[0]?.priceRange.minVariantPrice.currencyCode ?? 'USD';
+
+const products = pool.slice(0, 6).map((p, i) => {
+  const meta = FLASH_META[i % FLASH_META.length];
+  const now = Number(p.priceRange.minVariantPrice.amount);
+  const was = now / (1 - meta.disc / 100);
+  return {
+    ...meta,
+    variantId: p.variantId ?? '',
+    handle: p.handle,
+    name: p.title,
+    cat: p.vendor || "L'ÉDITION",
+    now: formatMoney(now, currency),
+    was: formatMoney(was, currency),
+    img: p.featuredImage?.url ?? '/images/Product Image 1.png',
+  };
+});
+
+// Countdown start — 15d 12h 45m 50s. Initial server values (JS takes over).
+const CD_START = { days: '15', hrs: '12', min: '45', sec: '50' };
+const CD_MS = (15 * 86400 + 12 * 3600 + 45 * 60 + 50) * 1000;
+const cdUnits = [
+  { key: 'days', value: CD_START.days, label: 'Days' },
+  { key: 'hrs', value: CD_START.hrs, label: 'Hrs' },
+  { key: 'min', value: CD_START.min, label: 'Min' },
+  { key: 'sec', value: CD_START.sec, label: 'Sec' },
+];
+
+const hasProducts = products.length > 0;
+---
+
+{
+  hasProducts && (
+    <section class="container-mag pb-section" id="flash-sale">
+      <div class="flash rounded-xl bg-dark px-[4%] pb-[50px] pt-[46px] text-white" data-reveal data-flash data-duration={CD_MS}>
+        {/* Header: label + display H2 left, live countdown right */}
+        <div class="mb-9 flex flex-wrap items-center justify-between gap-6">
+          <div>
+            <span class="mag-label mb-2 text-coral-soft">48 Hours Only</span>
+            <h2 class="font-heading text-[clamp(36px,4.2vw,56px)] font-extrabold leading-[0.92] text-white">
+              Flash <em class="not-italic text-coral">Sale</em>
+            </h2>
+          </div>
+
+          <div class="flex items-center gap-1.5 sm:gap-[9px]">
+            {cdUnits.map((unit, i) => (
+              <>
+                <div class="w-[46px] rounded-sm bg-white/[0.08] py-2 text-center shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)] sm:w-[60px] sm:py-[11px]">
+                  <b class="block font-heading text-[21px] font-bold leading-none tabular sm:text-[26px]" data-cd={unit.key}>
+                    {unit.value}
+                  </b>
+                  <span class="mt-1 block text-[8.5px] uppercase tracking-[1.2px] text-white/60">{unit.label}</span>
+                </div>
+                {i < cdUnits.length - 1 && <span class="font-heading text-lg font-bold text-coral sm:text-2xl">:</span>}
+              </>
+            ))}
+          </div>
+        </div>
+
+        {/* Slider */}
+        <div class="relative">
+          <div class="flash-rail flex snap-x snap-mandatory gap-5 overflow-x-auto pb-2" data-rail>
+            {products.map((p) => (
+              <div class="fcard group flex w-[78%] flex-none snap-start flex-col overflow-hidden rounded-lg bg-surface text-text-primary sm:w-[46%] lg:w-[calc(25%_-_15px)]">
+                <a href={`/products/${p.handle}`} class="relative block aspect-square overflow-hidden bg-surface-cool">
+                  <span class="absolute left-3 top-3 z-[2] grid h-[50px] w-[50px] place-items-center rounded-full bg-coral font-heading text-[18px] font-extrabold leading-[0.9] text-white">
+                    -{p.disc}%
+                  </span>
+                  {p.hot && (
+                    <span class="absolute right-3 top-[14px] z-[2] inline-flex items-center gap-[5px] rounded-pill bg-dark/55 px-[10px] py-[6px] text-[10px] font-bold uppercase tracking-[0.5px] text-white backdrop-blur-md">
+                      <Icon name="star" size={12} class="text-coral" /> Selling fast
+                    </span>
+                  )}
+                  <img
+                    src={p.img}
+                    alt={p.name}
+                    loading="lazy"
+                    class="h-full w-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                  />
+                </a>
+
+                <div class="flex flex-1 flex-col px-4 pb-[17px] pt-[15px]">
+                  <span class="text-[10px] font-bold uppercase tracking-[1px] text-green">{p.cat}</span>
+                  <a href={`/products/${p.handle}`} class="my-[6px] mb-2 font-heading text-[20px] font-bold leading-[0.98] transition-fluid hover:text-coral">
+                    {p.name}
+                  </a>
+
+                  <div class="mb-3 flex items-baseline gap-2">
+                    <span class="text-[18px] font-bold text-coral">{p.now}</span>
+                    <span class="text-[13px] text-text-muted line-through">{p.was}</span>
+                  </div>
+
+                  <div class="mb-[7px] h-[7px] overflow-hidden rounded-pill bg-surface-cool">
+                    <div class="h-full rounded-pill bg-gradient-to-r from-coral to-coral-hover" style={`width:${p.sold}%`} />
+                  </div>
+                  <div class="mb-[13px] flex items-center justify-between text-[10.5px] font-semibold">
+                    <span class="text-text-secondary">{p.sold}% sold</span>
+                    <span class="text-coral">Only {p.left} left</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    data-flash-add
+                    data-variant-id={p.variantId}
+                    disabled={!p.variantId}
+                    aria-label={`Add ${p.name} to bag`}
+                    class="btn mt-auto inline-flex w-full items-center justify-center gap-2 rounded-sm bg-dark px-4 py-3 text-white transition-fluid hover:bg-coral disabled:opacity-50 data-[loading]:pointer-events-none"
+                  >
+                    <span class="fa-label inline-flex items-center gap-2">
+                      <Icon name="bag" size={15} /> Add to Bag
+                    </span>
+                    <span class="fa-spin hidden">
+                      <span class="block h-4 w-4 animate-spin rounded-pill border-2 border-current border-t-transparent" />
+                    </span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Arrows */}
+          <button
+            type="button"
+            data-rail-prev
+            aria-label="Previous"
+            class="absolute left-0 top-1/2 z-[3] hidden h-11 w-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-dark shadow-md transition-fluid hover:bg-coral hover:text-white sm:grid"
+          >
+            <Icon name="arrowRight" size={18} class="rotate-180" />
+          </button>
+          <button
+            type="button"
+            data-rail-next
+            aria-label="Next"
+            class="absolute right-0 top-1/2 z-[3] hidden h-11 w-11 translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-dark shadow-md transition-fluid hover:bg-coral hover:text-white sm:grid"
+          >
+            <Icon name="arrowRight" size={18} />
+          </button>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+<style>
+  .flash-rail {
+    scrollbar-width: none;
+  }
+  .flash-rail::-webkit-scrollbar {
+    display: none;
+  }
+  [data-flash-add][data-loading] .fa-label {
+    display: none;
+  }
+  [data-flash-add][data-loading] .fa-spin {
+    display: block;
+  }
+</style>
+
+<script>
+  import { addItem } from '~/stores/cart';
+
+  const pad = (n: number) => String(Math.max(0, n)).padStart(2, '0');
+
+  function initFlash(): void {
+    document.querySelectorAll<HTMLElement>('[data-flash]').forEach((root) => {
+      if (root.dataset.bound) return;
+      root.dataset.bound = 'true';
+
+      // ── Countdown ──────────────────────────────────────────
+      const duration = Number(root.dataset.duration) || 0;
+      const KEY = 'ledition:flash-end';
+      let end = Number(localStorage.getItem(KEY));
+      if (!end || Number.isNaN(end) || end < Date.now()) {
+        // First visit (or a finished sale): start a fresh window.
+        end = Date.now() + duration;
+        localStorage.setItem(KEY, String(end));
+      }
+      const cd = {
+        days: root.querySelector<HTMLElement>('[data-cd="days"]'),
+        hrs: root.querySelector<HTMLElement>('[data-cd="hrs"]'),
+        min: root.querySelector<HTMLElement>('[data-cd="min"]'),
+        sec: root.querySelector<HTMLElement>('[data-cd="sec"]'),
+      };
+      const tick = () => {
+        let diff = Math.floor((end - Date.now()) / 1000);
+        if (diff <= 0) {
+          diff = 0;
+          window.clearInterval(timer);
+        }
+        const days = Math.floor(diff / 86400);
+        const hrs = Math.floor((diff % 86400) / 3600);
+        const min = Math.floor((diff % 3600) / 60);
+        const sec = diff % 60;
+        if (cd.days) cd.days.textContent = pad(days);
+        if (cd.hrs) cd.hrs.textContent = pad(hrs);
+        if (cd.min) cd.min.textContent = pad(min);
+        if (cd.sec) cd.sec.textContent = pad(sec);
+      };
+      tick();
+      const timer = window.setInterval(tick, 1000);
+
+      // ── Slider ─────────────────────────────────────────────
+      const rail = root.querySelector<HTMLElement>('[data-rail]');
+      const prev = root.querySelector<HTMLButtonElement>('[data-rail-prev]');
+      const next = root.querySelector<HTMLButtonElement>('[data-rail-next]');
+      if (rail) {
+        const page = () => Math.max(rail.clientWidth * 0.9, 260);
+        prev?.addEventListener('click', () => rail.scrollBy({ left: -page(), behavior: 'smooth' }));
+        next?.addEventListener('click', () => rail.scrollBy({ left: page(), behavior: 'smooth' }));
+      }
+
+      // ── Add to Bag ─────────────────────────────────────────
+      root.querySelectorAll<HTMLButtonElement>('[data-flash-add]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const variantId = btn.dataset.variantId;
+          if (!variantId || btn.hasAttribute('data-loading')) return;
+          btn.setAttribute('data-loading', '');
+          try {
+            await addItem(variantId, 1); // opens the cart drawer on success
+          } finally {
+            btn.removeAttribute('data-loading');
+          }
+        });
+      });
+    });
+  }
+
+  initFlash();
+  document.addEventListener('astro:page-load', initFlash);
+</script>

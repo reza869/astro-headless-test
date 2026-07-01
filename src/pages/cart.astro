@@ -1,0 +1,77 @@
+---
+// ============================================================
+//  Cart — full-page shopping bag (designer Cart.html), backed by
+//  the REAL Shopify cart. The interactive region (hero stats,
+//  progress, lines, summary) is the CartView island wired to the
+//  shared cart store; cross-sell + newsletter CTA are server-
+//  rendered below. SSR reads the cart from the cart-id cookie so
+//  the first paint already shows the shopper's real lines.
+// ============================================================
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import CartView from '~/components/react/CartView.tsx';
+import ProductCard from '~/components/cards/ProductCard.astro';
+import Cta from '~/components/sections/Cta.astro';
+import Icon from '~/components/ui/Icon.astro';
+import { readCart } from '~/lib/cart-server';
+import { getProducts } from '~/lib/shopify';
+import type { Cart, ProductCard as TProductCard } from '~/lib/shopify/types';
+
+export const prerender = false;
+
+let cart: Cart | null = null;
+let crossSell: TProductCard[] = [];
+
+try {
+  const res = await readCart(Astro.cookies, Astro.clientAddress);
+  cart = res.cart;
+} catch (err) {
+  console.error('[cart] read failed:', (err as Error).message);
+}
+
+try {
+  const { items } = await getProducts({ pageSize: 4, sortKey: 'BEST_SELLING' });
+  crossSell = items;
+} catch (err) {
+  console.error('[cart] cross-sell load failed:', (err as Error).message);
+}
+---
+
+<BaseLayout
+  title="Your Bag"
+  description="Review your selection, apply a code and choose how it ships. Everything updates live — no surprises at checkout."
+>
+  {/* Live hero + cart layout + summary (real Shopify cart) */}
+  <CartView client:load initialCart={cart} />
+
+  {/* ===================== CROSS-SELL ===================== */}
+  {
+    crossSell.length > 0 && (
+      <section class="pt-section pb-section-sm">
+        <div class="container-mag">
+          <div class="mb-[34px] flex flex-wrap items-end justify-between gap-6" data-reveal>
+            <div>
+              <span class="mag-label mb-3.5">Complete the Look</span>
+              <h2 class="font-heading text-[clamp(36px,4vw,52px)] font-extrabold leading-[0.95]">
+                You may <em class="not-italic text-coral">also like.</em>
+              </h2>
+            </div>
+            <a
+              href="/products"
+              class="btn inline-flex h-[52px] items-center gap-2 rounded-sm bg-coral px-6 text-white transition-fluid hover:bg-coral-hover"
+            >
+              View All Products <Icon name="arrowRight" size={16} />
+            </a>
+          </div>
+          <div class="grid grid-cols-2 gap-3.5 sm:gap-6 lg:grid-cols-4" data-reveal>
+            {crossSell.map((product) => (
+              <ProductCard product={product} />
+            ))}
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  {/* ===================== CTA ===================== */}
+  <Cta />
+</BaseLayout>

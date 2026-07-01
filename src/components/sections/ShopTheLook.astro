@@ -1,0 +1,361 @@
+---
+// ============================================================
+//  ShopTheLook — interactive 3-tab lookbook. Tabs swap the stage
+//  image, hotspots and the product list. Each product has a size
+//  selector + a select toggle; the dark bundle bar totals the
+//  selected pieces (save 10%) and "Add All" pushes them to the cart.
+//  Looks are backed by real Shopify products (variantId ⇒ live cart).
+// ============================================================
+import MagHeading from '~/components/sections/MagHeading.astro';
+import Icon from '~/components/ui/Icon.astro';
+import { getProducts } from '~/lib/shopify';
+import { formatMoney } from '~/lib/utils';
+
+let pool: Awaited<ReturnType<typeof getProducts>>['items'] = [];
+try {
+  pool = (await getProducts({ pageSize: 12, sortKey: 'BEST_SELLING' })).items;
+} catch (err) {
+  console.error('[shop-the-look] product load failed:', (err as Error).message);
+}
+
+const SIZES = ['XS', 'S', 'M', 'L'];
+const HOTSPOTS = [
+  { x: '27%', y: '40%' },
+  { x: '52%', y: '64%' },
+  { x: '36%', y: '82%' },
+];
+const LOOK_DEFS = [
+  { id: '01', name: 'The Resort Edit', image: '/images/Look 01.png' },
+  { id: '02', name: 'City Tailoring', image: '/images/Look 02.png' },
+  { id: '03', name: 'Evening Soft', image: '/images/Look 03.png' },
+];
+
+const currency = pool[0]?.priceRange.minVariantPrice.currencyCode ?? 'USD';
+const pick = (i: number) => (pool.length ? pool[i % pool.length] : null);
+
+const looks = LOOK_DEFS.map((d, li) => {
+  const products = [0, 1, 2]
+    .map((j) => {
+      const p = pick(li * 3 + j);
+      if (!p) return null;
+      const amount = Number(p.priceRange.minVariantPrice.amount);
+      return {
+        variantId: p.variantId ?? '',
+        title: p.title,
+        cat: p.vendor || "L'ÉDITION",
+        amount,
+        price: formatMoney(amount, currency),
+        image: p.featuredImage?.url ?? d.image,
+      };
+    })
+    .filter((p): p is NonNullable<typeof p> => p !== null);
+  const original = products.reduce((s, p) => s + p.amount, 0);
+  return { ...d, products, original, bundle: original * 0.9 };
+});
+
+const hasLooks = looks[0]?.products.length > 0;
+---
+
+{
+  hasLooks && (
+    <section id="shop-the-look" class="pb-section" data-look-section>
+      <div class="container-mag">
+        <MagHeading eyebrow="Styled by the Editors" title="Shop the" em="Look" class="mb-10 md:mb-12">
+          {/* Tabs */}
+          <div slot="actions" class="hidden flex-none items-center gap-1 rounded-pill bg-surface p-1 shadow-xs lg:flex">
+            {looks.map((look, i) => (
+              <button
+                type="button"
+                data-look-tab
+                data-look={look.id}
+                class:list={[
+                  'look-tab flex items-center gap-2 rounded-pill px-4 py-2.5 text-[12.5px] font-semibold transition-fluid',
+                  i === 0 ? 'is-active' : 'text-text-muted hover:text-text-primary',
+                ]}
+              >
+                <span class="font-heading text-[13px] font-bold opacity-60">{look.id}</span>
+                {look.name}
+              </button>
+            ))}
+          </div>
+        </MagHeading>
+
+        {/* Mobile tab row */}
+        <div class="mb-6 flex gap-1 overflow-x-auto rounded-pill bg-surface p-1 shadow-xs lg:hidden">
+          {looks.map((look, i) => (
+            <button
+              type="button"
+              data-look-tab
+              data-look={look.id}
+              class:list={[
+                'look-tab flex flex-none items-center gap-1.5 rounded-pill px-3.5 py-2 text-[12px] font-semibold transition-fluid',
+                i === 0 ? 'is-active' : 'text-text-muted',
+              ]}
+            >
+              <span class="font-heading font-bold opacity-60">{look.id}</span>
+              {look.name}
+            </button>
+          ))}
+        </div>
+
+        {looks.map((look, li) => (
+          <div
+            data-look-panel
+            data-look={look.id}
+            data-currency={currency}
+            class:list={['grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[1.3fr_1fr]', li !== 0 && 'hidden']}
+          >
+            {/* ===== Left — stage + hotspots ===== */}
+            <div class="look-stage relative min-h-[440px] overflow-hidden rounded-3xl shadow-md md:min-h-[620px]">
+              <img src={look.image} alt={`${look.name} look`} loading="lazy" class="absolute inset-0 h-full w-full object-cover" />
+
+              <span class="absolute left-5 top-5 z-30 inline-flex items-center rounded-pill bg-white/95 px-3.5 py-2 text-[10px] font-bold uppercase tracking-[1px] text-text-primary shadow-xs">
+                Look {look.id} · {look.name}
+              </span>
+
+              {look.products.map((_, j) => (
+                <button
+                  type="button"
+                  data-hotspot
+                  data-index={j}
+                  aria-label={`Highlight item ${j + 1}`}
+                  class:list={['hotspot absolute z-40 flex h-9 w-9 items-center justify-center rounded-full shadow-md', j === 0 && 'is-active']}
+                  style={`left:${HOTSPOTS[j].x};top:${HOTSPOTS[j].y};transform:translate(-50%,-50%)`}
+                >
+                  <Icon name="plus" size={18} />
+                </button>
+              ))}
+            </div>
+
+            {/* ===== Right — note + products + bundle ===== */}
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center gap-3 rounded-2xl bg-coral-soft px-4 py-3">
+                <span class="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-coral text-white">
+                  <Icon name="star" size={18} />
+                </span>
+                <div>
+                  <b class="block text-[12.5px] font-bold text-text-primary">Styled by the L'ÉDITION editors</b>
+                  <span class="text-[11.5px] text-coral-hover">
+                    {look.products.length} pieces · {look.name}
+                  </span>
+                </div>
+              </div>
+
+              {look.products.map((p, j) => (
+                <article
+                  data-look-card
+                  data-index={j}
+                  data-variant={p.variantId}
+                  data-price={p.amount}
+                  data-selected="true"
+                  class:list={['look-card flex items-center gap-4 rounded-2xl border bg-white p-3 transition-fluid', j === 0 ? 'is-active' : 'border-border']}
+                >
+                  <img src={p.image} alt={p.title} loading="lazy" class="h-[74px] w-[64px] flex-none rounded-xl object-cover" />
+
+                  <div class="min-w-0 flex-1">
+                    <span class="text-[10px] font-bold uppercase tracking-[1px] text-green">{p.cat}</span>
+                    <h4 class="font-heading text-[18px] font-bold leading-tight text-text-primary">{p.title}</h4>
+                    <span class="text-[14px] font-bold tabular text-text-primary">{p.price}</span>
+                    <div class="mt-2 flex gap-1.5">
+                      {SIZES.map((s) => (
+                        <button
+                          type="button"
+                          data-size={s}
+                          class:list={['look-size grid h-7 w-7 place-items-center rounded-md text-[11px] font-bold transition-fluid', s === 'S' && 'is-on']}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    data-card-toggle
+                    aria-label={`Add ${p.title} to cart`}
+                    class="look-toggle grid h-10 w-10 flex-none place-items-center rounded-full bg-surface-cool text-text-primary transition-fluid hover:bg-coral hover:text-white"
+                  >
+                    <Icon name="plus" size={18} />
+                  </button>
+                </article>
+              ))}
+
+              {/* Bundle bar */}
+              <div class="mt-1 flex items-center justify-between gap-4 rounded-2xl bg-dark p-5 text-white">
+                <div class="min-w-0">
+                  <span class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[1.4px] text-white/70">
+                    Complete the Look
+                    <span class="rounded-pill bg-green px-2 py-0.5 text-[9px] font-bold tracking-[0.5px] text-white">Save 10%</span>
+                  </span>
+                  <div class="mt-1.5 flex items-baseline gap-2">
+                    <b class="font-heading text-2xl font-extrabold tabular" data-bundle-total>
+                      {formatMoney(look.bundle, currency)}
+                    </b>
+                    <s class="text-[14px] text-white/50 tabular" data-bundle-original>
+                      {formatMoney(look.original, currency)}
+                    </s>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  data-add-all
+                  class="inline-flex flex-none items-center gap-2 rounded-md bg-coral px-5 py-3.5 text-[12px] font-bold uppercase tracking-[0.5px] text-white transition-fluid hover:brightness-110 disabled:opacity-60"
+                >
+                  <span class="add-all-label inline-flex items-center gap-2">
+                    Add All <Icon name="arrowRight" size={16} />
+                  </span>
+                  <span class="add-all-spin hidden">
+                    <span class="block h-4 w-4 animate-spin rounded-pill border-2 border-current border-t-transparent" />
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+<style>
+  .look-tab.is-active {
+    background: var(--color-dark);
+    color: #fff;
+  }
+  .look-tab.is-active .opacity-60 {
+    opacity: 0.7;
+  }
+
+  /* Active product card — coral frame */
+  .look-card.is-active {
+    border-color: var(--color-coral);
+    box-shadow: 0 0 0 1px var(--color-coral);
+  }
+
+  /* Size pills */
+  .look-size {
+    background: var(--color-surface-cool);
+    color: var(--color-text-primary);
+  }
+  .look-size.is-on {
+    background: var(--color-dark);
+    color: #fff;
+  }
+
+  /* Hotspots */
+  .hotspot {
+    background: #fff;
+    color: var(--color-text-primary);
+    transition: transform 0.3s, background 0.3s, color 0.3s;
+  }
+  .hotspot.is-active {
+    background: var(--color-coral);
+    color: #fff;
+  }
+  .hotspot:hover {
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+
+  .look-stage::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgb(9 10 11 / 0.12), transparent 28%, rgb(9 10 11 / 0.2));
+  }
+</style>
+
+<script>
+  import { addItem, applyDiscountCode, openCart } from '~/stores/cart';
+
+  // Must exist as a real 10%-off discount in Shopify admin (code or automatic)
+  // for the saving to actually apply at checkout + show in the drawer.
+  const BUNDLE_CODE = 'BUNDLE10';
+
+  function initPanel(panel: HTMLElement): void {
+    const cards = Array.from(panel.querySelectorAll<HTMLElement>('[data-look-card]'));
+    const hotspots = Array.from(panel.querySelectorAll<HTMLElement>('[data-hotspot]'));
+    const addAll = panel.querySelector<HTMLButtonElement>('[data-add-all]');
+
+    const setActive = (idx: string) => {
+      cards.forEach((c) => c.classList.toggle('is-active', c.dataset.index === idx));
+      hotspots.forEach((h) => h.classList.toggle('is-active', h.dataset.index === idx));
+    };
+
+    cards.forEach((card) => {
+      // Spotlight follows the hovered (or focused) card — not a click.
+      const activate = () => setActive(card.dataset.index || '0');
+      card.addEventListener('mouseenter', activate);
+      card.addEventListener('focusin', activate);
+
+      // Size pills — purely select the size (no spotlight change).
+      card.querySelectorAll<HTMLButtonElement>('[data-size]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          card.querySelectorAll('[data-size]').forEach((b) => b.classList.toggle('is-on', b === btn));
+          card.dataset.size = btn.dataset.size;
+        });
+      });
+
+      // Per-card "+" — adds ONLY this product to the cart, opens the drawer.
+      const toggle = card.querySelector<HTMLButtonElement>('[data-card-toggle]');
+      toggle?.addEventListener('click', async () => {
+        const variant = card.dataset.variant;
+        if (!variant || card.dataset.busy) return;
+        card.dataset.busy = '1';
+        try {
+          await addItem(variant, 1); // opens the cart drawer + bumps the badge
+        } finally {
+          delete card.dataset.busy;
+        }
+      });
+    });
+
+    // Add All — every piece of the look, then the 10% bundle discount.
+    addAll?.addEventListener('click', async () => {
+      const items = cards.filter((c) => c.dataset.variant);
+      if (!items.length) return;
+      addAll.setAttribute('disabled', '');
+      panel.querySelector('.add-all-label')?.classList.add('hidden');
+      panel.querySelector('.add-all-spin')?.classList.remove('hidden');
+      try {
+        for (const c of items) {
+          await addItem(c.dataset.variant!, 1, { open: false });
+        }
+        // Apply the bundle discount, then reveal the cart once.
+        await applyDiscountCode([BUNDLE_CODE], { open: false });
+        openCart();
+      } finally {
+        addAll.removeAttribute('disabled');
+        panel.querySelector('.add-all-label')?.classList.remove('hidden');
+        panel.querySelector('.add-all-spin')?.classList.add('hidden');
+      }
+    });
+  }
+
+  function initShopTheLook(): void {
+    document.querySelectorAll<HTMLElement>('[data-look-section]').forEach((section) => {
+      if (section.dataset.bound) return;
+      section.dataset.bound = 'true';
+
+      const tabs = Array.from(section.querySelectorAll<HTMLButtonElement>('[data-look-tab]'));
+      const panels = Array.from(section.querySelectorAll<HTMLElement>('[data-look-panel]'));
+
+      tabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+          const id = tab.dataset.look;
+          tabs.forEach((t) => {
+            const on = t.dataset.look === id;
+            t.classList.toggle('is-active', on);
+            t.classList.toggle('text-text-muted', !on);
+          });
+          panels.forEach((p) => p.classList.toggle('hidden', p.dataset.look !== id));
+        });
+      });
+
+      panels.forEach(initPanel);
+    });
+  }
+
+  initShopTheLook();
+  document.addEventListener('astro:page-load', initShopTheLook);
+</script>

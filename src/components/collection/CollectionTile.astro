@@ -1,0 +1,68 @@
+---
+// ============================================================
+//  CollectionTile — editorial "department cover" card for the
+//  Collections index. Image with a dark scrim + inset frame,
+//  a numbered kicker, the collection title and a hover arrow.
+//  On-brand (L'ÉDITION design system); links to the collection PLP.
+// ============================================================
+import type { Collection } from '~/lib/shopify/types';
+import Icon from '~/components/ui/Icon.astro';
+
+interface Props {
+  collection: Collection;
+  index?: number;
+  eager?: boolean;
+}
+const { collection, index = 0, eager = false } = Astro.props;
+const hasImage = !!collection.image?.url;
+const no = String(index + 1).padStart(2, '0');
+---
+
+<a
+  href={`/collections/${collection.handle}`}
+  class="group relative flex aspect-[4/5] flex-col justify-end overflow-hidden rounded-xl bg-dark"
+  aria-label={collection.title}
+>
+  {
+    hasImage ? (
+      <img
+        src={collection.image!.url}
+        alt={collection.image!.altText ?? collection.title}
+        loading={eager ? 'eager' : 'lazy'}
+        class="absolute inset-0 h-full w-full object-cover opacity-90 transition-transform duration-[700ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.05]"
+      />
+    ) : (
+      <div class="absolute inset-0 bg-gradient-to-br from-coral-soft via-surface-cool to-blue-soft" />
+    )
+  }
+
+  {/* scrim + inset frame */}
+  <span class="pointer-events-none absolute inset-0 bg-gradient-to-t from-bg-deep/85 via-bg-deep/25 to-transparent"></span>
+  <span class="pointer-events-none absolute inset-3 rounded-lg ring-1 ring-inset ring-white/20"></span>
+
+  {/* top row — house kicker + index */}
+  <div class="absolute inset-x-0 top-0 z-[2] flex items-center justify-between p-5">
+    <span class="text-[10px] font-bold uppercase tracking-[2px] text-white/75">L'ÉDITION Dept.</span>
+    <span class="font-heading text-[14px] font-extrabold text-coral-soft">N°{no}</span>
+  </div>
+
+  {/* bottom — title + arrow */}
+  <div class="relative z-[2] p-5">
+    <span class="text-[10.5px] font-bold uppercase tracking-[1.8px] text-coral-soft">Collection</span>
+    <div class="mt-1 flex items-end justify-between gap-3">
+      <h3 class="font-heading text-[26px] font-extrabold uppercase leading-[0.95] text-white">
+        {collection.title}
+      </h3>
+      <span
+        class="grid h-9 w-9 shrink-0 translate-y-1 place-items-center rounded-full text-white opacity-0 ring-1 ring-white/40 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-y-0 group-hover:opacity-100"
+      >
+        <Icon name="arrowUpRight" size={16} />
+      </span>
+    </div>
+    {
+      collection.description && (
+        <p class="mt-2 line-clamp-1 max-w-[90%] text-[12.5px] text-white/70">{collection.description}</p>
+      )
+    }
+  </div>
+</a>

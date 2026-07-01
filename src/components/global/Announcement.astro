@@ -1,0 +1,284 @@
+---
+// ============================================================
+//  Announcement — the designer's dark `.util` bar.
+//  3 zones: info (date · location) · rotating ticker · selectors
+//  (currency · language · track order). Side zones hide < md.
+//  Ticker shows ONE message at a time, auto-fading every ~4.5s.
+//  Currency/language are COSMETIC disclosures (label persists,
+//  no real Shopify Markets switch) — accessible + dismissible.
+// ============================================================
+import Icon from '~/components/ui/Icon.astro';
+import { SITE } from '~/config/site';
+import { getLocalization } from '~/lib/shopify';
+import type { CurrencyOption, LanguageOption } from '~/lib/shopify';
+
+const items = SITE.announcements;
+
+// Server-rendered live date (node adapter renders per request).
+const today = new Date().toLocaleDateString('en-GB', {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+});
+
+// Rich fallback used when the store exposes only one market (e.g. USD-only)
+// or Shopify is unreachable. The switcher is cosmetic, so a full list keeps
+// the UX intact; Shopify's list takes over only when it has multiple markets.
+let currencies: CurrencyOption[] = [
+  { iso: 'USD', code: 'USD $', label: 'US Dollar', sym: '$' },
+  { iso: 'EUR', code: 'EUR €', label: 'Euro', sym: '€' },
+  { iso: 'GBP', code: 'GBP £', label: 'British Pound', sym: '£' },
+  { iso: 'JPY', code: 'JPY ¥', label: 'Japanese Yen', sym: '¥' },
+  { iso: 'CAD', code: 'CAD $', label: 'Canadian Dollar', sym: '$' },
+  { iso: 'AUD', code: 'AUD $', label: 'Australian Dollar', sym: '$' },
+  { iso: 'CHF', code: 'CHF ₣', label: 'Swiss Franc', sym: '₣' },
+  { iso: 'CNY', code: 'CNY ¥', label: 'Chinese Yuan', sym: '¥' },
+  { iso: 'INR', code: 'INR ₹', label: 'Indian Rupee', sym: '₹' },
+  { iso: 'AED', code: 'AED د.إ', label: 'UAE Dirham', sym: 'د.إ' },
+];
+let languages: LanguageOption[] = [
+  { code: 'EN', label: 'English' },
+  { code: 'FR', label: 'Français' },
+  { code: 'IT', label: 'Italiano' },
+  { code: 'DE', label: 'Deutsch' },
+  { code: 'ES', label: 'Español' },
+  { code: 'JP', label: '日本語' },
+];
+let activeCurrency = 'USD $';
+let activeLanguage = 'EN';
+
+try {
+  const loc = await getLocalization();
+  // Only adopt Shopify's lists when they carry real choice (>1); a
+  // single-market store would otherwise collapse the switcher to one row.
+  if (loc.currencies.length > 1) currencies = loc.currencies;
+  if (loc.languages.length > 1) languages = loc.languages;
+  if (loc.activeCurrency) activeCurrency = loc.activeCurrency;
+  if (loc.activeLanguage) activeLanguage = loc.activeLanguage;
+} catch (err) {
+  console.error('[announcement] localization load failed:', (err as Error).message);
+}
+---
+
+<div class="bg-dark text-white">
+  <div class="container-mag grid h-10 grid-cols-[auto_1fr_auto] items-center gap-5">
+    {/* Left — info (hidden < md) */}
+    <div class="hidden items-center gap-[18px] whitespace-nowrap md:flex">
+      <span class="flex items-center gap-1.5 text-[11px] tracking-[0.3px] text-white/65">
+        <Icon name="calendar" size={14} class="text-coral" />
+        {today}
+      </span>
+      <span class="flex items-center gap-1.5 text-[11px] tracking-[0.3px] text-white/65">
+        <Icon name="mapPin" size={14} class="text-coral" />
+        Paris Flagship · Open till 8pm
+      </span>
+    </div>
+
+    {/* Center — rotating single-message ticker */}
+    <div class="col-start-2 min-w-0">
+      <p class="sr-only">{items.join('. ')}.</p>
+      <div class="ticker relative h-10" data-ticker aria-hidden="true">
+        {
+          items.map((item, i) => (
+            <span class={`ticker__item${i === 0 ? ' on' : ''}`}>{item}</span>
+          ))
+        }
+      </div>
+    </div>
+
+    {/* Right — selectors (hidden < md) */}
+    <div class="hidden items-center gap-0.5 whitespace-nowrap md:flex">
+      {/* Currency */}
+      <div class="disclosure relative">
+        <button
+          type="button"
+          class="disclosure__btn flex items-center gap-1.5 rounded-xs px-2.5 py-2 text-[11px] font-semibold text-white transition-fluid hover:bg-white/10"
+          aria-expanded="false"
+          aria-haspopup="true"
+        >
+          <span class="disclosure__label">{activeCurrency}</span>
+          <Icon name="chevronDown" size={11} class="disclosure__caret transition-fluid" />
+        </button>
+        <div
+          class="disclosure__menu custom-scrollbar invisible absolute right-0 top-[calc(100%+8px)] z-[70] max-h-[280px] min-w-[170px] -translate-y-1.5 overflow-y-auto overscroll-contain rounded-sm bg-surface p-1.5 text-text-primary opacity-0 shadow-lg transition-fluid"
+        >
+          {
+            currencies.map((c) => (
+              <button
+                type="button"
+                data-value={c.code}
+                class="flex w-full items-center justify-between gap-3.5 rounded-xs px-2.5 py-2 text-[12.5px] font-semibold transition-fluid hover:bg-surface-cool"
+              >
+                <span>{c.label}</span>
+                <span class="font-medium text-text-muted">{c.sym}</span>
+              </button>
+            ))
+          }
+        </div>
+      </div>
+
+      {/* Language */}
+      <div class="disclosure relative">
+        <button
+          type="button"
+          class="disclosure__btn flex items-center gap-1.5 rounded-xs px-2.5 py-2 text-[11px] font-semibold text-white transition-fluid hover:bg-white/10"
+          aria-expanded="false"
+          aria-haspopup="true"
+        >
+          <Icon name="globe" size={13} />
+          <span class="disclosure__label">{activeLanguage}</span>
+          <Icon name="chevronDown" size={11} class="disclosure__caret transition-fluid" />
+        </button>
+        <div
+          class="disclosure__menu custom-scrollbar invisible absolute right-0 top-[calc(100%+8px)] z-[70] max-h-[280px] min-w-[170px] -translate-y-1.5 overflow-y-auto overscroll-contain rounded-sm bg-surface p-1.5 text-text-primary opacity-0 shadow-lg transition-fluid"
+        >
+          {
+            languages.map((l) => (
+              <button
+                type="button"
+                data-value={l.code}
+                class="flex w-full items-center justify-between gap-3.5 rounded-xs px-2.5 py-2 text-[12.5px] font-semibold transition-fluid hover:bg-surface-cool"
+              >
+                <span>{l.label}</span>
+                <span class="font-medium text-text-muted">{l.code}</span>
+              </button>
+            ))
+          }
+        </div>
+      </div>
+
+      <a
+        href="/account"
+        class="flex items-center gap-1.5 px-2.5 py-2 text-[11px] font-semibold text-white/70 transition-fluid hover:text-white"
+      >
+        <Icon name="package" size={14} />
+        Track Order
+      </a>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Ticker — stacked messages, one visible at a time. Items are
+     absolutely positioned so the row height never jumps. */
+  .ticker__item {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.5s var(--ease-out-soft), transform 0.5s var(--ease-out-soft);
+    pointer-events: none;
+  }
+  .ticker__item.on {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Disclosure open state (toggled via aria-expanded). */
+  .disclosure__btn[aria-expanded='true'] .disclosure__caret {
+    transform: rotate(180deg);
+  }
+  .disclosure__btn[aria-expanded='true'] + .disclosure__menu {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Thin, on-brand scrollbar for the capped dropdowns. */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 999px;
+  }
+</style>
+
+<script>
+  const TICKER_TIMERS = new Set<number>();
+
+  // Rotate the center ticker — one message at a time, fade/slide
+  // every 4.5s. Idempotent; timers cleared before View Transitions.
+  function initTicker(): void {
+    document.querySelectorAll<HTMLElement>('[data-ticker]').forEach((ticker) => {
+      if (ticker.dataset.bound) return;
+      ticker.dataset.bound = 'true';
+
+      const slides = Array.from(ticker.querySelectorAll<HTMLElement>('.ticker__item'));
+      if (slides.length < 2) return;
+
+      let i = 0;
+      const id = window.setInterval(() => {
+        slides[i].classList.remove('on');
+        i = (i + 1) % slides.length;
+        slides[i].classList.add('on');
+      }, 4500);
+      TICKER_TIMERS.add(id);
+    });
+  }
+
+  // Cosmetic currency/language disclosures.
+  function initDisclosures(): void {
+    document.querySelectorAll<HTMLElement>('.disclosure').forEach((group) => {
+      if (group.dataset.bound) return;
+      group.dataset.bound = 'true';
+
+      const btn = group.querySelector<HTMLButtonElement>('.disclosure__btn');
+      const label = group.querySelector<HTMLElement>('.disclosure__label');
+      if (!btn) return;
+
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const open = btn.getAttribute('aria-expanded') === 'true';
+        document
+          .querySelectorAll('.disclosure__btn[aria-expanded="true"]')
+          .forEach((b) => b.setAttribute('aria-expanded', 'false'));
+        btn.setAttribute('aria-expanded', String(!open));
+      });
+
+      group.querySelectorAll<HTMLButtonElement>('.disclosure__menu button').forEach((opt) => {
+        opt.addEventListener('click', () => {
+          if (label && opt.dataset.value) label.textContent = opt.dataset.value;
+          btn.setAttribute('aria-expanded', 'false');
+        });
+      });
+    });
+
+    if (!document.documentElement.dataset.disclosureGlobal) {
+      document.documentElement.dataset.disclosureGlobal = 'true';
+      const closeAll = (): void =>
+        document
+          .querySelectorAll('.disclosure__btn[aria-expanded="true"]')
+          .forEach((b) => b.setAttribute('aria-expanded', 'false'));
+      document.addEventListener('click', closeAll);
+      document.addEventListener('keydown', (e) => e.key === 'Escape' && closeAll());
+    }
+  }
+
+  function initAnnouncement(): void {
+    initTicker();
+    initDisclosures();
+  }
+
+  // Clear ticker timers before the DOM swaps out (View Transitions).
+  document.addEventListener('astro:before-swap', () => {
+    TICKER_TIMERS.forEach((id) => clearInterval(id));
+    TICKER_TIMERS.clear();
+  });
+
+  initAnnouncement();
+  document.addEventListener('astro:page-load', initAnnouncement);
+</script>

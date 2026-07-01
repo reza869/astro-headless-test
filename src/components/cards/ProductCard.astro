@@ -1,0 +1,252 @@
+---
+// ============================================================
+//  ProductCard — editorial product tile (designer .pcard).
+//  Data-true from a Shopify ProductCard. Links to the PDP;
+//  quick-add navigates to the PDP (grid data has no variant id).
+// ============================================================
+import Icon from '~/components/ui/Icon.astro';
+import { formatMoney, discountPercent } from '~/lib/utils';
+import type { ProductCard } from '~/lib/shopify/types';
+
+interface Props {
+  product: ProductCard;
+  /** Optional ranking badge (Best Sellers). */
+  rank?: number;
+  eager?: boolean;
+  /** Keep the wishlist/quick-view actions always visible (no hover reveal) —
+   *  used on the wishlist page so "remove" is reachable on touch devices. */
+  actionsVisible?: boolean;
+}
+
+const { product, rank, eager = false, actionsVisible = false } = Astro.props;
+
+// Hover-reveal utilities for the corner actions; suppressed when the caller
+// wants them permanently visible (e.g. the wishlist grid).
+const revealCls = actionsVisible
+  ? ''
+  : 'translate-x-3 opacity-0 group-hover:translate-x-0 group-hover:opacity-100';
+const price = product.priceRange.minVariantPrice;
+const compareAt = product.compareAtPriceRange?.minVariantPrice;
+const off = discountPercent(price, compareAt);
+const href = `/products/${product.handle}`;
+const img = product.featuredImage;
+---
+
+<article class="pcard group relative overflow-hidden rounded-lg bg-surface shadow-xs transition-fluid hover:-translate-y-[5px] hover:shadow-md">
+  <div class="relative aspect-[3/4] overflow-hidden bg-surface-cool">
+    {/* Tags / rank */}
+    {
+      rank ? (
+        <span class="absolute left-3 top-3 z-[2] grid h-9 w-9 place-items-center rounded-pill bg-dark font-heading text-[17px] font-bold text-white">
+          {String(rank).padStart(2, '0')}
+        </span>
+      ) : (
+        <div class="absolute left-3 top-3 z-[2] flex flex-col gap-1.5">
+          {off && (
+            <span class="rounded-pill bg-coral px-2.5 py-1.5 text-[9.5px] font-bold uppercase tracking-[0.8px] text-white">
+              -{off}%
+            </span>
+          )}
+          {!product.availableForSale && (
+            <span class="rounded-pill bg-dark px-2.5 py-1.5 text-[9.5px] font-bold uppercase tracking-[0.8px] text-white">
+              Sold out
+            </span>
+          )}
+        </div>
+      )
+    }
+
+    {/* Hover actions — wishlist (top) + quick view (below) */}
+    <div class="absolute right-3 top-3 z-[3] flex flex-col gap-2">
+      <button
+        type="button"
+        data-wishlist={product.id}
+        aria-label={`Add ${product.title} to wishlist`}
+        aria-pressed="false"
+        class:list={[
+          'wishlist-btn grid h-9 w-9 place-items-center rounded-full bg-white text-dark shadow-sm transition-fluid hover:scale-110',
+          revealCls,
+        ]}
+      >
+        <Icon name="heart" size={16} />
+      </button>
+      <button
+        type="button"
+        data-quick-view={product.handle}
+        aria-label={`Quick view ${product.title}`}
+        class:list={[
+          'quick-view-btn grid h-9 w-9 place-items-center rounded-full bg-white text-dark shadow-sm transition-fluid hover:scale-110 hover:bg-coral hover:text-white',
+          revealCls,
+        ]}
+      >
+        <Icon name="eye" size={17} />
+      </button>
+    </div>
+
+    <a href={href} class="block h-full w-full">
+      {
+        img ? (
+          <img
+            src={img.url}
+            alt={img.altText ?? product.title}
+            loading={eager ? 'eager' : 'lazy'}
+            decoding="async"
+            class="h-full w-full object-cover transition-transform duration-[1000ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.05]"
+          />
+        ) : (
+          <span class="grid h-full place-items-center text-text-muted">No image</span>
+        )
+      }
+    </a>
+
+  </div>
+
+  <div class="px-[17px] pb-[18px] pt-4">
+    {
+      product.vendor && (
+        <span class="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[1.1px] text-green">
+          <span class="h-[5px] w-[5px] rounded-pill bg-green" />
+          {product.vendor}
+        </span>
+      )
+    }
+    <a href={href}>
+      <h3 class="my-2 font-heading text-[21px] font-bold leading-[0.98] text-text-primary transition-fluid hover:text-coral">
+        {product.title}
+      </h3>
+    </a>
+    <div class="flex items-center justify-between border-t border-border pt-3">
+      <span class="text-[16px] font-bold tabular">
+        {formatMoney(price.amount, price.currencyCode)}
+        {
+          compareAt && off && (
+            <span class="ml-1.5 text-[12.5px] font-medium text-text-muted line-through">
+              {formatMoney(compareAt.amount, compareAt.currencyCode)}
+            </span>
+          )
+        }
+      </span>
+      {/* Compact add — price-row aligned, right. Live add when buyable, else → PDP */}
+      {
+        product.variantId && product.availableForSale ? (
+          <button
+            type="button"
+            data-variant-id={product.variantId}
+            aria-label={`Add ${product.title} to bag`}
+            class="add-to-bag-btn inline-flex flex-none items-center gap-1.5 rounded-md bg-dark px-3 py-2 text-[11px] font-bold uppercase tracking-[0.5px] text-white transition-fluid hover:bg-coral disabled:opacity-50 data-[loading]:pointer-events-none"
+          >
+            <span class="btn-default inline-flex items-center gap-1.5">
+              <Icon name="plus" size={14} /> Add
+            </span>
+            <span class="btn-loading hidden items-center gap-1.5">
+              <span class="h-3.5 w-3.5 animate-spin rounded-pill border-2 border-current border-t-transparent" />
+              Add
+            </span>
+          </button>
+        ) : (
+          <a
+            href={href}
+            class="inline-flex flex-none items-center gap-1.5 rounded-md bg-dark px-3 py-2 text-[11px] font-bold uppercase tracking-[0.5px] text-white transition-fluid hover:bg-coral"
+          >
+            <Icon name="plus" size={14} /> Add
+          </a>
+        )
+      }
+    </div>
+  </div>
+</article>
+
+<style>
+  /* Quick-add loading: swap the label for the inline spinner. */
+  .add-to-bag-btn[data-loading] .btn-default {
+    display: none;
+  }
+  .add-to-bag-btn[data-loading] .btn-loading {
+    display: inline-flex;
+  }
+
+  /* Wishlisted state — flip the button to solid coral, heart stays clean
+     white. Un-layered scoped rule, so it reliably overrides the bg-white /
+     text-dark utilities on the button without !important gymnastics. */
+  .wishlist-btn.is-active {
+    background: var(--color-coral);
+    color: #fff;
+  }
+</style>
+
+<script>
+  // Live quick-add for every grid card. Imports the shared nanostore action
+  // (same singleton the React CartDrawer + header badge subscribe to), so a
+  // successful add opens the drawer and bumps the count. Astro hoists this
+  // module once no matter how many cards render. Idempotent across View
+  // Transitions; event delegation covers cards added after load.
+  import { addItem } from '~/stores/cart';
+  import { $wishlist, toggleWishlist } from '~/stores/wishlist';
+
+  // Paint the active heart on every card for the given saved ids.
+  function paintWishlist(ids: string[]): void {
+    const set = new Set(ids);
+    document.querySelectorAll<HTMLElement>('.wishlist-btn').forEach((b) => {
+      const id = b.dataset.wishlist;
+      if (!id) return;
+      const active = set.has(id);
+      b.classList.toggle('is-active', active);
+      b.setAttribute('aria-pressed', String(active));
+    });
+  }
+
+  function wireCardActions(): void {
+    paintWishlist($wishlist.get()); // paint persisted hearts on this page
+
+    if (document.documentElement.dataset.cardActionsBound) return;
+    document.documentElement.dataset.cardActionsBound = 'true';
+
+    // Re-paint whenever the store changes (covers toggles from any card).
+    $wishlist.subscribe((ids) => paintWishlist(ids));
+
+    document.addEventListener('click', async (e) => {
+      const target = e.target as HTMLElement;
+
+      // Wishlist — toggle the shared store (persists + notifies the header).
+      const wl = target.closest<HTMLButtonElement>('.wishlist-btn');
+      if (wl) {
+        e.preventDefault();
+        const id = wl.dataset.wishlist;
+        if (id) {
+          toggleWishlist(id);
+          window.dispatchEvent(new CustomEvent('wishlist-updated'));
+        }
+        return;
+      }
+
+      // Quick view — fire a global CustomEvent the modal island listens for.
+      // Decoupled on purpose: this script never imports the modal, so the
+      // card markup stays bulletproof and the grid can never crash.
+      const qv = target.closest<HTMLButtonElement>('.quick-view-btn');
+      if (qv) {
+        e.preventDefault();
+        const handle = qv.dataset.quickView;
+        if (handle) window.dispatchEvent(new CustomEvent('quickview:open', { detail: { handle } }));
+        return;
+      }
+
+      // Quick add — live add-to-cart from the grid.
+      const btn = target.closest<HTMLButtonElement>('.add-to-bag-btn');
+      if (!btn) return;
+
+      e.preventDefault();
+      const variantId = btn.dataset.variantId;
+      if (!variantId || btn.hasAttribute('data-loading')) return;
+
+      btn.setAttribute('data-loading', '');
+      try {
+        await addItem(variantId, 1); // opens the CartDrawer on success
+      } finally {
+        btn.removeAttribute('data-loading');
+      }
+    });
+  }
+
+  wireCardActions();
+  document.addEventListener('astro:page-load', wireCardActions);
+</script>

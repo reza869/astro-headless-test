@@ -1,0 +1,293 @@
+/* ============================================================
+   shop-clone.css — shared runtime CSS for the faithful Magazine
+   mockup clones (/shop and /product/[handle]). Everything is
+   prefixed `.shop-clone` so it never leaks to the rest of the
+   storefront. Carries page-scoped tokens + JS-state classes +
+   pseudo-elements that Tailwind utilities can't express
+   (range thumbs, generated-element states). Static visual
+   styling lives in Tailwind utilities in the markup.
+   ============================================================ */
+
+.shop-clone {
+  --sh-xs: 0 2px 8px rgba(9, 10, 11, 0.05);
+  --sh-sm: 0 8px 24px rgba(9, 10, 11, 0.07);
+  --sh-md: 0 16px 44px rgba(9, 10, 11, 0.1);
+  --sh-lg: 0 28px 70px rgba(9, 10, 11, 0.16);
+  --ez: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.shop-clone ::selection {
+  background: var(--color-coral);
+  color: #fff;
+}
+
+/* ── Header states ─────────────────────────────────────────── */
+.shop-clone #head.scrolled {
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--sh-md);
+}
+.shop-clone .util-sel.open .util-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+.shop-clone .util-sel.open .caret {
+  transform: rotate(180deg);
+}
+.shop-clone .profile-wrap.open .profile-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+.shop-clone .util-tick span {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  font-size: 10.5px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #fff;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: all 0.5s var(--ez);
+}
+.shop-clone .util-tick span.on {
+  opacity: 1;
+  transform: translateY(0);
+}
+.shop-clone .util-tick b {
+  color: var(--color-coral-soft);
+  font-weight: 700;
+}
+
+/* ── Deck states (/shop) ───────────────────────────────────── */
+.shop-clone .deck.open {
+  box-shadow: inset 0 0 0 1px var(--color-border), var(--sh-md);
+}
+.shop-clone .deck.open .deck-panel {
+  max-height: 1400px;
+}
+.shop-clone .deck-tabs {
+  scrollbar-width: none;
+}
+.shop-clone .deck-tabs::-webkit-scrollbar {
+  display: none;
+}
+.shop-clone .sortpill.on {
+  background: var(--color-coral);
+  color: #fff;
+  box-shadow: none;
+}
+.shop-clone .view-toggle button.on {
+  background: var(--color-text-primary);
+  color: #fff;
+}
+.shop-clone .refine-btn.has .rb-num {
+  display: inline-flex;
+}
+.shop-clone .refine-btn.open-state {
+  background: var(--color-surface-cool);
+  color: var(--color-text-primary);
+}
+.shop-clone .refine-btn.open-state .rb-num {
+  background: var(--color-coral);
+  color: #fff;
+}
+.shop-clone .deck-tab.active {
+  color: var(--color-text-primary);
+}
+.shop-clone .deck-tab.active::after {
+  content: '';
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 0;
+  height: 3px;
+  background: var(--color-coral);
+}
+.shop-clone .deck-tab.active .cnt {
+  background: var(--color-coral);
+  color: #fff;
+}
+
+/* ── Refine panel — range thumbs + generated-element states ─── */
+.shop-clone .dp-rng::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-dark);
+  box-shadow: 0 0 0 3px #fff, 0 2px 8px rgba(9, 10, 11, 0.25);
+  cursor: pointer;
+  pointer-events: auto;
+}
+.shop-clone .dp-rng::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-dark);
+  box-shadow: 0 0 0 3px #fff;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.shop-clone .dp-bucket.on {
+  background: var(--color-dark);
+  color: #fff;
+}
+.shop-clone .dp-chip.on {
+  background: var(--color-coral);
+  color: #fff;
+  box-shadow: none;
+}
+.shop-clone .dp-rate.on {
+  background: var(--color-coral);
+  color: #fff;
+  box-shadow: none;
+}
+.shop-clone .dp-rate.on .rs {
+  color: #fff;
+}
+.shop-clone .dp-toggle::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--color-border);
+  transition: background 0.2s;
+}
+.shop-clone .dp-toggle.on {
+  background: var(--color-green);
+  color: #fff;
+  box-shadow: none;
+}
+.shop-clone .dp-toggle.on::before {
+  background: #fff;
+}
+.shop-clone .dp-sw i.on::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--color-coral);
+}
+.shop-clone .qv-sizes button.active {
+  background: var(--color-dark);
+  color: #fff;
+}
+
+/* ── Product grid columns (/shop) ──────────────────────────── */
+.shop-clone .shop-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+.shop-clone .shop-grid.cols4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+@media (max-width: 1080px) {
+  .shop-clone .shop-grid,
+  .shop-clone .shop-grid.cols4 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 760px) {
+  .shop-clone .shop-grid,
+  .shop-clone .shop-grid.cols4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 480px) {
+  .shop-clone .shop-grid,
+  .shop-clone .shop-grid.cols4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Touch devices have no :hover, so the hover-revealed product-card actions
+   (Add to Bag, wishlist, quick-view) would be permanently invisible and
+   unusable. Reveal them by default wherever hover isn't available. */
+@media (hover: none) {
+  .shop-clone .pc-add,
+  .shop-clone .card-wish,
+  .shop-clone .quick-view {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Overlay open/close states (shared) ────────────────────── */
+.shop-clone .search-overlay.open,
+.shop-clone .qv-overlay.open,
+.shop-clone .drawer-overlay.open,
+.shop-clone .rvf-overlay.open {
+  opacity: 1;
+  visibility: visible;
+}
+.shop-clone .search-overlay.open .search-panel {
+  transform: translateY(0);
+}
+.shop-clone .qv-overlay.open .qv {
+  transform: translateY(0) scale(1);
+}
+.shop-clone .rvf-overlay.open .rvf {
+  transform: none;
+}
+.shop-clone .cart-drawer.open {
+  transform: translateX(0);
+}
+.shop-clone .mobile-nav.open {
+  transform: translateX(0);
+}
+.shop-clone .toast.show {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ── Product detail (/product) — gallery / options / accordion ─ */
+.shop-clone .pg-thumb.on {
+  opacity: 1;
+  box-shadow: inset 0 0 0 2px var(--color-coral);
+}
+.shop-clone .opt-color::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: var(--radius-pill);
+  border: 2px solid transparent;
+  transition: border-color 0.2s;
+}
+.shop-clone .opt-color.on::after {
+  border-color: var(--color-text-primary);
+}
+.shop-clone .opt-size.on {
+  background: var(--color-text-primary);
+  color: #fff;
+  box-shadow: none;
+}
+.shop-clone .opt-size.off {
+  opacity: 0.4;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+.shop-clone .acc-item.open .acc-caret {
+  transform: rotate(45deg);
+}
+.shop-clone .pg-fav.on {
+  color: var(--color-coral);
+}
+
+/* ── Product reviews + write-a-review modal ────────────────── */
+.shop-clone .rv-fp.on {
+  background: var(--color-coral);
+  color: #fff;
+  box-shadow: none;
+}
+.shop-clone .rvf-stars i.on {
+  color: var(--color-coral);
+}
+.shop-clone .rvf input:focus,
+.shop-clone .rvf textarea:focus {
+  box-shadow: inset 0 0 0 2px var(--color-coral);
+}

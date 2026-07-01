@@ -1,0 +1,497 @@
+---
+// ============================================================
+//  Blog detail — faithful port of the designer BlogPost.html.
+//  A single Shopify article: reading-progress bar, centred header,
+//  cover image + caption, a drop-cap prose column with a sticky
+//  share + author aside, footer tags, and a "More from the
+//  Journal" rail of compact cards.
+// ============================================================
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import Cta from '~/components/sections/Cta.astro';
+import Icon from '~/components/ui/Icon.astro';
+import { categoryTone } from '~/lib/article-utils';
+import { getArticle, getRelatedArticles } from '~/lib/shopify';
+import type { Article, ArticleCard as TArticleCard } from '~/lib/shopify/types';
+
+export const prerender = false;
+
+const { handle } = Astro.params;
+
+let article: Article | null = null;
+let related: TArticleCard[] = [];
+let loadFailed = false;
+
+try {
+  article = await getArticle(handle!);
+} catch (err) {
+  loadFailed = true;
+  console.error('[blog] article load failed:', (err as Error).message);
+}
+
+if (article) {
+  related = await getRelatedArticles(article.handle, 3).catch(() => []);
+}
+
+if (loadFailed) {
+  Astro.response.status = 503;
+} else if (!article) {
+  Astro.response.status = 404;
+}
+
+const date = article?.publishedAt
+  ? new Date(article.publishedAt).toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    })
+  : '';
+const cat = article ? (article.tags?.[0] ?? article.blogTitle ?? 'Journal') : '';
+const author = article?.author?.name ?? 'The Editors';
+const role = article?.blogTitle || 'Contributor';
+const initials = author
+  .split(' ')
+  .map((p) => p[0])
+  .slice(0, 2)
+  .join('')
+  .toUpperCase();
+const bio =
+  article?.author?.bio ||
+  `${author} writes for the L'ÉDITION Journal — dispatches on the people, places and process behind each collection.`;
+
+const chipTone: Record<string, string> = {
+  coral: 'bg-coral-soft text-coral-hover',
+  green: 'bg-green-soft text-green-hover',
+  blue: 'bg-blue-soft text-blue-hover',
+};
+---
+
+{
+  article ? (
+    <BaseLayout
+      title={article.seo?.title ?? article.title}
+      description={article.seo?.description ?? article.excerpt}
+      image={article.image?.url}
+    >
+      {/* Reading progress */}
+      <div
+        data-read-prog
+        class="fixed left-0 top-0 z-[300] h-[3px] w-0 bg-coral transition-[width] duration-100 ease-linear"
+      />
+
+      {/* ===================== ARTICLE HEADER ===================== */}
+      <section class="pt-[42px] pb-[22px]">
+        <div class="container-mag">
+          <div class="mx-auto max-w-[880px] text-center" data-enter data-stagger>
+            <div class="mb-5 inline-flex items-center gap-[11px] text-[11px] font-extrabold uppercase tracking-[1.8px] text-coral">
+              <span>{cat}</span>
+              <span class="h-1 w-1 rounded-pill bg-text-muted" />
+              <span class="text-text-muted">{article.readMinutes} min read</span>
+            </div>
+            <h1 class="mb-[22px] font-heading text-[clamp(40px,5.6vw,82px)] font-extrabold leading-[0.9] tracking-[-1px]">
+              {article.title}
+            </h1>
+            <p class="mx-auto max-w-[680px] text-[clamp(17px,1.4vw,20px)] leading-[1.6] text-text-secondary">
+              {article.excerpt}
+            </p>
+            <div class="mt-[30px] flex items-center justify-center gap-[13px]">
+              <span class="grid h-12 w-12 place-items-center rounded-pill bg-dark text-[14px] font-bold text-white">
+                {initials}
+              </span>
+              <div class="text-left">
+                <b class="block text-sm font-bold text-text-primary">{author}</b>
+                <span class="text-[12.5px] text-text-muted">{role} · {date}</span>
+              </div>
+            </div>
+          </div>
+
+          {article.image && (
+            <>
+              <figure class="mx-auto mt-[42px] overflow-hidden rounded-xl bg-surface-cool">
+                <img
+                  src={article.image.url}
+                  alt={article.image.altText ?? article.title}
+                  loading="eager"
+                  class="block max-h-[600px] w-full object-cover"
+                />
+              </figure>
+              {article.image.altText && (
+                <p class="mt-3 text-center text-[12.5px] text-text-muted">{article.image.altText}</p>
+              )}
+            </>
+          )}
+        </div>
+      </section>
+
+      {/* ===================== ARTICLE BODY ===================== */}
+      <section class="pb-5">
+        <div class="container-mag">
+          <div class="mx-auto grid max-w-[1120px] grid-cols-1 items-start gap-[58px] pt-[52px] lg:grid-cols-[minmax(0,1fr)_290px]">
+            <article data-post-article>
+              <div class="post-rte" set:html={article.contentHtml} />
+
+              {/* Footer tags */}
+              {article.tags && article.tags.length > 0 && (
+                <div class="mt-9 flex flex-wrap gap-2 border-t border-border pt-[26px]">
+                  {article.tags.map((t) => (
+                    <a
+                      href={`/blog?tag=${encodeURIComponent(t)}`}
+                      class="rounded-pill bg-surface-cool px-3.5 py-2 text-xs font-semibold text-text-secondary transition-fluid hover:text-text-primary"
+                    >
+                      #{t.replace(/\s+/g, '')}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </article>
+
+            {/* Sticky aside */}
+            <aside class="flex flex-col gap-5 max-lg:flex-row max-lg:flex-wrap lg:sticky lg:top-[96px]">
+              <div class="rounded-lg bg-surface p-[22px] ring-1 ring-inset ring-border max-lg:min-w-[220px] max-lg:flex-1">
+                <h6 class="mb-3.5 text-[10.5px] font-extrabold uppercase tracking-[1.6px] text-text-muted">
+                  Share this story
+                </h6>
+                <div class="flex gap-2.5" data-share-row>
+                  {[
+                    { k: 'link', icon: 'link', label: 'Copy link' },
+                    { k: 'x', icon: 'x', label: 'Share on X' },
+                    { k: 'pinterest', icon: 'pinterest', label: 'Share on Pinterest' },
+                    { k: 'email', icon: 'mail', label: 'Share by email' },
+                  ].map((s) => (
+                    <button
+                      type="button"
+                      data-share={s.k}
+                      aria-label={s.label}
+                      class="grid h-[42px] w-[42px] place-items-center rounded-pill bg-surface-cool text-text-primary transition-fluid hover:bg-coral hover:text-white"
+                    >
+                      <Icon name={s.icon as 'link' | 'x' | 'pinterest' | 'mail'} size={18} />
+                    </button>
+                  ))}
+                </div>
+                <span data-share-toast class="mt-2.5 hidden text-[11.5px] font-semibold text-green">
+                  Link copied to clipboard
+                </span>
+              </div>
+
+              <div class="rounded-lg bg-surface p-[22px] text-center ring-1 ring-inset ring-border max-lg:min-w-[220px] max-lg:flex-1">
+                <span class="mx-auto mb-3 grid h-[72px] w-[72px] place-items-center rounded-pill bg-dark text-[22px] font-bold text-white">
+                  {initials}
+                </span>
+                <div class="font-heading text-[22px] font-bold">{author}</div>
+                <div class="mb-3 mt-[3px] text-[11.5px] font-bold uppercase tracking-[1px] text-coral">
+                  {role}
+                </div>
+                <p class="mb-4 text-[13px] leading-[1.6] text-text-secondary">{bio}</p>
+                <button
+                  type="button"
+                  data-follow
+                  class="btn h-11 w-full rounded-sm bg-dark text-[12px] tracking-[1px] text-white transition-colors duration-300 hover:bg-dark-hover"
+                >
+                  Follow
+                </button>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      {/* ===================== MORE FROM THE JOURNAL ===================== */}
+      {related.length > 0 && (
+        <section class="pt-section pb-section-sm">
+          <div class="container-mag">
+            <div class="mb-8 flex flex-wrap items-end justify-between gap-5" data-reveal>
+              <div>
+                <span class="mag-label mb-3">Keep Reading</span>
+                <h2 class="font-heading text-[clamp(32px,3.6vw,48px)] font-extrabold leading-[0.95]">
+                  More from the <em class="not-italic text-coral">Journal.</em>
+                </h2>
+              </div>
+              <a
+                href="/blog"
+                class="btn inline-flex h-[52px] items-center gap-2 rounded-sm bg-coral px-6 text-white transition-fluid hover:bg-coral-hover"
+              >
+                All Stories <Icon name="arrowRight" size={16} />
+              </a>
+            </div>
+
+            <div class="grid grid-cols-1 gap-7 sm:grid-cols-2 lg:grid-cols-3" data-reveal>
+              {related.map((a) => {
+                const rc = a.tags?.[0] ?? a.blogTitle ?? 'Journal';
+                return (
+                  <a
+                    href={`/blog/${a.handle}`}
+                    class="mcard group relative flex flex-col rounded-lg bg-surface"
+                  >
+                    <span class="relative block aspect-[3/2] overflow-hidden rounded-t-lg bg-surface-cool">
+                      <span
+                        class:list={[
+                          'absolute left-[13px] top-[13px] z-[2] rounded-pill px-[11px] py-1.5 text-[10.5px] font-extrabold uppercase tracking-[0.8px]',
+                          chipTone[categoryTone(rc)],
+                        ]}
+                      >
+                        {rc}
+                      </span>
+                      {a.image ? (
+                        <img
+                          src={a.image.url}
+                          alt={a.image.altText ?? a.title}
+                          loading="lazy"
+                          class="h-full w-full object-cover transition-transform duration-[900ms] ease-[cubic-bezier(0.22,0.61,0.36,1)] group-hover:scale-[1.05]"
+                        />
+                      ) : (
+                        <span class="grid h-full place-items-center bg-gradient-to-br from-coral-soft via-surface-cool to-blue-soft text-text-muted/60">
+                          <span class="font-heading text-xl font-bold">L'ÉDITION</span>
+                        </span>
+                      )}
+                    </span>
+                    <div class="p-[20px_20px_22px]">
+                      <h3 class="mb-2.5 font-heading text-[21px] font-bold leading-[1.05] transition-fluid group-hover:text-coral">
+                        {a.title}
+                      </h3>
+                      <div class="text-xs text-text-muted">
+                        {a.author?.name ?? 'The Editors'} · {a.readMinutes} min read
+                      </div>
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
+      <Cta />
+
+      {/* ===================== POST INTERACTIONS ===================== */}
+      <script>
+        // Reading-progress bar, share buttons (copy/X/Pinterest/email), and
+        // the Follow toggle. Idempotent + View-Transition safe.
+        function initPost(): void {
+          const root = document.querySelector<HTMLElement>('[data-post-article]');
+          const prog = document.querySelector<HTMLElement>('[data-read-prog]');
+          if (!root || root.dataset.bound) return;
+          root.dataset.bound = 'true';
+
+          // Reading progress relative to the article column.
+          const onScroll = (): void => {
+            if (!prog) return;
+            const total = root.offsetHeight - window.innerHeight;
+            const done = Math.min(Math.max(-root.getBoundingClientRect().top, 0), Math.max(total, 1));
+            prog.style.width = (done / Math.max(total, 1)) * 100 + '%';
+          };
+          onScroll();
+          window.addEventListener('scroll', onScroll, { passive: true });
+          window.addEventListener('resize', onScroll, { passive: true });
+
+          // Share.
+          const row = document.querySelector<HTMLElement>('[data-share-row]');
+          const toast = document.querySelector<HTMLElement>('[data-share-toast]');
+          const url = window.location.href;
+          const title = document.title;
+          row?.addEventListener('click', async (e) => {
+            const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-share]');
+            if (!btn) return;
+            const k = btn.dataset.share;
+            const u = encodeURIComponent(url);
+            const t = encodeURIComponent(title);
+            if (k === 'link') {
+              try {
+                await navigator.clipboard.writeText(url);
+              } catch {
+                /* clipboard blocked — non-critical */
+              }
+              if (toast) {
+                toast.classList.remove('hidden');
+                window.setTimeout(() => toast.classList.add('hidden'), 2200);
+              }
+            } else if (k === 'x') {
+              window.open(`https://twitter.com/intent/tweet?url=${u}&text=${t}`, '_blank', 'noopener');
+            } else if (k === 'pinterest') {
+              window.open(
+                `https://pinterest.com/pin/create/button/?url=${u}&description=${t}`,
+                '_blank',
+                'noopener',
+              );
+            } else if (k === 'email') {
+              window.location.href = `mailto:?subject=${t}&body=${u}`;
+            }
+          });
+
+          // Follow (decorative toggle).
+          const follow = document.querySelector<HTMLButtonElement>('[data-follow]');
+          follow?.addEventListener('click', () => {
+            const on = follow.textContent?.trim() === 'Follow';
+            follow.textContent = on ? 'Following ✓' : 'Follow';
+          });
+        }
+
+        initPost();
+        document.addEventListener('astro:page-load', initPost);
+      </script>
+    </BaseLayout>
+  ) : (
+    <BaseLayout title={loadFailed ? 'Something went wrong' : 'Story not found'}>
+      <div class="container-mag flex flex-col items-center py-28 text-center">
+        <span class="mag-label mb-3">{loadFailed ? 'Error 503' : 'Error 404'}</span>
+        <h1 class="h2">{loadFailed ? 'Something went wrong' : 'Story not found'}</h1>
+        <p class="mt-3 text-text-secondary">
+          {loadFailed
+            ? "We couldn't load this story right now. Please try again shortly."
+            : "We couldn't find that story."}
+        </p>
+        <a
+          href="/blog"
+          class="btn mt-6 inline-flex h-11 items-center rounded-sm bg-dark px-6 text-white transition-fluid hover:bg-dark-hover"
+        >
+          Back to the Journal
+        </a>
+      </div>
+    </BaseLayout>
+  )
+}
+
+<style>
+  /* Related-card hover lift — transform-only (GPU) + pseudo-element shadow
+     fade, so the rise stays buttery (no box-shadow CPU paint). */
+  .mcard {
+    box-shadow: var(--shadow-xs);
+    transform: translateZ(0);
+    transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .mcard::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    box-shadow: var(--shadow-lg);
+    opacity: 0;
+    transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+  }
+  .mcard:hover {
+    transform: translateY(-7px);
+  }
+  .mcard:hover::after {
+    opacity: 1;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mcard,
+    .mcard::after {
+      transition: none;
+    }
+    .mcard:hover {
+      transform: none;
+    }
+  }
+
+  /* ===== Article prose (designer .post-prose) — styles the Shopify
+     contentHtml injected via set:html, hence the :global() descendants. ===== */
+  .post-rte :global(p) {
+    font-size: 17px;
+    line-height: 1.82;
+    color: var(--color-text-secondary);
+    margin-bottom: 22px;
+  }
+  /* Drop cap on the first paragraph. */
+  .post-rte :global(p:first-of-type)::first-letter {
+    float: left;
+    font-family: var(--font-heading);
+    font-size: 72px;
+    line-height: 0.68;
+    font-weight: 800;
+    color: var(--color-coral);
+    margin: 8px 12px 0 0;
+  }
+  .post-rte :global(h2) {
+    font-family: var(--font-heading);
+    font-size: clamp(28px, 2.4vw, 36px);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.3px;
+    color: var(--color-text-primary);
+    margin: 40px 0 16px;
+  }
+  .post-rte :global(h3) {
+    font-family: var(--font-heading);
+    font-size: 23px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 30px 0 12px;
+  }
+  .post-rte :global(ul),
+  .post-rte :global(ol) {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+    margin: 0 0 24px;
+    padding: 0;
+  }
+  .post-rte :global(li) {
+    display: flex;
+    gap: 11px;
+    align-items: flex-start;
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--color-text-secondary);
+  }
+  .post-rte :global(li)::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--color-coral);
+    margin-top: 9px;
+    flex: none;
+  }
+  .post-rte :global(a) {
+    color: var(--color-blue);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .post-rte :global(strong) {
+    color: var(--color-text-primary);
+    font-weight: 700;
+  }
+  .post-rte :global(blockquote) {
+    margin: 34px 0;
+    padding: 6px 0 6px 26px;
+    border-left: 3px solid var(--color-coral);
+    font-family: var(--font-heading);
+    font-size: clamp(24px, 2.2vw, 30px);
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--color-text-primary);
+  }
+  .post-rte :global(blockquote p) {
+    font-family: var(--font-heading);
+    font-size: inherit;
+    line-height: inherit;
+    color: inherit;
+    margin: 0;
+  }
+  .post-rte :global(figure) {
+    margin: 34px 0;
+  }
+  .post-rte :global(img) {
+    width: 100%;
+    border-radius: var(--radius-lg);
+    display: block;
+    margin: 34px 0;
+  }
+  .post-rte :global(figure img) {
+    margin: 0;
+  }
+  .post-rte :global(figcaption) {
+    font-size: 12.5px;
+    color: var(--color-text-muted);
+    text-align: center;
+    margin-top: 11px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-read-prog] {
+      transition: none;
+    }
+  }
+</style>

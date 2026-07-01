@@ -1,0 +1,76 @@
+---
+// ============================================================
+//  Hero — editorial masthead + framed featured specimen.
+//  The product is shown as a catalogue plate with mono metadata.
+// ============================================================
+import type { ProductCard } from '~/lib/shopify/types';
+import { formatMoney } from '~/lib/utils';
+import Button from '~/components/ui/Button.astro';
+import Contour from '~/components/ui/Contour.astro';
+import Icon from '~/components/ui/Icon.astro';
+
+interface Props {
+  featured?: ProductCard | null;
+}
+const { featured } = Astro.props;
+const price = featured?.priceRange.minVariantPrice;
+---
+
+<section class="contour-field overflow-hidden border-b border-border">
+  <Contour class="opacity-50" />
+  <div class="wrap grid items-center gap-10 py-14 md:grid-cols-2 md:gap-12 md:py-20 lg:py-24">
+    {/* Copy */}
+    <div class="max-w-xl">
+      <p class="text-[11px] font-bold uppercase tracking-[1.8px] mb-5 flex items-center gap-2 text-coral">
+        <span class="inline-block h-px w-8 bg-coral"></span>
+        New Season · Drop 01
+      </p>
+      <h1 class="masthead text-[15vw] uppercase leading-[0.9] sm:text-6xl md:text-7xl lg:text-[5.5rem]">
+        Made to<br />move
+      </h1>
+      <p class="mt-6 max-w-md text-base text-text-secondary md:text-lg">
+        Considered everyday apparel — better materials, cleaner cuts, made for the way you
+        actually live.
+      </p>
+      <div class="mt-8 flex flex-wrap items-center gap-3">
+        <Button href="/products" variant="ink" size="lg">
+          Shop the drop
+          <Icon name="arrowRight" size={18} />
+        </Button>
+        <Button href="/collections" variant="outline" size="lg">Explore collections</Button>
+      </div>
+    </div>
+
+    {/* Featured specimen */}
+    {
+      featured && (
+        <a href={`/products/${featured.handle}`} class="group relative block">
+          <div class="relative aspect-[4/5] overflow-hidden rounded-xl border border-border bg-surface md:aspect-[5/6]">
+            {featured.featuredImage && (
+              <img
+                src={featured.featuredImage.url}
+                alt={featured.featuredImage.altText ?? featured.title}
+                fetchpriority="high"
+                class="h-full w-full object-cover transition-transform duration-[800ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.04]"
+              />
+            )}
+            {/* Mono metadata plate */}
+            <div class="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 bg-gradient-to-t from-ink/70 to-transparent p-5 pt-12">
+              <div>
+                <p class="text-[11px] font-bold uppercase tracking-[1.8px] text-white/70">Featured · 01</p>
+                <p class="mt-1 max-w-[14rem] text-lg font-semibold leading-tight text-white">
+                  {featured.title}
+                </p>
+              </div>
+              {price && (
+                <span class="shrink-0 rounded-md bg-surface px-3 py-1.5 font-mono text-sm font-medium text-text-primary tabular">
+                  {formatMoney(price.amount, price.currencyCode)}
+                </span>
+              )}
+            </div>
+          </div>
+        </a>
+      )
+    }
+  </div>
+</section>

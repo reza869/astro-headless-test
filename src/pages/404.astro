@@ -1,0 +1,109 @@
+---
+// ============================================================
+//  404 — on-brand "page not found". Editorial masthead (oversized
+//  404 with a coral accent), a working search that hands off to the
+//  theme's /search, primary actions, and a popular-destinations
+//  grid. Chrome + motion from BaseLayout; same design tokens
+//  (mag-label · h-scale · coral · surface/ring) used site-wide.
+// ============================================================
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import Icon from '~/components/ui/Icon.astro';
+
+const links = [
+  { label: 'New Arrivals', href: '/collections/new-arrivals', icon: 'fire' },
+  { label: 'Shop All', href: '/collections/all', icon: 'bag' },
+  { label: 'The Journal', href: '/blog', icon: 'files' },
+  { label: 'Contact Us', href: '/contact', icon: 'mail' },
+] as const;
+
+const description =
+  "The page you're after doesn't exist — search the store or head back to something good.";
+---
+
+<BaseLayout title="Page not found (404)" description={description}>
+  <section class="py-section">
+    <div class="container-mag">
+      {/* ── Masthead ─────────────────────────────────────── */}
+      <div class="mx-auto max-w-[780px] text-center" data-enter data-stagger>
+        <span class="mag-label mb-6 justify-center">Error 404 · Page not found</span>
+
+        <p
+          class="font-heading text-[clamp(110px,26vw,300px)] font-extrabold uppercase leading-[0.78] tracking-[-3px] text-text-primary"
+        >
+          4<em class="not-italic text-coral">0</em>4
+        </p>
+
+        <h1 class="h2 mt-3 uppercase">Lost the <em class="not-italic text-coral">thread.</em></h1>
+        <p class="mx-auto mt-4 max-w-[460px] text-base leading-[1.65] text-text-secondary">
+          This page doesn't exist — the link may be broken, or the piece has sold out. Let's get you
+          back to something good.
+        </p>
+
+        {/* Search — hands off to the theme's /search */}
+        <form
+          action="/search"
+          method="get"
+          role="search"
+          class="mx-auto mt-8 flex max-w-[460px] items-center gap-1.5 rounded-sm bg-surface-cool p-1.5 ring-1 ring-inset ring-border transition-shadow focus-within:ring-coral"
+        >
+          <span class="grid h-11 w-11 flex-none place-items-center text-text-muted">
+            <Icon name="search" size={18} />
+          </span>
+          <input
+            type="search"
+            name="q"
+            placeholder="Search products, journal, pages…"
+            aria-label="Search the store"
+            class="min-w-0 flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted focus:outline-none"
+          />
+          <button
+            type="submit"
+            class="btn inline-flex h-11 flex-none items-center gap-2 rounded-xs bg-coral px-5 text-white transition-fluid hover:bg-coral-hover"
+          >
+            Search
+          </button>
+        </form>
+
+        {/* Primary actions */}
+        <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <a
+            href="/"
+            class="btn inline-flex h-12 items-center gap-2.5 rounded-sm bg-dark px-6 text-white transition-fluid hover:bg-dark-hover"
+          >
+            <Icon name="chevronLeft" size={16} /> Back home
+          </a>
+          <a
+            href="/collections/all"
+            class="btn inline-flex h-12 items-center gap-2 rounded-sm border border-border px-6 text-text-primary transition-fluid hover:border-dark hover:text-coral"
+          >
+            Shop all products
+          </a>
+        </div>
+      </div>
+
+      {/* ── Popular destinations ─────────────────────────── */}
+      <div class="mx-auto mt-14 max-w-[780px]" data-reveal>
+        <p class="mb-4 text-center text-[11px] font-bold uppercase tracking-[1.6px] text-text-muted">
+          Popular destinations
+        </p>
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {
+            links.map((l) => (
+              <a
+                href={l.href}
+                class="group flex items-center gap-3 rounded-lg bg-surface p-4 ring-1 ring-inset ring-border transition-fluid hover:-translate-y-1 hover:shadow-md"
+              >
+                <span class="grid h-10 w-10 flex-none place-items-center rounded-pill bg-coral-soft text-coral">
+                  <Icon name={l.icon} size={18} />
+                </span>
+                <span class="text-sm font-semibold text-text-primary transition-fluid group-hover:text-coral">
+                  {l.label}
+                </span>
+              </a>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

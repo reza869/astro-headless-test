@@ -1,0 +1,110 @@
+---
+// ============================================================
+//  /account — authenticated customer dashboard (profile + orders).
+//  Redirects to login when there is no valid session.
+// ============================================================
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import PageHeader from '~/components/global/PageHeader.astro';
+import {
+  createCustomerClient,
+  CUSTOMER_OVERVIEW_QUERY,
+  getPublicOrigin,
+  NotAuthenticatedError,
+} from '~/lib/shopify/customer';
+import type { CustomerOverview } from '~/lib/shopify/customer';
+
+export const prerender = false;
+
+const client = createCustomerClient(Astro.cookies, getPublicOrigin(Astro.request, Astro.url));
+
+if (!client.isLoggedIn()) {
+  return Astro.redirect('/account/login?return_to=/account');
+}
+
+let customer: CustomerOverview['customer'] = null;
+let error: string | null = null;
+
+try {
+  const data = await client.query<CustomerOverview>(CUSTOMER_OVERVIEW_QUERY, { first: 10 });
+  customer = data.customer;
+} catch (err) {
+  if (err instanceof NotAuthenticatedError) {
+    return Astro.redirect('/account/login?return_to=/account');
+  }
+  console.error('[account] load failed:', (err as Error).message);
+  error = (err as Error).message;
+}
+
+const fullName = [customer?.firstName, customer?.lastName].filter(Boolean).join(' ');
+const greeting = fullName || customer?.emailAddress?.emailAddress || 'there';
+const orders = customer?.orders?.nodes ?? [];
+
+const fmtMoney = (m: { amount: string; currencyCode: string } | null) =>
+  m
+    ? new Intl.NumberFormat('en-US', { style: 'currency', currency: m.currencyCode }).format(
+        Number(m.amount),
+      )
+    : '—';
+
+const fmtDate = (iso: string) =>
+  new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric' }).format(
+    new Date(iso),
+  );
+---
+
+<BaseLayout title="Account">
+  <PageHeader eyebrow="My account" title={`Hi, ${greeting}`} />
+
+  <div class="wrap py-12">
+    {
+      error && (
+        <p class="mb-8 rounded-md border border-danger/30 bg-danger/5 px-4 py-3 text-danger">
+          Couldn't load your account: {error}
+        </p>
+      )
+    }
+
+    {/* Profile */}
+    <section class="mb-12">
+      <div class="flex items-center justify-between gap-4">
+        <h2 class="text-[11px] font-bold uppercase tracking-[1.8px] text-text-muted">Profile</h2>
+        <a href="/account/logout" class="text-sm font-medium text-text-secondary transition-fluid hover:text-text-primary">
+          Sign out
+        </a>
+      </div>
+      <dl class="mt-4 grid gap-4 sm:grid-cols-2">
+        <div class="rounded-lg border border-border bg-surface p-4">
+          <dt class="text-[11px] font-bold uppercase tracking-[1.8px] text-text-muted">Name</dt>
+          <dd class="mt-1 text-text-primary">{fullName || '—'}</dd>
+        </div>
+        <div class="rounded-lg border border-border bg-surface p-4">
+          <dt class="text-[11px] font-bold uppercase tracking-[1.8px] text-text-muted">Email</dt>
+          <dd class="mt-1 text-text-primary">{customer?.emailAddress?.emailAddress || '—'}</dd>
+        </div>
+      </dl>
+    </section>
+
+    {/* Orders */}
+    <section>
+      <h2 class="text-[11px] font-bold uppercase tracking-[1.8px] text-text-muted">Recent orders</h2>
+
+      {
+        orders.length === 0 ? (
+          <p class="mt-4 text-text-secondary">You haven't placed any orders yet.</p>
+        ) : (
+          <ul class="mt-4 divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface">
+            {orders.map((order) => (
+              <li class="flex items-center justify-between gap-4 px-4 py-3">
+                <div>
+                  <p class="font-medium text-text-primary">{order.name}</p>
+                  <p class="text-sm text-text-muted">{fmtDate(order.processedAt)}</p>
+                </div>
+                <p class="tabular font-medium text-text-primary">{fmtMoney(order.totalPrice)}</p>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </section>
+  </div>
+</BaseLayout>

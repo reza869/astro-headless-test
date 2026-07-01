@@ -1,0 +1,711 @@
+---
+// ============================================================
+//  Header — L'ÉDITION floating frosted pill masthead (.head).
+//  Sticky capsule (top-[14px]) that floats over the hero:
+//  blurred translucent surface, rounded, elevated. 3-col grid
+//  mega-nav · wordmark · 43px action row. initHeaderScroll()
+//  deepens elevation past the fold. Mobile menu = focus-trapped
+//  off-canvas. Search + cart reuse the existing React islands.
+// ============================================================
+import type { ImageMetadata } from 'astro';
+import Icon from '~/components/ui/Icon.astro';
+import Logo from '~/components/global/Logo.astro';
+import CartButton from '~/components/react/CartButton.tsx';
+import PredictiveSearch from '~/components/react/PredictiveSearch.tsx';
+import { getTokens } from '~/lib/shopify/customer';
+import { getMenu } from '~/lib/shopify';
+import { SITE, USE_SHOPIFY_MENU, MEGA_MENU_PARENTS } from '~/config/site';
+import megaShopImg from '~/assets/images/mega-shop.png';
+
+const isLoggedIn = getTokens(Astro.cookies) !== null;
+
+// Editorial IA — presentational (Shopify's flat menu can't carry
+// columns + features); lift to config later. `type` drives the
+// desktop flyout: full-width mega, compact dropdown, or plain link.
+interface NavLink {
+  label: string;
+  href: string;
+}
+/** A dropdown row that may fan out to a nested submenu (3rd level). */
+interface NavTreeLink extends NavLink {
+  children?: NavLink[];
+}
+interface NavColumn {
+  heading: string;
+  links: NavLink[];
+}
+interface NavItem {
+  title: string;
+  url: string;
+  type: 'mega' | 'dropdown' | 'link';
+  columns?: NavColumn[];
+  feature?: { eyebrow: string; title: string; href: string; image?: ImageMetadata };
+  links?: NavTreeLink[];
+}
+
+// ── Shop mega — four curated columns of REAL, verified routes ──────
+// Every href below was status-checked to a live 200 page: the full
+// catalogue, the collections index, the store's NON-EMPTY collections
+// (women's / men's / kid's / new arrivals / sale) and the house pages.
+// Empty collections (accessories, ready-to-wear, on-sale, resort, …)
+// 404 when opened, so they are deliberately excluded. The desktop mega
+// and the mobile accordion both render from these columns, so they stay
+// in lockstep. The trailing "view all" links reuse the always-valid
+// catalogue routes — a standard mega pattern, never a dead link.
+const shopColumns: NavColumn[] = [
+  {
+    heading: 'Shop',
+    links: [
+      { label: 'All Products', href: '/collections/all' },
+      { label: 'New Arrivals', href: '/collections/new-arrivals' },
+      { label: "Top Sale's", href: '/collections/top-sale-s' },
+      { label: 'Every Collection', href: '/collections' },
+    ],
+  },
+  {
+    heading: 'Shop by Department',
+    links: [
+      { label: "Women's Fashion", href: '/collections/women-s-fashion' },
+      { label: "Men's Fashion", href: '/collections/mens-fashion' },
+      { label: "Kid's Fashion", href: '/collections/kid-s-fashion' },
+      { label: 'View All Departments', href: '/collections' },
+    ],
+  },
+  {
+    heading: "Editor's Picks",
+    links: [
+      { label: 'New This Season', href: '/collections/new-arrivals' },
+      { label: 'Sale & Offers', href: '/collections/top-sale-s' },
+      { label: "Women's Edit", href: '/collections/women-s-fashion' },
+      { label: "Men's Edit", href: '/collections/mens-fashion' },
+    ],
+  },
+  {
+    heading: 'The House',
+    links: [
+      { label: 'The Journal', href: '/blog' },
+      { label: 'Our Story', href: '/about' },
+      { label: 'Contact Us', href: '/contact' },
+      { label: 'Search the Store', href: '/search' },
+    ],
+  },
+];
+
+const shopFeature = {
+  eyebrow: 'Featured',
+  title: 'New Arrivals',
+  href: '/collections/new-arrivals',
+  image: megaShopImg,
+};
+
+const STATIC_NAV: NavItem[] = [
+  { title: 'Home', url: '/', type: 'link' },
+  {
+    title: 'Shop',
+    url: '/collections/all',
+    type: 'mega',
+    columns: shopColumns,
+    feature: shopFeature,
+  },
+  { title: 'About', url: '/about', type: 'link' },
+  { title: 'Blogs', url: '/blog', type: 'link' },
+  { title: 'Contact', url: '/contact', type: 'link' },
+];
+
+// Normalize a Shopify (absolute) menu URL to a relative path.
+function toPath(url: string): string {
+  try {
+    const u = new URL(url);
+    return u.pathname + u.search;
+  } catch {
+    return url;
+  }
+}
+
+// NAV source: Shopify menu (flag on) or the rich static menu. A parent
+// whose title is in MEGA_MENU_PARENTS becomes a mega (children = columns,
+// nested children = column links); other parents with children become a
+// dropdown; childless items become links. Any failure / empty result
+// falls back to STATIC_NAV.
+const megaParents = new Set(MEGA_MENU_PARENTS.map((t) => t.trim().toLowerCase()));
+
+let NAV: NavItem[] = STATIC_NAV;
+if (USE_SHOPIFY_MENU) {
+  try {
+    const menu = await getMenu('main-menu');
+    if (menu?.items?.length) {
+      NAV = menu.items.map((i): NavItem => {
+        const children = i.items ?? [];
+
+        // Childless → plain link.
+        if (!children.length) {
+          return { title: i.title, url: toPath(i.url), type: 'link' };
+        }
+
+        // Configured mega parent → columns from children, links from
+        // their nested children (3rd level). A child with no grandchild
+        // falls back to a single link to itself.
+        if (megaParents.has(i.title.trim().toLowerCase())) {
+          return {
+            title: i.title,
+            url: toPath(i.url),
+            type: 'mega',
+            columns: children.map((c) => {
+              const grandchildren = c.items ?? [];
+              return {
+                heading: c.title,
+                links: grandchildren.length
+                  ? grandchildren.map((g) => ({ label: g.title, href: toPath(g.url) }))
+                  : [{ label: c.title, href: toPath(c.url) }],
+              };
+            }),
+          };
+        }
+
+        // Otherwise a dropdown of the direct children; any 3rd-level
+        // children fan out as a nested submenu on hover.
+        return {
+          title: i.title,
+          url: toPath(i.url),
+          type: 'dropdown',
+          links: children.map((c) => {
+            const grandchildren = c.items ?? [];
+            return {
+              label: c.title,
+              href: toPath(c.url),
+              children: grandchildren.length
+                ? grandchildren.map((g) => ({ label: g.title, href: toPath(g.url) }))
+                : undefined,
+            };
+          }),
+        };
+      });
+    }
+  } catch (err) {
+    console.error('[header] Shopify menu load failed, using static nav:', (err as Error).message);
+  }
+}
+
+// Mobile accordion groups: level-2 rows (each may expand to level-3
+// links). Mega → columns; dropdown → its rows (a row with no children
+// is a leaf link). Keeps the nested 3-level structure on mobile.
+interface MobileGroup {
+  label: string;
+  href: string;
+  links: NavLink[];
+}
+const mobileGroups = (item: NavItem): MobileGroup[] =>
+  item.type === 'mega'
+    ? (item.columns ?? []).map((c) => ({ label: c.heading, href: item.url, links: c.links }))
+    : (item.links ?? []).map((l) => ({ label: l.label, href: l.href, links: l.children ?? [] }));
+---
+
+{/* ===== Floating pill wrapper — sticks 14px below the bar ===== */}
+<div class="sticky top-[14px] z-[50] py-3">
+  <div class="container-mag">
+    <header
+      id="siteHead"
+      class="head relative grid h-[66px] grid-cols-[1fr_auto_1fr] items-center rounded-xl border border-border/40 bg-surface/75 pr-3 pl-[22px] shadow-md backdrop-blur-[20px] transition-[background,box-shadow] duration-300"
+    >
+      {/* Left — burger (mobile) + desktop mega-nav */}
+      <div class="flex items-center gap-1 lg:gap-1.5">
+        <button
+          id="navBurger"
+          type="button"
+          class="grid h-[43px] w-[43px] place-items-center rounded-sm text-text-primary transition-fluid hover:bg-surface-cool lg:hidden"
+          aria-label="Open menu"
+          aria-expanded="false"
+          aria-controls="mobileNav"
+        >
+          <Icon name="menu" size={22} />
+        </button>
+
+        <nav class="hidden items-center lg:flex" aria-label="Primary">
+          {
+            NAV.map((item) => (
+              <div class={`nav-item group${item.type === 'dropdown' ? ' relative' : ''}`}>
+                {item.type === 'link' ? (
+                  <a
+                    href={item.url}
+                    class="px-3.5 py-[22px] text-[14px] font-semibold text-text-primary transition-fluid hover:text-coral"
+                  >
+                    {item.title}
+                  </a>
+                ) : (
+                  <a
+                    href={item.url}
+                    class="flex items-center gap-1 px-3.5 py-[22px] text-[14px] font-semibold text-text-primary transition-fluid hover:text-coral"
+                    aria-haspopup="true"
+                  >
+                    {item.title}
+                    <Icon
+                      name="chevronDown"
+                      size={13}
+                      class="transition-fluid group-hover:rotate-180"
+                    />
+                  </a>
+                )}
+
+                {/* Full-width mega — anchored to the header pill, columns + feature */}
+                {item.type === 'mega' && (
+                  <div class="mega pointer-events-none absolute inset-x-0 top-full z-50 origin-top -translate-y-3 scale-[0.98] rounded-lg border border-border/60 bg-surface opacity-0 shadow-lg transition-[opacity,transform] duration-[500ms] ease-[cubic-bezier(0.16,1,0.3,1)] before:absolute before:inset-x-0 before:-top-3 before:h-3 before:content-[''] group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:scale-100 group-focus-within:opacity-100">
+                    <div
+                      class="grid translate-y-1.5 items-start justify-start gap-6 p-8 opacity-0 transition-[opacity,transform] delay-100 duration-[500ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100"
+                      style={`grid-template-columns: ${
+                        item.feature
+                          ? `repeat(${item.columns?.length ?? 1}, minmax(0,1fr)) minmax(0,1.1fr)`
+                          : `repeat(${item.columns?.length ?? 1}, minmax(10rem,14rem))`
+                      };`}
+                    >
+                      {item.columns?.map((col) => (
+                        <div>
+                          <h5 class="mb-4 text-[10px] font-bold uppercase tracking-[2px] text-text-muted">
+                            {col.heading}
+                          </h5>
+                          <ul class="space-y-0.5">
+                            {col.links.map((l) => (
+                              <li>
+                                <a
+                                  href={l.href}
+                                  class="block py-[7px] text-[14px] font-medium text-text-secondary transition-fluid hover:pl-1.5 hover:text-coral"
+                                >
+                                  {l.label}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+
+                      {item.feature && (
+                        <a
+                          href={item.feature.href}
+                          class="group/feat relative block self-start overflow-hidden rounded-md"
+                        >
+                          {item.feature.image ? (
+                            <img
+                              src={item.feature.image.src}
+                              width={item.feature.image.width}
+                              height={item.feature.image.height}
+                              alt={item.feature.title}
+                              loading="lazy"
+                              decoding="async"
+                              class="block h-auto w-full transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/feat:scale-[1.04]"
+                            />
+                          ) : (
+                            <span class="block aspect-[4/5] w-full bg-gradient-to-br from-coral-soft via-surface-cool to-blue-soft" />
+                          )}
+                          <div class="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-bg-deep/85 via-bg-deep/25 to-transparent p-5 pt-14">
+                            <span class="text-[9.5px] font-semibold uppercase tracking-[1.6px] text-coral-soft">
+                              {item.feature.eyebrow}
+                            </span>
+                            <span class="mt-0.5 block font-heading text-[22px] font-bold leading-none text-white">
+                              {item.feature.title}
+                            </span>
+                          </div>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Compact dropdown — left-aligned under its trigger */}
+                {item.type === 'dropdown' && (
+                  <div class="dropdown pointer-events-none absolute left-2.5 top-full z-50 min-w-[210px] origin-top -translate-y-2 scale-[0.97] rounded-md border border-border/60 bg-surface p-2 opacity-0 shadow-lg transition-[opacity,transform] duration-[420ms] ease-[cubic-bezier(0.16,1,0.3,1)] before:absolute before:inset-x-0 before:-top-3 before:h-3 before:content-[''] group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:scale-100 group-focus-within:opacity-100">
+                    <ul>
+                      {item.links?.map((l) => (
+                        <li class={l.children?.length ? 'group/sub relative' : ''}>
+                          <a
+                            href={l.href}
+                            class="flex items-center justify-between gap-3 rounded-sm px-3 py-2.5 text-[14px] font-semibold text-text-secondary transition-fluid hover:bg-surface-cool hover:text-coral group-hover/sub:bg-surface-cool group-hover/sub:text-coral"
+                          >
+                            {l.label}
+                            {l.children?.length && (
+                              <Icon name="chevronRight" size={14} class="text-text-muted" />
+                            )}
+                          </a>
+
+                          {/* Nested submenu — flies out to the right on hover */}
+                          {l.children?.length && (
+                            <div class="pointer-events-none invisible absolute left-full top-0 z-50 ml-1.5 min-w-[200px] -translate-x-1 rounded-md border border-border/60 bg-surface p-2 opacity-0 shadow-lg transition-[opacity,transform] duration-[320ms] ease-[cubic-bezier(0.16,1,0.3,1)] before:absolute before:-left-2 before:top-0 before:h-full before:w-2 before:content-[''] group-hover/sub:pointer-events-auto group-hover/sub:visible group-hover/sub:translate-x-0 group-hover/sub:opacity-100">
+                              <ul>
+                                {l.children.map((g) => (
+                                  <li>
+                                    <a
+                                      href={g.href}
+                                      class="block rounded-sm px-3 py-2.5 text-[14px] font-medium text-text-secondary transition-fluid hover:bg-surface-cool hover:text-coral"
+                                    >
+                                      {g.label}
+                                    </a>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ))
+          }
+        </nav>
+      </div>
+
+      {/* Center — brand logo */}
+      <a
+        href="/"
+        aria-label="L'ÉDITION — home"
+        class="flex items-center justify-self-center text-text-primary"
+      >
+        <Logo class="h-[30px] w-auto sm:h-[34px]" />
+      </a>
+
+      {/* Right — 43px action row */}
+      <div class="flex items-center justify-end gap-[3px]">
+        <PredictiveSearch client:idle />
+
+        {/* Wishlist — green active dot */}
+        <a
+          href="/wishlist"
+          aria-label="Wishlist"
+          class="relative hidden h-[43px] w-[43px] place-items-center rounded-sm text-text-primary transition-fluid hover:bg-surface-cool sm:grid"
+        >
+          <Icon name="heart" size={20} />
+          <span
+            class="wishlist-badge absolute right-1 top-1 hidden h-[18px] min-w-[18px] place-items-center rounded-pill bg-green px-1 text-[10px] font-bold leading-none text-white ring-2 ring-surface"
+            aria-live="polite"
+            aria-label="Wishlist items"
+          >0</span>
+        </a>
+
+        {/* Account */}
+        <a
+          href="/account"
+          aria-label={isLoggedIn ? 'Your account' : 'Sign in'}
+          class="hidden h-[43px] w-[43px] place-items-center rounded-sm text-text-primary transition-fluid hover:bg-surface-cool sm:grid"
+        >
+          <Icon name="user" size={20} />
+        </a>
+
+        {/* Cart — solid dark block w/ coral badge (island) */}
+        <CartButton client:load />
+      </div>
+    </header>
+  </div>
+</div>
+
+{/* ===== Mobile off-canvas menu ===== */}
+<div
+  id="mobileNavBackdrop"
+  class="nav-backdrop fixed inset-0 z-[95] bg-dark/40 opacity-0 lg:hidden"
+  hidden
+></div>
+
+<aside
+  id="mobileNav"
+  class="nav-panel fixed inset-y-0 left-0 z-[100] flex w-[88%] max-w-sm flex-col bg-surface lg:hidden"
+  aria-label="Mobile menu"
+  aria-hidden="true"
+>
+  <div class="flex h-[66px] items-center justify-between border-b border-border px-5">
+    <a href="/" aria-label="L'ÉDITION — home" class="flex items-center text-text-primary">
+      <Logo class="h-[26px] w-auto" />
+    </a>
+    <button
+      id="mobileNavClose"
+      type="button"
+      class="grid h-[43px] w-[43px] place-items-center rounded-sm text-text-primary transition-fluid hover:bg-surface-cool"
+      aria-label="Close menu"
+    >
+      <Icon name="close" size={22} />
+    </button>
+  </div>
+
+  <nav class="flex-1 overflow-y-auto px-5 py-2" aria-label="Mobile primary">
+    <ul class="divide-y divide-border">
+      {
+        NAV.map((item) =>
+          item.type === 'link' ? (
+            <li>
+              <a
+                href={item.url}
+                class="block py-4 text-[15px] font-bold uppercase tracking-[1.2px] text-text-primary transition-fluid hover:text-coral"
+              >
+                {item.title}
+              </a>
+            </li>
+          ) : (
+            <li data-acc-item>
+              {/* Level 1 — top nav item */}
+              <button
+                data-acc
+                type="button"
+                class="flex w-full items-center justify-between py-4 text-left text-[15px] font-bold uppercase tracking-[1.2px] text-text-primary"
+                aria-expanded="false"
+              >
+                {item.title}
+                <Icon name="chevronDown" size={18} class="acc-caret text-text-muted transition-transform duration-300" />
+              </button>
+              <div class="acc-body grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-out">
+                <div class="overflow-hidden">
+                  <ul class="pb-1 pl-1">
+                    {mobileGroups(item).map((group) =>
+                      group.links.length ? (
+                        <li data-acc-item class="border-t border-border/60">
+                          {/* Level 2 — expandable group */}
+                          <button
+                            data-acc
+                            type="button"
+                            class="flex w-full items-center justify-between py-3 text-left text-[14px] font-semibold text-text-primary"
+                            aria-expanded="false"
+                          >
+                            {group.label}
+                            <Icon name="plus" size={16} class="acc-plus text-text-muted transition-transform duration-300" />
+                          </button>
+                          <div class="acc-body grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-out">
+                            <div class="overflow-hidden">
+                              <ul class="pb-2 pl-3">
+                                {group.links.map((l) => (
+                                  <li>
+                                    {/* Level 3 — leaf link */}
+                                    <a
+                                      href={l.href}
+                                      class="block py-2 text-[14px] text-text-secondary transition-fluid hover:text-coral"
+                                    >
+                                      {l.label}
+                                    </a>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        </li>
+                      ) : (
+                        <li class="border-t border-border/60">
+                          <a
+                            href={group.href}
+                            class="block py-3 text-[14px] font-semibold text-text-primary transition-fluid hover:text-coral"
+                          >
+                            {group.label}
+                          </a>
+                        </li>
+                      ),
+                    )}
+                  </ul>
+                </div>
+              </div>
+            </li>
+          ),
+        )
+      }
+    </ul>
+  </nav>
+
+  <div class="border-t border-border px-5 py-5">
+    <div class="flex items-center gap-6">
+      <a
+        href="/account"
+        class="flex items-center gap-2 text-[14px] font-semibold text-text-primary transition-fluid hover:text-coral"
+      >
+        <Icon name="user" size={18} />
+        {isLoggedIn ? 'My Account' : 'Sign In'}
+      </a>
+      <a
+        href="/wishlist"
+        class="flex items-center gap-2 text-[14px] font-semibold text-text-primary transition-fluid hover:text-coral"
+      >
+        <Icon name="heart" size={18} />
+        Wishlist
+        <span
+          class="wishlist-badge hidden h-[18px] min-w-[18px] place-items-center rounded-pill bg-green px-1 text-[10px] font-bold leading-none text-white"
+          aria-live="polite"
+        >0</span>
+      </a>
+    </div>
+
+    <p class="mt-4 text-[11px] font-bold uppercase tracking-[1.5px] text-text-muted">Get In Touch</p>
+    <div class="mt-3 flex items-center gap-4">
+      {
+        SITE.social.map((s) => (
+          <a
+            href={s.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={s.label}
+            class="text-text-primary transition-fluid hover:text-coral"
+          >
+            <Icon name={s.icon} size={18} />
+          </a>
+        ))
+      }
+    </div>
+  </div>
+</aside>
+
+<style is:global>
+  html.nav-open {
+    overflow: hidden;
+  }
+  /* Floating pill — deepen elevation + opacity once scrolled. */
+  #siteHead.scrolled {
+    background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+    box-shadow: var(--shadow-lg);
+  }
+  .nav-backdrop {
+    transition: opacity 0.3s var(--ease-std);
+  }
+  .nav-backdrop.is-open {
+    opacity: 1;
+  }
+  .nav-panel {
+    transform: translateX(-100%);
+    transition: transform 0.42s var(--ease-out-soft);
+    box-shadow: var(--shadow-lg);
+  }
+  .nav-panel.is-open {
+    transform: translateX(0);
+  }
+  /* Direct-child combinators so nested accordions toggle independently. */
+  [data-acc-item].open > .acc-body {
+    grid-template-rows: 1fr;
+  }
+  [data-acc-item].open > [data-acc] .acc-caret {
+    transform: rotate(180deg);
+  }
+  [data-acc-item].open > [data-acc] .acc-plus {
+    transform: rotate(45deg);
+  }
+</style>
+
+<script>
+  // ========================================================
+  //  Header elevation on scroll — idempotent, View-Transition
+  //  safe. Adds `.scrolled` to the pill past ~20px.
+  // ========================================================
+  function initHeaderScroll(): void {
+    const head = document.getElementById('siteHead');
+    if (!head || head.dataset.scrollBound) return;
+    head.dataset.scrollBound = 'true';
+    const onScroll = (): void => head.classList.toggle('scrolled', window.scrollY > 20);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+  }
+
+  // ========================================================
+  //  Mobile nav — idempotent, focus-trapped, scroll-locked.
+  // ========================================================
+  function initMobileNav(): void {
+    const burger = document.getElementById('navBurger');
+    const panel = document.getElementById('mobileNav');
+    const closeBtn = document.getElementById('mobileNavClose');
+    const backdrop = document.getElementById('mobileNavBackdrop');
+    if (!burger || !panel || !closeBtn || !backdrop || panel.dataset.bound) return;
+    panel.dataset.bound = 'true';
+
+    let lastFocused: HTMLElement | null = null;
+
+    const open = (): void => {
+      lastFocused = document.activeElement as HTMLElement;
+      backdrop.hidden = false;
+      requestAnimationFrame(() => {
+        panel.classList.add('is-open');
+        backdrop.classList.add('is-open');
+      });
+      document.documentElement.classList.add('nav-open');
+      burger.setAttribute('aria-expanded', 'true');
+      panel.setAttribute('aria-hidden', 'false');
+      closeBtn.focus();
+    };
+
+    const close = (): void => {
+      panel.classList.remove('is-open');
+      backdrop.classList.remove('is-open');
+      document.documentElement.classList.remove('nav-open');
+      burger.setAttribute('aria-expanded', 'false');
+      panel.setAttribute('aria-hidden', 'true');
+      window.setTimeout(() => {
+        backdrop.hidden = true;
+      }, 400);
+      lastFocused?.focus?.();
+    };
+
+    const isOpen = (): boolean => panel.classList.contains('is-open');
+
+    const onKeydown = (e: KeyboardEvent): void => {
+      if (!isOpen()) return;
+      if (e.key === 'Escape') {
+        close();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const focusables = panel.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    burger.addEventListener('click', open);
+    closeBtn.addEventListener('click', close);
+    backdrop.addEventListener('click', close);
+    panel.addEventListener('keydown', onKeydown);
+
+    panel.querySelectorAll<HTMLButtonElement>('[data-acc]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const li = btn.closest('[data-acc-item]');
+        const expanded = btn.getAttribute('aria-expanded') === 'true';
+        li?.classList.toggle('open', !expanded);
+        btn.setAttribute('aria-expanded', String(!expanded));
+      });
+    });
+
+    panel.querySelectorAll('a[href]').forEach((a) => a.addEventListener('click', close));
+  }
+
+  function initHeader(): void {
+    initHeaderScroll();
+    initMobileNav();
+  }
+
+  initHeader();
+  document.addEventListener('astro:page-load', initHeader);
+</script>
+
+<script>
+  // ========================================================
+  //  Wishlist badge — numeric count of saved items. Driven by
+  //  the shared wishlist store (single source of truth), with a
+  //  'wishlist-updated' event fallback. View-Transition safe.
+  // ========================================================
+  import { $wishlist } from '~/stores/wishlist';
+
+  function paintWishlistBadge(): void {
+    const count = $wishlist.get().length;
+    document.querySelectorAll<HTMLElement>('.wishlist-badge').forEach((badge) => {
+      if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : String(count);
+        badge.classList.remove('hidden');
+        badge.style.display = 'grid'; // inline wins over the `hidden` default
+      } else {
+        badge.classList.add('hidden');
+        badge.style.display = '';
+      }
+    });
+  }
+
+  // Reactive: fires immediately with the current value, then on every change.
+  $wishlist.subscribe(paintWishlistBadge);
+  // Belt-and-suspenders for the explicit event + re-paint after DOM swaps.
+  window.addEventListener('wishlist-updated', paintWishlistBadge);
+  document.addEventListener('astro:page-load', paintWishlistBadge);
+</script>

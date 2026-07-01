@@ -1,0 +1,713 @@
+---
+// ============================================================
+//  Contact — get-in-touch hub: hero + stats, contact-method
+//  cards, a FUNCTIONAL contact form (subject chips, validation,
+//  success state; posts to /api/contact → Shopify's standard
+//  contact endpoint) with an aside of direct lines / hours /
+//  social, a boutiques map + store detail block, and an FAQ.
+//  Faithful port of the designer's Contact.html.
+// ============================================================
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import Icon from '~/components/ui/Icon.astro';
+
+const methods = [
+  {
+    icon: 'arrowUpRight',
+    tone: 'coral',
+    label: 'Email Us',
+    value: 'care@ledition.com',
+    sub: 'Replies within 24 hours',
+    href: 'mailto:care@ledition.com',
+  },
+  {
+    icon: 'arrowUpRight',
+    tone: 'green',
+    label: 'Call Us',
+    value: '+33 1 84 80 02 02',
+    sub: 'Mon–Sat, 9am–8pm CET',
+    href: 'tel:+33184800202',
+  },
+  {
+    icon: 'arrowUpRight',
+    tone: 'green',
+    label: 'WhatsApp',
+    value: 'Message us',
+    sub: 'Typically instant',
+    href: '#',
+  },
+  {
+    icon: 'arrowUpRight',
+    tone: 'blue',
+    label: 'Live Chat',
+    value: 'Chat with a stylist',
+    sub: 'Online now',
+    href: '#',
+  },
+] as const;
+
+const toneClass: Record<string, string> = {
+  coral: 'bg-coral-soft text-coral',
+  green: 'bg-green-soft text-green',
+  blue: 'bg-blue-soft text-blue',
+};
+
+const directLines = [
+  { label: 'Client care', email: 'care@ledition.com' },
+  { label: 'Press & media', email: 'press@ledition.com' },
+  { label: 'Wholesale', email: 'wholesale@ledition.com' },
+  { label: 'Careers', email: 'careers@ledition.com' },
+];
+
+const supportHours = [
+  { day: 'Monday – Friday', time: '9:00 – 20:00', closed: false },
+  { day: 'Saturday', time: '10:00 – 18:00', closed: false },
+  { day: 'Sunday', time: 'Closed', closed: true },
+];
+
+const socials = [
+  { name: 'instagram', label: 'Instagram' },
+  { name: 'pinterest', label: 'Pinterest' },
+  { name: 'tiktok', label: 'TikTok' },
+  { name: 'youtube', label: 'YouTube' },
+] as const;
+
+// Chip label → matching <option> value in the Subject select below.
+const subjects = [
+  { label: 'Orders', value: 'Orders & shipping' },
+  { label: 'Returns', value: 'Returns & exchanges' },
+  { label: 'Press', value: 'Press & media' },
+  { label: 'Wholesale', value: 'Wholesale' },
+  { label: 'Careers', value: 'Careers' },
+];
+
+const flagshipHours = [
+  { day: 'Mon – Fri', time: '10:00 – 20:00', closed: false },
+  { day: 'Saturday', time: '10:00 – 19:00', closed: false },
+  { day: 'Sunday', time: 'Closed', closed: true },
+];
+
+const ministores = [
+  { city: 'London', address: '180 New Bond Street, Mayfair, W1S', hours: 'Mon–Sat 10–19 · Sun 12–18' },
+  { city: 'Milan', address: 'Via Montenapoleone 8, 20121', hours: 'Mon–Sat 10–19 · Sun closed' },
+  { city: 'Tokyo', address: 'Omotesando Hills, Jingumae, Shibuya', hours: 'Daily 11–20' },
+];
+
+const faqs = [
+  {
+    q: 'How long does shipping take?',
+    a: 'Standard delivery takes 3–5 business days and is complimentary on orders over $250. Express (1–2 days) is available at checkout. International timelines vary by destination and are shown before you pay.',
+  },
+  {
+    q: 'What is your returns policy?',
+    a: 'Enjoy 30 days to return unworn pieces with tags attached. Returns are free and fully refunded to your original payment method. Start a return from your account or by emailing care@ledition.com.',
+  },
+  {
+    q: 'How do I find my size?',
+    a: 'Every product page includes a detailed size guide and fit notes. Still unsure? Our stylists can advise over chat or email — just share your usual size and the piece you’re considering.',
+  },
+  {
+    q: 'Do you offer gift wrapping?',
+    a: 'Yes — add signature hand-wrapping at checkout for $8. You can also include a personalised gift message that we’ll print on a card and tuck inside.',
+  },
+  {
+    q: 'Can I shop wholesale or collaborate?',
+    a: 'We’d love to hear from you. Email wholesale@ledition.com for stockist enquiries or press@ledition.com for media and collaborations, and our team will be in touch.',
+  },
+];
+---
+
+<BaseLayout
+  title="Contact"
+  description="Questions about an order, a press enquiry or a wholesale partnership? Our Paris-based client team replies to every message — usually within 24 hours."
+>
+  {/* ===================== CONTACT HERO ===================== */}
+  <section class="py-hero">
+    <div class="container-mag" data-enter data-stagger>
+      <span class="mag-label mb-[18px]">Get In Touch · Issue N°02</span>
+      <div class="flex flex-col items-start justify-between gap-10 lg:flex-row">
+        <h1 class="h1 uppercase">Contact <em class="not-italic text-coral">Us.</em></h1>
+        <p class="max-w-[430px] pt-3 text-base leading-[1.65] text-text-secondary">
+          Questions about an order, a press enquiry or a wholesale partnership? Our Paris-based
+          client team is here to help — we reply to every message.
+        </p>
+      </div>
+      <div class="mt-[34px] flex flex-wrap items-start gap-[18px]">
+        {
+          [
+            { b: '<24h', s: 'Avg. Response' },
+            { b: '7 Days', s: 'Support' },
+            { b: '4', s: 'Languages' },
+            { b: '98%', s: 'Satisfaction' },
+          ].map((st, i) => (
+            <div class:list={['pr-[18px]', i < 3 && 'border-r border-border']}>
+              <b class="block font-heading text-[34px] font-extrabold leading-[0.9]">{st.b}</b>
+              <span class="mt-[7px] block text-[10.5px] font-semibold uppercase tracking-[1.4px] text-text-muted">
+                {st.s}
+              </span>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  {/* ===================== CONTACT METHODS ===================== */}
+  <section class="bg-surface pt-section">
+    <div class="container-mag">
+      <div class="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-4" data-reveal>
+        {
+          methods.map((m) => (
+            <a
+              href={m.href}
+              class="group block rounded-lg bg-surface p-6 shadow-xs ring-1 ring-inset ring-border transition-fluid hover:-translate-y-1 hover:shadow-md"
+            >
+              <div
+                class:list={[
+                  'mb-4 flex h-[46px] w-[46px] items-center justify-center rounded-pill',
+                  toneClass[m.tone],
+                ]}
+              >
+                <Icon name={m.icon} size={22} />
+              </div>
+              <h5 class="mb-[7px] text-[11px] font-extrabold uppercase tracking-[1.4px] text-text-muted">
+                {m.label}
+              </h5>
+              <div class="mb-2 font-heading text-[20px] font-bold leading-[1.05] text-text-primary">
+                {m.value}
+              </div>
+              <div class="inline-flex items-center gap-1.5 text-xs text-text-secondary">
+                <Icon name="check" size={13} class="text-green" />
+                {m.sub}
+              </div>
+            </a>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  {/* ===================== CONTACT FORM ===================== */}
+  <section class="bg-surface pt-8">
+    <div class="container-mag">
+      <div class="grid grid-cols-1 items-start gap-7 lg:grid-cols-[1.35fr_0.65fr]">
+        {/* Functional contact form — posts to /api/contact (Shopify-standard) */}
+        <div data-reveal>
+        <form
+          id="contactForm"
+          class="rounded-xl bg-surface-cool p-[34px]"
+          aria-label="Contact form"
+          novalidate
+        >
+          <div class="mb-6">
+            <h2 class="mb-2 font-heading text-[34px] font-extrabold leading-[0.95]">
+              Send us a message
+            </h2>
+            <p class="text-sm text-text-secondary">
+              Fill in the form and the right team will get back to you shortly.
+            </p>
+          </div>
+
+          {/* Subject quick-pick — sets the Subject select below */}
+          <div class="mb-4 flex flex-wrap gap-2" role="group" aria-label="Pick a subject">
+            {
+              subjects.map((s) => (
+                <button
+                  type="button"
+                  data-subj-chip
+                  data-subj={s.value}
+                  class="rounded-pill bg-surface px-[13px] py-2 text-xs font-semibold text-text-secondary transition-fluid hover:text-coral aria-pressed:bg-coral aria-pressed:text-white"
+                  aria-pressed="false"
+                >
+                  {s.label}
+                </button>
+              ))
+            }
+          </div>
+
+          <div class="grid grid-cols-1 gap-[14px] sm:grid-cols-2">
+            <div class="mb-4">
+              <label for="cName" class="mb-[7px] block text-[11px] font-bold uppercase tracking-[0.5px] text-text-secondary">
+                Full name
+              </label>
+              <input
+                id="cName"
+                name="name"
+                type="text"
+                autocomplete="name"
+                placeholder="Your name"
+                class="w-full rounded-sm bg-surface px-[14px] py-[13px] text-sm text-text-primary outline-none transition-shadow focus:shadow-[inset_0_0_0_1.5px_var(--color-coral)]"
+              />
+            </div>
+            <div class="mb-4">
+              <label for="cEmail" class="mb-[7px] block text-[11px] font-bold uppercase tracking-[0.5px] text-text-secondary">
+                Email address
+              </label>
+              <input
+                id="cEmail"
+                name="email"
+                type="email"
+                autocomplete="email"
+                placeholder="you@email.com"
+                class="w-full rounded-sm bg-surface px-[14px] py-[13px] text-sm text-text-primary outline-none transition-shadow focus:shadow-[inset_0_0_0_1.5px_var(--color-coral)]"
+              />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 gap-[14px] sm:grid-cols-2">
+            <div class="mb-4">
+              <label for="cSubject" class="mb-[7px] block text-[11px] font-bold uppercase tracking-[0.5px] text-text-secondary">
+                Subject
+              </label>
+              <select
+                id="cSubject"
+                name="subject"
+                class="w-full rounded-sm bg-surface px-[14px] py-[13px] text-sm text-text-primary outline-none transition-shadow focus:shadow-[inset_0_0_0_1.5px_var(--color-coral)]"
+              >
+                <option value="">Choose a topic…</option>
+                <option>General enquiry</option>
+                <option>Orders &amp; shipping</option>
+                <option>Returns &amp; exchanges</option>
+                <option>Press &amp; media</option>
+                <option>Wholesale</option>
+                <option>Careers</option>
+              </select>
+            </div>
+            <div class="mb-4">
+              <label for="cOrder" class="mb-[7px] block text-[11px] font-bold uppercase tracking-[0.5px] text-text-secondary">
+                Order number (optional)
+              </label>
+              <input
+                id="cOrder"
+                name="order"
+                type="text"
+                placeholder="LE-000000"
+                class="w-full rounded-sm bg-surface px-[14px] py-[13px] text-sm text-text-primary outline-none transition-shadow focus:shadow-[inset_0_0_0_1.5px_var(--color-coral)]"
+              />
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label for="cMessage" class="mb-[7px] block text-[11px] font-bold uppercase tracking-[0.5px] text-text-secondary">
+              Message
+            </label>
+            <textarea
+              id="cMessage"
+              name="message"
+              placeholder="How can we help?"
+              class="min-h-[148px] w-full resize-y rounded-sm bg-surface px-[14px] py-[13px] text-sm leading-[1.6] text-text-primary outline-none transition-shadow focus:shadow-[inset_0_0_0_1.5px_var(--color-coral)]"
+            ></textarea>
+          </div>
+
+          <label class="my-1 mb-[18px] flex cursor-pointer items-start gap-[11px] text-[12.5px] leading-[1.5] text-text-secondary">
+            <input type="checkbox" name="consent" checked class="peer sr-only" />
+            <span
+              class="mt-px flex h-5 w-5 flex-none items-center justify-center rounded-xs bg-surface text-white shadow-[inset_0_0_0_2px_var(--color-border)] transition-colors peer-checked:bg-coral peer-checked:text-white peer-checked:shadow-none [&>svg]:opacity-0 peer-checked:[&>svg]:opacity-100"
+            >
+              <Icon name="check" size={12} />
+            </span>
+            <span>Keep me updated with news, new arrivals and members-only offers.</span>
+          </label>
+
+          <p
+            data-form-error
+            class="mb-3 hidden rounded-sm bg-coral-soft px-3.5 py-2.5 text-[12.5px] font-semibold text-coral"
+            role="alert"
+          >
+          </p>
+
+          <button
+            type="submit"
+            data-form-submit
+            class="btn mt-1.5 flex h-[54px] w-full items-center justify-center gap-2.5 rounded-sm bg-coral text-white transition-fluid hover:bg-coral-hover disabled:opacity-60"
+          >
+            <span data-submit-label class="inline-flex items-center gap-2.5">
+              Send Message <Icon name="arrowRight" size={16} />
+            </span>
+            <span data-submit-spinner class="hidden items-center gap-2.5">
+              <span class="h-4 w-4 animate-spin rounded-pill border-2 border-white/50 border-t-white"></span>
+              Sending…
+            </span>
+          </button>
+        </form>
+
+        {/* Success state — shown after a successful submit */}
+        <div
+          data-form-done
+          class="hidden flex-col items-center rounded-xl bg-surface-cool p-[34px] text-center"
+        >
+          <span class="mb-4 grid h-16 w-16 place-items-center rounded-pill bg-green text-white">
+            <Icon name="check" size={30} />
+          </span>
+          <h3 class="mb-2 font-heading text-[30px] font-extrabold">Message sent</h3>
+          <p class="max-w-[380px] text-sm leading-[1.6] text-text-secondary">
+            Thank you, <b data-done-name class="text-text-primary">friend</b>. Our team will reply to
+            <b data-done-email class="text-text-primary">your inbox</b> within 24 hours.
+          </p>
+          <button
+            type="button"
+            data-form-again
+            class="btn mt-6 inline-flex h-12 items-center gap-2 rounded-sm bg-dark px-6 text-white transition-fluid hover:bg-dark-hover"
+          >
+            Send another message
+          </button>
+        </div>
+        </div>
+
+        {/* Aside — direct lines / hours / social */}
+        <aside class="flex flex-col gap-[18px]" data-reveal>
+          <div class="rounded-lg bg-surface p-6 ring-1 ring-inset ring-border">
+            <h6 class="mb-4 flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[1.6px]">
+              <Icon name="arrowUpRight" size={16} class="text-coral" /> Direct Lines
+            </h6>
+            {
+              directLines.map((l, i) => (
+                <div
+                  class:list={[
+                    'flex items-center justify-between gap-3 py-2.5 text-[13px]',
+                    i < directLines.length - 1 && 'border-b border-dashed border-border',
+                  ]}
+                >
+                  <span class="text-text-secondary">{l.label}</span>
+                  <a href={`mailto:${l.email}`} class="font-semibold text-blue hover:underline">
+                    {l.email}
+                  </a>
+                </div>
+              ))
+            }
+          </div>
+
+          <div class="rounded-lg bg-surface p-6 ring-1 ring-inset ring-border">
+            <h6 class="mb-4 flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[1.6px]">
+              <Icon name="calendar" size={16} class="text-coral" /> Support Hours (CET)
+            </h6>
+            {
+              supportHours.map((h) => (
+                <div class="flex justify-between py-[7px] text-[13px] text-text-secondary">
+                  <span>{h.day}</span>
+                  <b class:list={['font-semibold', h.closed ? 'text-text-muted' : 'text-text-primary']}>
+                    {h.time}
+                  </b>
+                </div>
+              ))
+            }
+          </div>
+
+          <div class="rounded-lg bg-surface p-6 ring-1 ring-inset ring-border">
+            <h6 class="mb-4 flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[1.6px]">
+              <Icon name="instagram" size={16} class="text-coral" /> Follow Along
+            </h6>
+            <p class="mb-3.5 text-[13px] leading-[1.55] text-text-secondary">
+              DM us on social — we answer there too.
+            </p>
+            <div class="flex gap-2.5">
+              {
+                socials.map((s) => (
+                  <a
+                    href="#"
+                    aria-label={s.label}
+                    class="flex h-10 w-10 items-center justify-center rounded-pill bg-surface-cool text-text-primary transition-fluid hover:bg-coral hover:text-white"
+                  >
+                    <Icon name={s.name} size={18} />
+                  </a>
+                ))
+              }
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  {/* ===================== STORES + MAP ===================== */}
+  <section class="bg-surface py-section">
+    <div class="container-mag">
+      <div class="mb-[34px] text-center">
+        <span class="mag-label mb-3.5">Visit Us</span>
+        <h2 class="h2">Our <em class="not-italic text-coral">boutiques.</em></h2>
+      </div>
+
+      <div class="mb-6 grid grid-cols-1 items-stretch gap-[26px] lg:grid-cols-[1.2fr_0.8fr]">
+        {/* Styled map placeholder (no external embed) */}
+        <div class="map-placeholder relative min-h-[360px] overflow-hidden rounded-xl" data-reveal-img>
+          <span class="map-road map-road-h" aria-hidden="true"></span>
+          <span class="map-road map-road-v" aria-hidden="true"></span>
+          <span class="map-park" aria-hidden="true"></span>
+          <span class="map-pin" aria-hidden="true"></span>
+          <div
+            class="absolute inset-x-[18px] bottom-[18px] flex items-center justify-between gap-3.5 rounded-md bg-surface px-[18px] py-3.5 shadow-sm"
+          >
+            <div>
+              <b class="block text-sm font-bold">L'ÉDITION Flagship</b>
+              <span class="text-xs text-text-muted">12 Rue Saint-Honoré, Paris</span>
+            </div>
+            <a
+              href="https://www.google.com/maps/dir/?api=1&destination=12+Rue+Saint-Honor%C3%A9+75001+Paris"
+              target="_blank"
+              rel="noopener"
+              class="btn inline-flex h-[42px] flex-none items-center gap-2 rounded-xs bg-coral px-5 text-white transition-fluid hover:bg-coral-hover"
+            >
+              Directions <Icon name="arrowUpRight" size={15} />
+            </a>
+          </div>
+        </div>
+
+        <div class="rounded-xl bg-bg-light p-[30px] ring-1 ring-inset ring-border" data-reveal>
+          <span class="mag-label mb-3.5">Paris Flagship</span>
+          <h3 class="mb-[18px] mt-2.5 font-heading text-[30px] font-extrabold">Maison L'ÉDITION</h3>
+          <div class="mb-3 flex items-start gap-[11px] text-[13.5px] leading-[1.5] text-text-secondary">
+            <Icon name="mapPin" size={17} class="mt-px flex-none text-coral" />
+            12 Rue Saint-Honoré, 75001 Paris, France
+          </div>
+          <div class="mb-3 flex items-start gap-[11px] text-[13.5px] leading-[1.5] text-text-secondary">
+            <Icon name="arrowUpRight" size={17} class="mt-px flex-none text-coral" />
+            +33 1 84 80 02 02
+          </div>
+          <div class="mb-3 flex items-start gap-[11px] text-[13.5px] leading-[1.5] text-text-secondary">
+            <Icon name="arrowUpRight" size={17} class="mt-px flex-none text-coral" />
+            paris@ledition.com
+          </div>
+          <h6 class="mb-2.5 mt-5 text-[10.5px] font-extrabold uppercase tracking-[1.6px]">
+            Opening Hours
+          </h6>
+          {
+            flagshipHours.map((h) => (
+              <div class="flex justify-between py-[7px] text-[13px] text-text-secondary">
+                <span>{h.day}</span>
+                <b class:list={['font-semibold', h.closed ? 'text-text-muted' : 'text-text-primary']}>
+                  {h.time}
+                </b>
+              </div>
+            ))
+          }
+          <a
+            href="#"
+            class="btn mt-[18px] inline-flex items-center gap-2 rounded-sm bg-dark px-6 py-[15px] text-white transition-fluid hover:bg-dark-hover"
+          >
+            Book an Appointment <Icon name="calendar" size={15} />
+          </a>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-[18px] md:grid-cols-3" data-reveal>
+        {
+          ministores.map((s) => (
+            <div class="rounded-lg bg-bg-light p-[22px] ring-1 ring-inset ring-border">
+              <b class="mb-2 block font-heading text-[20px] font-bold">{s.city}</b>
+              <p class="text-[12.5px] leading-[1.55] text-text-secondary">{s.address}</p>
+              <div class="mt-2.5 text-xs text-text-muted">{s.hours}</div>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  {/* ===================== FAQ ===================== */}
+  <section class="pt-section">
+    <div class="container-mag">
+      <div class="mx-auto mb-10 max-w-[560px] text-center">
+        <span class="mag-label mb-3.5 justify-center">Good To Know</span>
+        <h2 class="h2">Frequently <em class="not-italic text-coral">asked.</em></h2>
+      </div>
+
+      {/* Native <details> accordion — no JS needed */}
+      <div class="mx-auto max-w-[820px]">
+        {
+          faqs.map((f, i) => (
+            <details
+              class="faq-item group mb-3 overflow-hidden rounded-md bg-surface ring-1 ring-inset ring-border"
+              open={i === 0}
+              data-reveal
+            >
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-5 font-heading text-[19px] font-bold text-text-primary group-open:text-coral">
+                {f.q}
+                <Icon name="plus" size={20} class="flex-none text-text-secondary transition-transform group-open:rotate-45" />
+              </summary>
+              <div class="px-6 pb-[22px] text-sm leading-[1.7] text-text-secondary">{f.a}</div>
+            </details>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  {/* ===================== CONTACT FORM LOGIC ===================== */}
+  <script>
+    // Wire the contact form: subject chips, client validation, async
+    // submit to /api/contact (Shopify-standard contact endpoint), and
+    // the success state. Idempotent + View-Transition safe.
+    function initContactForm(): void {
+      const form = document.getElementById('contactForm') as HTMLFormElement | null;
+      if (!form || form.dataset.bound) return;
+      form.dataset.bound = 'true';
+
+      const wrap = form.parentElement!;
+      const done = wrap.querySelector<HTMLElement>('[data-form-done]');
+      const errBox = form.querySelector<HTMLElement>('[data-form-error]');
+      const submitBtn = form.querySelector<HTMLButtonElement>('[data-form-submit]');
+      const label = form.querySelector<HTMLElement>('[data-submit-label]');
+      const spinner = form.querySelector<HTMLElement>('[data-submit-spinner]');
+      const select = form.querySelector<HTMLSelectElement>('#cSubject');
+      const chips = Array.from(form.querySelectorAll<HTMLButtonElement>('[data-subj-chip]'));
+
+      const showError = (msg: string): void => {
+        if (!errBox) return;
+        errBox.textContent = msg;
+        errBox.classList.remove('hidden');
+      };
+      const clearError = (): void => errBox?.classList.add('hidden');
+
+      // Subject chips ↔ the Subject <select>.
+      const paintChips = (): void =>
+        chips.forEach((c) =>
+          c.setAttribute('aria-pressed', String(c.dataset.subj === select?.value)),
+        );
+      chips.forEach((chip) =>
+        chip.addEventListener('click', () => {
+          if (select) select.value = chip.dataset.subj ?? '';
+          paintChips();
+          clearError();
+        }),
+      );
+      select?.addEventListener('change', paintChips);
+
+      const setLoading = (on: boolean): void => {
+        if (submitBtn) submitBtn.disabled = on;
+        label?.classList.toggle('hidden', on);
+        label?.classList.toggle('inline-flex', !on);
+        spinner?.classList.toggle('hidden', !on);
+        spinner?.classList.toggle('inline-flex', on);
+      };
+
+      const value = (id: string): string =>
+        (form.querySelector<HTMLInputElement | HTMLTextAreaElement>(id)?.value ?? '').trim();
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearError();
+
+        const name = value('#cName');
+        const email = value('#cEmail');
+        const message = value('#cMessage');
+
+        if (!name) return showError('Please tell us your name.');
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))
+          return showError('Please enter a valid email address.');
+        if (message.length < 10) return showError('Please add a little more detail to your message.');
+
+        const payload = {
+          name,
+          email,
+          subject: value('#cSubject') || 'General enquiry',
+          orderNumber: value('#cOrder'),
+          message,
+          consent: (form.querySelector<HTMLInputElement>('[name="consent"]')?.checked ?? false),
+        };
+
+        setLoading(true);
+        try {
+          const res = await fetch('/api/contact', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.ok) {
+            showError(data.error ?? 'Something went wrong. Please try again or email care@ledition.com.');
+            return;
+          }
+          // Success — swap to the done state.
+          const doneName = done?.querySelector('[data-done-name]');
+          const doneEmail = done?.querySelector('[data-done-email]');
+          if (doneName) doneName.textContent = name.split(' ')[0] || 'friend';
+          if (doneEmail) doneEmail.textContent = email;
+          form.classList.add('hidden');
+          done?.classList.remove('hidden');
+          done?.classList.add('flex');
+        } catch {
+          showError('Network error — please check your connection and try again.');
+        } finally {
+          setLoading(false);
+        }
+      });
+
+      // "Send another message" — reset back to the form.
+      wrap.querySelector('[data-form-again]')?.addEventListener('click', () => {
+        form.reset();
+        paintChips();
+        clearError();
+        done?.classList.add('hidden');
+        done?.classList.remove('flex');
+        form.classList.remove('hidden');
+      });
+    }
+
+    initContactForm();
+    document.addEventListener('astro:page-load', initContactForm);
+  </script>
+</BaseLayout>
+
+<style>
+  /* Styled map placeholder — grid paper + roads + park + pin.
+     Avoids any external embed / network dependency. */
+  .map-placeholder {
+    background:
+      repeating-linear-gradient(0deg, transparent 0 40px, rgba(17, 19, 21, 0.045) 40px 41px),
+      repeating-linear-gradient(90deg, transparent 0 48px, rgba(17, 19, 21, 0.045) 48px 49px),
+      var(--color-surface-cool);
+  }
+  .map-road {
+    position: absolute;
+    background: var(--color-surface);
+  }
+  .map-road-h {
+    left: 0;
+    right: 0;
+    top: 56%;
+    height: 24px;
+  }
+  .map-road-v {
+    top: 0;
+    bottom: 0;
+    left: 38%;
+    width: 26px;
+  }
+  .map-park {
+    position: absolute;
+    right: 9%;
+    top: 12%;
+    width: 26%;
+    height: 32%;
+    background: var(--color-green-soft);
+    border-radius: var(--radius-md);
+  }
+  .map-pin {
+    position: absolute;
+    left: 50%;
+    top: 48%;
+    width: 36px;
+    height: 36px;
+    background: var(--color-coral);
+    border-radius: 50% 50% 50% 0;
+    transform: translate(-50%, -100%) rotate(-45deg);
+    box-shadow: var(--shadow-md, 0 16px 44px rgba(9, 10, 11, 0.1));
+  }
+  .map-pin::after {
+    content: '';
+    position: absolute;
+    inset: 10px;
+    background: #fff;
+    border-radius: 50%;
+  }
+
+  /* Hide the default disclosure triangle in WebKit. */
+  .faq-item summary::-webkit-details-marker {
+    display: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .faq-item :global(svg) {
+      transition: none;
+    }
+  }
+</style>

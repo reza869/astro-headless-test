@@ -1,0 +1,634 @@
+---
+// ============================================================
+//  Testimonials — designer's #testimonials section (.tsl-*).
+//  A 1:1 port of the mockup: a centered header (Press & Patrons /
+//  Words & Verdicts + stat row), then the editorial slider — one
+//  slide at a time, left photo (46%) with a floating identity
+//  capsule, right coloured panel with the quote, stars, author and
+//  a nav row (counter · dots · arrows). Auto-rotates every 6s with
+//  a coral progress bar. Followed by the "Why L'ÉDITION" trust bar.
+// ============================================================
+import Icon from '~/components/ui/Icon.astro';
+
+type Panel = 'dark' | 'coral' | 'blue' | 'green';
+
+const testimonials: {
+  panel: Panel;
+  source: string;
+  quote: string;
+  name: string;
+  role: string;
+  mono: string;
+  img: string;
+}[] = [
+  {
+    panel: 'dark',
+    source: 'Verified Patron',
+    quote:
+      "L'ÉDITION doesn't sell clothes — it offers a way of seeing. Every piece is a considered statement worn by people who understand that true luxury whispers.",
+    name: 'Sophie Vidal',
+    role: 'Creative Director · Paris',
+    mono: 'SV',
+    img: '/images/Testimonial 01.png',
+  },
+  {
+    panel: 'coral',
+    source: 'The Vogue Edit',
+    quote:
+      "A masterclass in restraint. L'ÉDITION bridges editorial gravity with the fluidity modern dressing demands — a defining voice in quiet luxury.",
+    name: 'The Vogue Edit',
+    role: 'Fashion Press · Spring Issue',
+    mono: 'VE',
+    img: '/images/Testimonial 02.png',
+  },
+  {
+    panel: 'blue',
+    source: 'Verified Patron',
+    quote:
+      'The Shop the Look feature alone changed how I build outfits. Considered, elegant, and effortless from start to checkout.',
+    name: 'Yuki Tanaka',
+    role: 'Architect · Tokyo',
+    mono: 'YT',
+    img: '/images/Testimonial 03.png',
+  },
+  {
+    panel: 'green',
+    source: 'Verified Patron',
+    quote:
+      'Pieces that last for years and bundles that make it easy to invest in a complete, cohesive wardrobe. Worth every euro.',
+    name: 'Amara Okafor',
+    role: 'Gallery Owner · London',
+    mono: 'AO',
+    img: '/images/Testimonial 04.png',
+  },
+];
+
+const N = testimonials.length;
+const pad = (n: number) => String(n).padStart(2, '0');
+---
+
+<section id="testimonials" class="container-mag pb-section">
+  <!-- Centered header + stat row -->
+  <div class="tsl-head" data-reveal>
+    <span class="mag-label">Press &amp; Patrons</span>
+    <h2>Words &amp; Verdicts</h2>
+    <div class="tsl-stat">
+      <span class="ts-i"><b>4.9</b><span class="stars">★★★★★</span></span>
+      <span class="ts-div"></span>
+      <span class="ts-i"><b>12K+</b> verified reviews</span>
+      <span class="ts-div"></span>
+      <span class="ts-i"><b>40K+</b> members worldwide</span>
+    </div>
+  </div>
+
+  <!-- Slider -->
+  <div class="tsl-wrapper" data-reveal data-tsl>
+    <div class="tsl-track" data-track>
+      {
+        testimonials.map((t, i) => (
+          <div class:list={['tsl-slide', i === 0 && 'active']}>
+            <div class="tsl-photo">
+              <img src={t.img} alt={t.name} loading="lazy" />
+              <div class="tsl-identity">
+                <div class="tsl-mono">{t.mono}</div>
+                <div>
+                  <span class="tsl-id-name">{t.name}</span>
+                  <span class="tsl-id-meta">{t.role}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class:list={['tsl-panel', t.panel]}>
+              <div class="tsl-body">
+                <div class="tsl-source">{t.source}</div>
+                <blockquote class="tsl-quote">&ldquo;{t.quote}&rdquo;</blockquote>
+                <span class="tsl-stars">★★★★★</span>
+                <span class="tsl-aname">{t.name}</span>
+                <span class="tsl-arole">{t.role}</span>
+              </div>
+
+              <div class="tsl-nav">
+                <div class="tsl-counter">
+                  {pad(i + 1)} / {pad(N)}
+                </div>
+                <div class="tsl-dots">
+                  {testimonials.map((_, j) => (
+                    <button
+                      type="button"
+                      class:list={['tsl-dot', j === i && 'active']}
+                      data-idx={j}
+                      aria-label={`Go to testimonial ${j + 1}`}
+                    />
+                  ))}
+                </div>
+                <div class="tsl-arrows">
+                  <button type="button" class="tsl-btn" data-prev aria-label="Previous">
+                    <Icon name="arrowRight" size={18} class="rotate-180" />
+                  </button>
+                  <button type="button" class="tsl-btn" data-next aria-label="Next">
+                    <Icon name="arrowRight" size={18} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+
+  <!-- Auto-rotate progress bar -->
+  <div class="tsl-progress" data-reveal>
+    <div class="tsl-progress-fill" data-prog></div>
+  </div>
+
+  <!-- Trust bar — "Why L'ÉDITION" -->
+  <div class="tsl-extra" data-reveal data-stagger>
+    <div class="te-label">Why L'ÉDITION</div>
+    <div class="trust">
+      {
+        [
+          { icon: 'truck', title: 'Free Shipping', sub: 'On orders over $150' },
+          { icon: 'rotate', title: 'Easy Returns', sub: '30-day free returns' },
+          { icon: 'shield', title: 'Secure Checkout', sub: 'Encrypted payments' },
+          { icon: 'user', title: 'Atelier Support', sub: 'Stylists 7 days a week' },
+        ].map((item) => (
+          <div class="trust-item">
+            <span class="ti-ic">
+              <Icon name={item.icon} size={24} />
+            </span>
+            <div>
+              <b>{item.title}</b>
+              <span>{item.sub}</span>
+            </div>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  /* ---- Centered header ---- */
+  .tsl-head {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    margin-bottom: 44px;
+  }
+  .tsl-head .mag-label {
+    margin: 0 auto;
+  }
+  .tsl-head h2 {
+    margin-top: 12px;
+    font-family: var(--font-heading);
+    font-size: clamp(36px, 4.2vw, 56px);
+    font-weight: 800;
+    line-height: 0.95;
+    letter-spacing: -0.5px;
+    color: var(--color-text-primary);
+  }
+
+  .tsl-stat {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+  .tsl-stat .ts-i {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+  }
+  .tsl-stat .ts-i b {
+    font-family: var(--font-heading);
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--color-text-primary);
+  }
+  .tsl-stat .ts-i .stars {
+    color: var(--color-coral);
+    letter-spacing: 1px;
+  }
+  .tsl-stat .ts-div {
+    width: 1px;
+    height: 24px;
+    background: var(--color-border);
+  }
+
+  /* ---- Slider shell ---- */
+  .tsl-wrapper {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-md);
+  }
+  .tsl-track {
+    display: flex;
+    transition: transform 0.75s var(--ease-out-soft);
+    will-change: transform;
+  }
+  .tsl-slide {
+    display: flex;
+    flex: 0 0 100%;
+    min-width: 0;
+    height: 540px;
+  }
+
+  /* ---- Photo (left) + identity capsule ---- */
+  .tsl-photo {
+    flex: 0 0 46%;
+    position: relative;
+    overflow: hidden;
+  }
+  .tsl-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 1s var(--ease-out-soft);
+  }
+  .tsl-slide.active .tsl-photo img {
+    transform: scale(1.05);
+  }
+  .tsl-identity {
+    position: absolute;
+    bottom: 22px;
+    left: 22px;
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding: 13px 18px;
+    background: #fff;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+  }
+  .tsl-mono {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: var(--color-coral-soft);
+    color: var(--color-coral-hover);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-heading);
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .tsl-id-name {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+  }
+  .tsl-id-meta {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--color-text-muted);
+  }
+
+  /* ---- Coloured panel (right) ---- */
+  .tsl-panel {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 48px 54px;
+    position: relative;
+    overflow: hidden;
+  }
+  .tsl-panel::before {
+    content: '\201C';
+    position: absolute;
+    top: -50px;
+    left: 24px;
+    font-family: var(--font-heading);
+    font-size: 300px;
+    line-height: 1;
+    opacity: 0.1;
+    pointer-events: none;
+  }
+  .tsl-panel.dark {
+    background: var(--color-dark);
+    color: #fff;
+  }
+  .tsl-panel.coral {
+    background: var(--color-coral);
+    color: #fff;
+  }
+  .tsl-panel.blue {
+    background: var(--color-blue);
+    color: #fff;
+  }
+  .tsl-panel.green {
+    background: var(--color-green);
+    color: #fff;
+  }
+
+  .tsl-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    z-index: 1;
+  }
+  .tsl-source {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 22px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2.4px;
+    text-transform: uppercase;
+    opacity: 0.7;
+  }
+  .tsl-source::after {
+    content: '';
+    width: 30px;
+    height: 1px;
+    background: currentColor;
+  }
+  .tsl-quote {
+    margin-bottom: 22px;
+    font-family: var(--font-heading);
+    font-size: clamp(24px, 2.5vw, 32px);
+    font-weight: 600;
+    line-height: 1.22;
+    letter-spacing: -0.3px;
+  }
+  .tsl-stars {
+    display: block;
+    margin-bottom: 9px;
+    font-size: 13px;
+    letter-spacing: 3px;
+  }
+  .tsl-aname {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  .tsl-arole {
+    display: block;
+    margin-top: 3px;
+    font-size: 11px;
+    opacity: 0.6;
+  }
+
+  /* ---- Nav row ---- */
+  .tsl-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 22px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    position: relative;
+    z-index: 1;
+  }
+  .tsl-counter {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2.5px;
+    opacity: 0.6;
+  }
+  .tsl-dots {
+    display: flex;
+    gap: 6px;
+  }
+  .tsl-dot {
+    width: 20px;
+    height: 2px;
+    background: currentColor;
+    opacity: 0.3;
+    cursor: pointer;
+    border-radius: var(--radius-pill);
+    transition: all 0.3s;
+  }
+  .tsl-dot.active {
+    opacity: 1;
+    width: 34px;
+  }
+  .tsl-arrows {
+    display: flex;
+    gap: 8px;
+  }
+  .tsl-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px currentColor;
+    color: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.7;
+    transition: all 0.25s;
+  }
+  .tsl-btn:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.14);
+  }
+
+  /* ---- Progress bar ---- */
+  .tsl-progress {
+    height: 3px;
+    margin-top: 16px;
+    background: var(--color-surface-cool);
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+  }
+  .tsl-progress-fill {
+    height: 100%;
+    width: 0;
+    background: var(--color-coral);
+    border-radius: var(--radius-pill);
+  }
+
+  /* ---- Trust bar ---- */
+  .tsl-extra {
+    margin-top: 24px;
+  }
+  .te-label {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    margin-bottom: 16px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+  .te-label::before,
+  .te-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--color-border);
+  }
+  .trust {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+  }
+  .trust-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 22px;
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xs);
+    transition:
+      transform 0.3s,
+      box-shadow 0.3s;
+  }
+  .trust-item:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-sm);
+  }
+  .trust-item .ti-ic {
+    flex: none;
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-sm);
+    background: var(--color-coral-soft);
+    color: var(--color-coral-hover);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .trust-item:nth-child(2) .ti-ic {
+    background: var(--color-green-soft);
+    color: var(--color-green-hover);
+  }
+  .trust-item:nth-child(3) .ti-ic {
+    background: var(--color-blue-soft);
+    color: var(--color-blue-hover);
+  }
+  .trust-item:nth-child(4) .ti-ic {
+    background: var(--color-surface-cool);
+    color: var(--color-text-primary);
+  }
+  .trust-item b {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+  }
+  .trust-item span {
+    font-size: 12px;
+    color: var(--color-text-muted);
+  }
+
+  /* ---- Responsive: stack photo over panel ---- */
+  @media (max-width: 880px) {
+    .tsl-slide {
+      height: auto;
+      flex-direction: column;
+    }
+    .tsl-photo {
+      flex: none;
+      height: 300px;
+    }
+    .tsl-panel {
+      padding: 34px 30px;
+    }
+  }
+  @media (max-width: 900px) {
+    .trust {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (max-width: 420px) {
+    .trust {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<script>
+  function initTestimonials(): void {
+    document.querySelectorAll<HTMLElement>('[data-tsl]').forEach((root) => {
+      if (root.dataset.bound) return;
+      root.dataset.bound = 'true';
+
+      const track = root.querySelector<HTMLElement>('[data-track]');
+      const slides = Array.from(root.querySelectorAll<HTMLElement>('.tsl-slide'));
+      const dots = Array.from(root.querySelectorAll<HTMLElement>('.tsl-dot'));
+      // Progress bar lives just outside the wrapper.
+      const prog = root.parentElement?.querySelector<HTMLElement>('[data-prog]') ?? null;
+      const N = slides.length;
+      if (!track || !N) return;
+
+      let idx = 0;
+      let timer: number | undefined;
+
+      const runProgress = () => {
+        if (!prog) return;
+        prog.style.transition = 'none';
+        prog.style.width = '0%';
+        void prog.offsetWidth; // reflow to restart the animation
+        prog.style.transition = 'width 6s linear';
+        prog.style.width = '100%';
+      };
+
+      const go = (i: number) => {
+        idx = (i + N) % N;
+        track.style.transform = `translateX(-${idx * 100}%)`;
+        slides.forEach((s, n) => s.classList.toggle('active', n === idx));
+        // Each slide has its own dot strip; sync the dots within every panel.
+        root.querySelectorAll<HTMLElement>('.tsl-dots').forEach((strip) => {
+          strip.querySelectorAll<HTMLElement>('.tsl-dot').forEach((d) => {
+            d.classList.toggle('active', Number(d.dataset.idx) === idx);
+          });
+        });
+        runProgress();
+      };
+
+      const auto = () => {
+        runProgress();
+        timer = window.setInterval(() => go(idx + 1), 6000);
+      };
+      const reAuto = () => {
+        window.clearInterval(timer);
+        auto();
+      };
+
+      root.querySelectorAll<HTMLButtonElement>('[data-next]').forEach((b) =>
+        b.addEventListener('click', () => {
+          go(idx + 1);
+          reAuto();
+        }),
+      );
+      root.querySelectorAll<HTMLButtonElement>('[data-prev]').forEach((b) =>
+        b.addEventListener('click', () => {
+          go(idx - 1);
+          reAuto();
+        }),
+      );
+      dots.forEach((d) =>
+        d.addEventListener('click', () => {
+          go(Number(d.dataset.idx));
+          reAuto();
+        }),
+      );
+
+      auto();
+    });
+  }
+
+  initTestimonials();
+  document.addEventListener('astro:page-load', initTestimonials);
+</script>

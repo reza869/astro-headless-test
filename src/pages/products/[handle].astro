@@ -1,0 +1,81 @@
+---
+// ============================================================
+//  PDP — product detail. Gallery + buy box + details + recs.
+//  Server-rendered SEO/price/options; React islands for the
+//  gallery + variant/qty/add/buy (→ working CartDrawer).
+// ============================================================
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import ProductDetail from '~/components/product/ProductDetail.astro';
+import Cta from '~/components/sections/Cta.astro';
+import { getProduct, getProductRecommendations } from '~/lib/shopify';
+import { getProductReviews, type JudgeMeData } from '~/lib/judgeme';
+import { parseGid } from '~/lib/utils';
+import type { Product, ProductCard as TProductCard } from '~/lib/shopify/types';
+
+const { handle } = Astro.params;
+
+let product: Product | null = null;
+let recommendations: TProductCard[] = [];
+let reviews: JudgeMeData | null = null;
+let loadFailed = false;
+
+try {
+  product = await getProduct(handle!);
+} catch (err) {
+  loadFailed = true;
+  console.error('[product] load failed:', (err as Error).message);
+}
+
+if (product) {
+  // Recommendations + Judge.me reviews in parallel (reviews failing must not
+  // break the PDP — getProductReviews swallows its own errors and returns null).
+  const [recs, jm] = await Promise.all([
+    getProductRecommendations(product.id, 4).catch((err) => {
+      console.error('[product] recommendations failed:', (err as Error).message);
+      return [] as TProductCard[];
+    }),
+    getProductReviews(parseGid(product.id)),
+  ]);
+  recommendations = recs;
+  reviews = jm;
+}
+
+if (loadFailed) {
+  Astro.response.status = 503;
+} else if (!product) {
+  Astro.response.status = 404;
+}
+
+const ogImage = product?.featuredImage?.url;
+---
+
+{
+  product ? (
+    <BaseLayout
+      title={product.seo?.title ?? product.title}
+      description={product.seo?.description ?? product.description}
+      image={ogImage}
+    >
+      <ProductDetail product={product} recommendations={recommendations} reviews={reviews} />
+      <Cta />
+    </BaseLayout>
+  ) : (
+    <BaseLayout title={loadFailed ? 'Something went wrong' : 'Product not found'}>
+      <div class="container-mag flex flex-col items-center py-28 text-center">
+        <span class="mag-label mb-3">{loadFailed ? 'Error 503' : 'Error 404'}</span>
+        <h1 class="h2">{loadFailed ? 'Something went wrong' : 'Product not found'}</h1>
+        <p class="mt-3 text-text-secondary">
+          {loadFailed
+            ? "We couldn't load this product right now. Please try again shortly."
+            : "We couldn't find that product."}
+        </p>
+        <a
+          href="/products"
+          class="btn mt-6 inline-flex h-11 items-center rounded-sm bg-dark px-6 text-white transition-fluid hover:bg-dark-hover"
+        >
+          Shop all products
+        </a>
+      </div>
+    </BaseLayout>
+  )
+}

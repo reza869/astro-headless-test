@@ -1,0 +1,97 @@
+---
+// ============================================================
+//  BestSellers — designer's #best-selling rail (.best-rail).
+//  Data-true from Shopify ProductCards. Horizontal snap rail with
+//  working prev/next arrow controls. No rank badges (clean cards).
+// ============================================================
+import MagHeading from '~/components/sections/MagHeading.astro';
+import ProductCard from '~/components/cards/ProductCard.astro';
+import Icon from '~/components/ui/Icon.astro';
+import type { ProductCard as ProductCardType } from '~/lib/shopify/types';
+
+interface Props {
+  products: ProductCardType[];
+}
+
+const { products } = Astro.props;
+const items = products.slice(0, 8);
+---
+
+{
+  items.length > 0 && (
+    <section class="container-mag py-section" data-best>
+      <div data-reveal>
+        <MagHeading
+          eyebrow="Most Wanted"
+          title="Best"
+          em="Sellers"
+          class="mb-12 md:mb-[60px]"
+        >
+          <div slot="actions" class="hidden flex-none gap-2 sm:flex">
+            <button
+              type="button"
+              data-rail-prev
+              aria-label="Previous products"
+              class="grid h-[46px] w-[46px] place-items-center rounded-pill bg-surface text-text-primary shadow-xs transition-fluid hover:bg-dark hover:text-white"
+            >
+              <Icon name="arrowRight" size={18} class="rotate-180" />
+            </button>
+            <button
+              type="button"
+              data-rail-next
+              aria-label="Next products"
+              class="grid h-[46px] w-[46px] place-items-center rounded-pill bg-surface text-text-primary shadow-xs transition-fluid hover:bg-dark hover:text-white"
+            >
+              <Icon name="arrowRight" size={18} />
+            </button>
+          </div>
+        </MagHeading>
+      </div>
+
+      <div
+        class="best-rail flex snap-x snap-mandatory gap-6 overflow-x-auto px-1 pb-4 pt-2"
+        data-rail
+        data-reveal
+      >
+        {items.map((product) => (
+          <div class="min-w-[260px] max-w-[300px] flex-none snap-start sm:w-[300px]">
+            <ProductCard product={product} />
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+<style>
+  /* Designer .best-rail hides its scrollbar; utilities can't express this. */
+  .best-rail {
+    scrollbar-width: none;
+  }
+  .best-rail::-webkit-scrollbar {
+    display: none;
+  }
+</style>
+
+<script>
+  // Horizontal slider — arrows scroll the snap rail by ~one viewport of cards.
+  // Idempotent + View-Transition safe.
+  function initBestRail(): void {
+    document.querySelectorAll<HTMLElement>('[data-best]').forEach((root) => {
+      if (root.dataset.railBound) return;
+      root.dataset.railBound = 'true';
+
+      const rail = root.querySelector<HTMLElement>('[data-rail]');
+      const prev = root.querySelector<HTMLButtonElement>('[data-rail-prev]');
+      const next = root.querySelector<HTMLButtonElement>('[data-rail-next]');
+      if (!rail) return;
+
+      const page = () => Math.max(rail.clientWidth * 0.9, 280);
+      prev?.addEventListener('click', () => rail.scrollBy({ left: -page(), behavior: 'smooth' }));
+      next?.addEventListener('click', () => rail.scrollBy({ left: page(), behavior: 'smooth' }));
+    });
+  }
+
+  initBestRail();
+  document.addEventListener('astro:page-load', initBestRail);
+</script>

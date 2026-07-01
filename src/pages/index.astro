@@ -1,0 +1,48 @@
+---
+// ============================================================
+//  Home — L'ÉDITION editorial storefront. Hero + live product
+//  rails (New Arrivals / Best Sellers) + editorial sections.
+// ============================================================
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import Hero from '~/components/sections/Hero.astro';
+import NewArrivals from '~/components/sections/NewArrivals.astro';
+import CategoryGrid from '~/components/sections/CategoryGrid.astro';
+import BestSellers from '~/components/sections/BestSellers.astro';
+import ShopTheLook from '~/components/sections/ShopTheLook.astro';
+import Campaign from '~/components/sections/Campaign.astro';
+import FlashSale from '~/components/sections/FlashSale.astro';
+import Bundle from '~/components/sections/Bundle.astro';
+import Compare from '~/components/sections/Compare.astro';
+import Testimonials from '~/components/sections/Testimonials.astro';
+import Cta from '~/components/sections/Cta.astro';
+import { getProducts } from '~/lib/shopify';
+import type { ProductCard } from '~/lib/shopify/types';
+
+let newArrivals: ProductCard[] = [];
+let bestSellers: ProductCard[] = [];
+
+try {
+  const [latest, best] = await Promise.all([
+    getProducts({ pageSize: 8, sortKey: 'CREATED_AT', reverse: true }),
+    getProducts({ pageSize: 8, sortKey: 'BEST_SELLING' }),
+  ]);
+  newArrivals = latest.items;
+  bestSellers = best.items;
+} catch (err) {
+  console.error('[home] Shopify load failed:', (err as Error).message);
+}
+---
+
+<BaseLayout>
+  <Hero />
+  <NewArrivals products={newArrivals} />
+  <CategoryGrid />
+  <BestSellers products={bestSellers} />
+  <ShopTheLook />
+  <Campaign />
+  <FlashSale />
+  <Bundle />
+  <Compare />
+  <Testimonials />
+  <Cta />
+</BaseLayout>

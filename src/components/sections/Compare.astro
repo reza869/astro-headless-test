@@ -1,0 +1,303 @@
+---
+// ============================================================
+//  Compare — designer's #compare matrix (.cmp). An editorial
+//  side-by-side comparison of three coats: header row (image +
+//  name + price), then attribute rows (Price, Material, Fit,
+//  Lining, Water Resistant, Colours as swatch dots, Rating as
+//  stars) and a per-column "Add to bag" CTA footer.
+//
+//  Static/presentational (no props, no JS). The middle column is
+//  the "Editor's Pick" featured column with a coral top accent.
+//  Add-to-bag buttons are real links to /products per brief.
+// ============================================================
+import MagHeading from '~/components/sections/MagHeading.astro';
+import Icon from '~/components/ui/Icon.astro';
+import { getProducts } from '~/lib/shopify';
+import { formatMoney } from '~/lib/utils';
+
+let pool: Awaited<ReturnType<typeof getProducts>>['items'] = [];
+try {
+  pool = (await getProducts({ pageSize: 6, sortKey: 'BEST_SELLING' })).items;
+} catch (err) {
+  console.error('[compare] product load failed:', (err as Error).message);
+}
+
+const currency = pool[0]?.priceRange.minVariantPrice.currencyCode ?? 'USD';
+
+// Editorial comparison attributes — overlaid on the real products (the
+// Storefront API doesn't expose material/fit/lining/etc.). Middle = featured.
+const ATTRS = [
+  { material: 'Virgin Wool', fit: 'Relaxed', lining: true, water: false, swatches: ['#2b2f33', '#8d7a5e'], rating: '4.8' },
+  { material: 'Cotton Gabardine', fit: 'Regular', lining: true, water: true, swatches: ['#c8b89a', '#3a4250', '#1b1d1f'], rating: '4.9', feat: true },
+  { material: 'Wool Blend', fit: 'Slim', lining: false, water: false, swatches: ['#1b1d1f', '#6e6256'], rating: '4.6' },
+];
+
+const cols = pool.slice(0, 3).map((p, i) => ({
+  ...ATTRS[i],
+  name: p.title,
+  price: formatMoney(p.priceRange.minVariantPrice.amount, currency),
+  img: p.featuredImage?.url ?? '',
+  variantId: p.variantId ?? '',
+}));
+
+// Boolean cells: green check / muted cross.
+const Bool = (ok: boolean) => ok;
+
+const hasCols = cols.length > 0;
+---
+
+<section class="container-mag pb-section" data-compare style={`display:${hasCols ? '' : 'none'}`}>
+  <div data-reveal>
+    <MagHeading eyebrow="Make the Call" title="Compare the" em="Edit" class="mb-12 md:mb-[60px]">
+      <p
+        slot="actions"
+        class="max-w-[380px] text-[14px] leading-[1.6] text-text-secondary md:text-right"
+      >
+        Three signature outerwear styles, side by side — so you can choose the one that's right for
+        your season.
+      </p>
+    </MagHeading>
+  </div>
+
+  <div class="cmp-scroll overflow-x-auto" data-reveal>
+    <div
+      class="cmp grid min-w-[640px] overflow-hidden rounded-xl bg-surface shadow-sm"
+      style={`grid-template-columns:0.85fr repeat(${cols.length},1fr)`}
+    >
+      <!-- Header row -->
+      <div
+        class="cmp-cell cmp-label flex flex-col items-start justify-end bg-surface px-5 pb-5 pt-6 text-left"
+      >
+        <span class="font-heading text-[26px] font-extrabold leading-[0.9] text-text-primary">The Coats</span>
+        <span class="mt-[7px] text-[11.5px] leading-[1.4] text-text-muted">
+          Compare materials,<br />fit &amp; finish
+        </span>
+      </div>
+
+      {
+        cols.map((c) => (
+          <div
+            class:list={[
+              'cmp-cell relative flex flex-col justify-end px-5 pb-5 pt-6 text-center',
+              c.feat && 'cmp-feat-head bg-coral-soft',
+            ]}
+          >
+            {c.feat && (
+              <span class="cmp-flag mb-[13px] inline-flex items-center gap-1.5 self-center rounded-pill bg-coral px-[13px] py-1.5 text-[9.5px] font-bold uppercase tracking-[1px] text-white">
+                <Icon name="star" size={12} /> Editor's Pick
+              </span>
+            )}
+            <img
+              src={c.img}
+              alt={c.name}
+              loading="lazy"
+              class="mb-[13px] aspect-[4/5] w-full rounded-md object-cover"
+            />
+            <div class="font-heading text-[22px] font-bold leading-none text-text-primary">{c.name}</div>
+            <div class="mt-[5px] text-[16px] font-bold text-coral">{c.price}</div>
+          </div>
+        ))
+      }
+
+      <!-- Price -->
+      <div class="cmp-cell cmp-label cmp-row-label">Price</div>
+      {
+        cols.map((c) => (
+          <div class:list={['cmp-cell cmp-row', c.feat && 'bg-coral-soft']}>
+            <b class="font-semibold">{c.price}</b>
+          </div>
+        ))
+      }
+
+      <!-- Material -->
+      <div class="cmp-cell cmp-label cmp-row-label">Material</div>
+      {
+        cols.map((c) => (
+          <div class:list={['cmp-cell cmp-row', c.feat && 'bg-coral-soft']}>{c.material}</div>
+        ))
+      }
+
+      <!-- Fit -->
+      <div class="cmp-cell cmp-label cmp-row-label">Fit</div>
+      {
+        cols.map((c) => (
+          <div class:list={['cmp-cell cmp-row', c.feat && 'bg-coral-soft']}>{c.fit}</div>
+        ))
+      }
+
+      <!-- Full Lining -->
+      <div class="cmp-cell cmp-label cmp-row-label">Full Lining</div>
+      {
+        cols.map((c) => (
+          <div class:list={['cmp-cell cmp-row', c.feat && 'bg-coral-soft']}>
+            {Bool(c.lining) ? (
+              <Icon name="check" size={19} class="text-green" />
+            ) : (
+              <Icon name="close" size={19} class="text-text-muted" />
+            )}
+          </div>
+        ))
+      }
+
+      <!-- Water Resistant -->
+      <div class="cmp-cell cmp-label cmp-row-label">Water Resistant</div>
+      {
+        cols.map((c) => (
+          <div class:list={['cmp-cell cmp-row', c.feat && 'bg-coral-soft']}>
+            {Bool(c.water) ? (
+              <Icon name="check" size={19} class="text-green" />
+            ) : (
+              <Icon name="close" size={19} class="text-text-muted" />
+            )}
+          </div>
+        ))
+      }
+
+      <!-- Colours -->
+      <div class="cmp-cell cmp-label cmp-row-label">Colours</div>
+      {
+        cols.map((c) => (
+          <div class:list={['cmp-cell cmp-row', c.feat && 'bg-coral-soft']}>
+            <span class="inline-flex gap-[5px]">
+              {c.swatches.map((hex) => (
+                <span
+                  class="cmp-sw h-[15px] w-[15px] rounded-full"
+                  style={`background:${hex}`}
+                />
+              ))}
+            </span>
+          </div>
+        ))
+      }
+
+      <!-- Rating -->
+      <div class="cmp-cell cmp-label cmp-row-label">Rating</div>
+      {
+        cols.map((c) => (
+          <div class:list={['cmp-cell cmp-row', c.feat && 'bg-coral-soft']}>
+            <b class="inline-flex items-center gap-1 font-semibold">
+              {c.rating} <Icon name="star" size={14} class="text-coral" />
+            </b>
+          </div>
+        ))
+      }
+
+      <!-- Footer CTA -->
+      <div class="cmp-cell cmp-label p-[18px]" />
+      {
+        cols.map((c) => (
+          <div class:list={['cmp-cell p-[18px]', c.feat && 'bg-coral-soft']}>
+            <button
+              type="button"
+              data-cmp-add
+              data-variant-id={c.variantId}
+              disabled={!c.variantId}
+              aria-label={`Add ${c.name} to bag`}
+              class:list={[
+                'btn flex w-full items-center justify-center rounded-sm px-5 py-[13px] transition-fluid disabled:opacity-50 data-[loading]:pointer-events-none',
+                c.feat
+                  ? 'bg-coral text-white hover:bg-coral-hover'
+                  : 'bg-dark text-white hover:bg-dark-hover',
+              ]}
+            >
+              Add to Bag
+            </button>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  /* Designer .cmp: aligned matrix grid (.85fr + 3 equal cols). */
+  .cmp {
+    grid-template-columns: 0.85fr 1fr 1fr 1fr;
+  }
+
+  /* Hairline grid: bottom rule on every cell, right rule on the
+     label column — utilities can't express inset box-shadow rules. */
+  .cmp-cell {
+    box-shadow: inset 0 -1px 0 var(--color-border);
+  }
+  .cmp-label {
+    box-shadow:
+      inset -1px 0 0 var(--color-border),
+      inset 0 -1px 0 var(--color-border);
+  }
+
+  /* Featured column coral top accent (designer .ch.feat::before). */
+  .cmp-feat-head::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 4px;
+    background: var(--color-coral);
+  }
+
+  /* Attribute body cells. */
+  .cmp-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 18px;
+    font-size: 13.5px;
+    text-align: center;
+  }
+  .cmp-row-label {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 14px 18px;
+    background: var(--color-surface);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--color-text-secondary);
+  }
+
+  /* Swatch dots get a subtle inner ring for light colours. */
+  .cmp-sw {
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12);
+  }
+
+  /* Hide the horizontal scrollbar on the mobile overflow track. */
+  .cmp-scroll {
+    scrollbar-width: none;
+  }
+  .cmp-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  [data-cmp-add][data-loading] {
+    opacity: 0.6;
+  }
+</style>
+
+<script>
+  import { addItem } from '~/stores/cart';
+
+  function initCompare(): void {
+    document.querySelectorAll<HTMLElement>('[data-compare]').forEach((root) => {
+      if (root.dataset.bound) return;
+      root.dataset.bound = 'true';
+
+      root.querySelectorAll<HTMLButtonElement>('[data-cmp-add]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const variantId = btn.dataset.variantId;
+          if (!variantId || btn.hasAttribute('data-loading')) return;
+          btn.setAttribute('data-loading', '');
+          try {
+            await addItem(variantId, 1); // opens the cart drawer on success
+          } finally {
+            btn.removeAttribute('data-loading');
+          }
+        });
+      });
+    });
+  }
+
+  initCompare();
+  document.addEventListener('astro:page-load', initCompare);
+</script>

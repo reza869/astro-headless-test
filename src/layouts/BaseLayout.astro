@@ -1,0 +1,220 @@
+---
+// ============================================================
+//  BaseLayout — L'ÉDITION html shell shared by every page.
+//  Fonts + meta + SEO, global GSAP/ScrollTrigger motion engine,
+//  and the persistent cart drawer + mobile nav islands.
+// ============================================================
+import '~/styles/global.css';
+import { SITE } from '~/config/site';
+import Announcement from '~/components/global/Announcement.astro';
+import Header from '~/components/global/Header.astro';
+import Footer from '~/components/global/Footer.astro';
+import CartDrawer from '~/components/react/CartDrawer.tsx';
+import BottomNav from '~/components/react/BottomNav.tsx';
+import QuickViewModal from '~/components/react/QuickViewModal.tsx';
+
+interface Props {
+  title?: string;
+  description?: string;
+  image?: string;
+  noFooter?: boolean;
+}
+
+const { title, description = SITE.description, image, noFooter = false } = Astro.props;
+
+const pageTitle = title ? `${title} · ${SITE.name}` : `${SITE.name} — ${SITE.tagline}`;
+const canonical = new URL(Astro.url.pathname, Astro.url.origin).href;
+const pathname = Astro.url.pathname;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" />
+
+    {/* Fonts — Big Shoulders Display (headings) · Manrope (body) */}
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;500;600;700;800;900&family=Manrope:wght@300;400;500;600;700;800&display=swap"
+    />
+
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <meta name="theme-color" content="#151719" />
+
+    {/* Open Graph / Twitter */}
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={SITE.name} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    {image && <meta property="og:image" content={image} />}
+    <meta name="twitter:card" content={image ? 'summary_large_image' : 'summary'} />
+  </head>
+
+  <body class="flex min-h-dvh flex-col bg-bg-light font-body text-text-primary">
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[200] focus:rounded-md focus:bg-dark focus:px-4 focus:py-2 focus:text-white"
+    >
+      Skip to content
+    </a>
+
+    <Announcement />
+    <Header />
+
+    {/* When a footer is present it carries the mobile BottomNav clearance
+         (it's the last element); only footerless pages need it on <main>,
+         otherwise the padding would sit between the content and the footer. */}
+    <main id="main" class:list={['flex-1 overflow-x-clip', noFooter && 'pb-20 md:pb-0']}>
+      <slot />
+    </main>
+
+    {!noFooter && <Footer />}
+
+    {/* Persistent interactive islands */}
+    <CartDrawer client:load />
+    <BottomNav client:load pathname={pathname} />
+    <QuickViewModal client:load />
+
+    {/* ========================================================
+         Motion engine — FREE core GSAP + ScrollTrigger only.
+         Bundled module (not is:inline) so Vite tree-shakes it.
+         Re-runs on astro:page-load for View Transitions parity.
+         ======================================================== */}
+    <script>
+      import { gsap } from 'gsap';
+      import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+      gsap.registerPlugin(ScrollTrigger);
+
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      /** Reveal every motion target immediately — used as the failsafe so a
+       *  GSAP error can never leave a server-rendered section invisible. */
+      function revealAll(): void {
+        document
+          .querySelectorAll('[data-reveal], [data-reveal-img], [data-enter], [data-enter] > *, [data-stagger] > *')
+          .forEach((el) => ((el as HTMLElement).style.opacity = '1'));
+      }
+
+      /** Wire every entry + scroll animation. Idempotent: kills prior
+       *  triggers first so View Transitions never stack them. Any throw
+       *  reveals all content rather than leaving the page half-blank. */
+      function initMotion(): void {
+       try {
+        ScrollTrigger.getAll().forEach((t) => t.kill());
+
+        if (reduceMotion) {
+          // Reveal everything immediately — no animation, no hidden content.
+          gsap.set('[data-reveal], [data-reveal-img], [data-stagger] > *', {
+            clearProps: 'all',
+            opacity: 1,
+          });
+          return;
+        }
+
+        // 1. Hero / on-load entry — fade + rise, staggered children.
+        gsap.utils.toArray<HTMLElement>('[data-enter]').forEach((el) => {
+          const kids = el.hasAttribute('data-stagger') ? Array.from(el.children) : [el];
+          // Container was pre-hidden by CSS; reveal it, then animate the
+          // children in (so a staggered container isn't stuck invisible).
+          gsap.set(el, { opacity: 1 });
+          gsap.from(kids, {
+            y: 40,
+            opacity: 0,
+            duration: 0.9,
+            ease: 'power3.out',
+            stagger: 0.08,
+            delay: Number(el.dataset.delay ?? 0),
+          });
+        });
+
+        // 2. Scroll reveals — batched fade-up as elements enter viewport.
+        ScrollTrigger.batch('[data-reveal]', {
+          start: 'top 88%',
+          once: true,
+          onEnter: (els) =>
+            gsap.to(els, {
+              y: 0,
+              opacity: 1,
+              duration: 0.7,
+              ease: 'power3.out',
+              stagger: 0.1,
+            }),
+        });
+
+        // 3. Image reveals — clip-path wipe (no paid SplitText/Smoother).
+        gsap.utils.toArray<HTMLElement>('[data-reveal-img]').forEach((el) => {
+          gsap.fromTo(
+            el,
+            { clipPath: 'inset(0 0 100% 0)', scale: 1.08 },
+            {
+              clipPath: 'inset(0 0 0% 0)',
+              scale: 1,
+              duration: 1.1,
+              ease: 'power2.out',
+              // Drop the inline transform once revealed — otherwise the
+              // leftover scale(1) outranks CSS `group-hover:scale-*` and
+              // kills the hover zoom on reveal images.
+              clearProps: 'transform',
+              scrollTrigger: { trigger: el, start: 'top 85%', once: true },
+            },
+          );
+        });
+
+        // 4. Parallax — gentle Y drift on flagged media while scrolling.
+        gsap.utils.toArray<HTMLElement>('[data-parallax]').forEach((el) => {
+          gsap.to(el, {
+            yPercent: Number(el.dataset.parallax ?? -12),
+            ease: 'none',
+            scrollTrigger: { trigger: el, start: 'top bottom', end: 'bottom top', scrub: true },
+          });
+        });
+
+        ScrollTrigger.refresh();
+       } catch (err) {
+        console.error('[motion] init failed — revealing all content', err);
+        revealAll();
+       }
+      }
+
+      initMotion();
+      document.addEventListener('astro:page-load', initMotion);
+      // Clear triggers before the DOM is swapped out by a transition.
+      document.addEventListener('astro:before-swap', () =>
+        ScrollTrigger.getAll().forEach((t) => t.kill()),
+      );
+
+      // Recompute trigger positions once images/fonts settle (late layout
+      // shifts can otherwise leave reveals mis-measured).
+      window.addEventListener('load', () => ScrollTrigger.refresh());
+
+      // Failsafe: never leave content stuck hidden if a tween is interrupted
+      // or GSAP is blocked. Entries (`data-enter`) are always revealed; scroll
+      // `data-reveal` items are revealed only if they're already in view but
+      // still hidden (below-fold ones stay scroll-driven).
+      window.setTimeout(() => {
+        const vh = window.innerHeight || document.documentElement.clientHeight;
+        document
+          .querySelectorAll<HTMLElement>('[data-enter], [data-enter] > *, [data-reveal]')
+          .forEach((el) => {
+            if (parseFloat(getComputedStyle(el).opacity) >= 1) return;
+            const isReveal = el.matches('[data-reveal]');
+            const r = el.getBoundingClientRect();
+            const inView = r.top < vh && r.bottom > 0;
+            if (!isReveal || inView) {
+              gsap.set(el, { opacity: 1, y: 0, clearProps: 'transform' });
+            }
+          });
+      }, 1800);
+    </script>
+  </body>
+</html>

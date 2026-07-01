@@ -1,0 +1,98 @@
+---
+// ============================================================
+//  Size Guide — the store's fit + measurement reference. The
+//  chart itself lives in the reusable <SizeGuide> component
+//  (shared with the PDP modal); this page wraps it in the
+//  theme's editorial hero + closing CTA.
+// ============================================================
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import Icon from '~/components/ui/Icon.astro';
+import SizeGuide from '~/components/global/SizeGuide.astro';
+
+const SUPPORT_EMAIL = 'care@ledition.com';
+const description =
+  'Find your perfect fit with our size charts for women’s and men’s pieces, plus a simple how-to-measure guide. Between sizes? Our stylists are a message away.';
+---
+
+<BaseLayout title="Size Guide" description={description}>
+  {/* ===================== HERO ===================== */}
+  <section class="py-hero">
+    <div class="container-mag" data-enter data-stagger>
+      <span class="mag-label mb-[18px]">Client Care · Issue N°02</span>
+      <div class="flex flex-col items-start justify-between gap-8 lg:flex-row lg:items-end">
+        <h1 class="h1 uppercase">Size <em class="not-italic text-coral">guide.</em></h1>
+        <p class="max-w-[440px] text-base leading-[1.65] text-text-secondary">
+          Every piece is cut to a considered, true-to-size fit. Use the charts below to find your
+          size, switch between centimetres and inches, and learn how to measure at home.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  {/* ===================== CHART ===================== */}
+  <section class="pb-section">
+    <div class="container-mag">
+      <div class="rounded-xl bg-surface p-5 ring-1 ring-inset ring-border sm:p-8" data-reveal>
+        <SizeGuide />
+      </div>
+
+      {/* Stylist help strip */}
+      <div
+        class="mt-6 flex flex-col items-start gap-4 rounded-lg bg-dark px-6 py-6 text-white sm:flex-row sm:items-center sm:justify-between sm:px-9"
+        data-reveal
+      >
+        <div class="flex items-center gap-3.5">
+          <span class="grid h-11 w-11 flex-none place-items-center rounded-full bg-white/[0.08] text-coral">
+            <Icon name="ruler" size={20} />
+          </span>
+          <div>
+            <p class="font-heading text-[19px] font-bold leading-tight">Still between sizes?</p>
+            <p class="mt-1 text-[13px] leading-[1.5] text-white/70">
+              Share your measurements and the piece you love — our stylists will recommend the
+              right size.
+            </p>
+          </div>
+        </div>
+        <a
+          href="/contact"
+          class="btn inline-flex h-11 flex-none items-center gap-2 rounded-xs bg-coral px-5 text-white transition-fluid hover:bg-coral-hover"
+        >
+          Ask a stylist <Icon name="arrowRight" size={15} />
+        </a>
+      </div>
+    </div>
+  </section>
+
+  {/* ===================== CLOSING CTA ===================== */}
+  <section class="pb-section">
+    <div class="container-mag">
+      <div
+        class="flex flex-col items-center gap-5 rounded-xl bg-surface-cool px-6 py-12 text-center ring-1 ring-inset ring-border md:flex-row md:justify-between md:px-12 md:text-left"
+        data-reveal
+      >
+        <div>
+          <span class="mag-label mb-3">Good To Know</span>
+          <h2 class="h3">Fit <em class="not-italic text-coral">questions?</em></h2>
+          <p class="mt-2 max-w-[520px] text-[14.5px] leading-[1.6] text-text-secondary">
+            Not sure a piece will work for you? Our client team knows every cut in the collection
+            and replies to every enquiry — usually within 24 hours.
+          </p>
+        </div>
+        <div class="flex flex-none flex-wrap justify-center gap-3">
+          <a
+            href="/contact"
+            class="btn inline-flex h-12 items-center gap-2.5 rounded-sm bg-coral px-6 text-white transition-fluid hover:bg-coral-hover"
+          >
+            Contact us <Icon name="arrowRight" size={16} />
+          </a>
+          <a
+            href={`mailto:${SUPPORT_EMAIL}`}
+            class="btn inline-flex h-12 items-center gap-2 rounded-sm border border-border bg-surface px-6 text-text-primary transition-fluid hover:border-dark hover:text-coral"
+          >
+            <Icon name="mail" size={16} /> Email us
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

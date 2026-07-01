@@ -1,0 +1,253 @@
+---
+// ============================================================
+//  Shipping & Returns — delivery options, timelines and the
+//  returns/exchanges policy, in the theme's editorial layout.
+//  Static, merchant-editable content (the numbers mirror the
+//  free-shipping threshold in site config).
+// ============================================================
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import Icon from '~/components/ui/Icon.astro';
+import { SITE } from '~/config/site';
+
+const SUPPORT_EMAIL = 'care@ledition.com';
+const FREE = SITE.freeShippingThreshold;
+
+const shipping = [
+  {
+    icon: 'truck' as const,
+    name: 'Standard',
+    price: `Free over $${FREE}`,
+    sub: 'else $8',
+    time: '3–5 business days',
+    note: 'Carbon-neutral delivery, fully tracked from our Paris atelier.',
+  },
+  {
+    icon: 'fire' as const,
+    name: 'Express',
+    price: '$18',
+    sub: 'flat',
+    time: '1–2 business days',
+    note: 'Order before 1pm CET on a business day for same-day dispatch.',
+  },
+  {
+    icon: 'globe' as const,
+    name: 'International',
+    price: 'From $22',
+    sub: 'calculated at checkout',
+    time: '5–10 business days',
+    note: 'Duties and taxes shown up front for 40+ countries — no surprises.',
+  },
+  {
+    icon: 'mapPin' as const,
+    name: 'Click & Collect',
+    price: 'Free',
+    sub: 'Paris flagship',
+    time: 'Same day',
+    note: 'Reserve online and collect from 12 Rue Saint-Honoré, ready in hours.',
+  },
+];
+
+const returnSteps = [
+  {
+    n: '01',
+    title: 'Start your return',
+    body: 'Open a return from your account under “Order history”, or email us with your order number within 30 days of delivery.',
+  },
+  {
+    n: '02',
+    title: 'Pack it up',
+    body: 'Place unworn items with their original tags back into the box. Reuse our packaging where you can — it’s designed for the round trip.',
+  },
+  {
+    n: '03',
+    title: 'Ship it back',
+    body: 'Attach the prepaid label we email you and drop the parcel at any carrier point. Tracking is included.',
+  },
+  {
+    n: '04',
+    title: 'Get refunded',
+    body: 'Once your return reaches us and passes inspection, we refund your original payment method within 3–5 business days.',
+  },
+];
+
+const policy = [
+  { icon: 'rotate' as const, label: '30-day window', body: 'From the day your order is delivered.' },
+  { icon: 'check' as const, label: 'Free returns', body: 'Prepaid label on all domestic orders.' },
+  { icon: 'tag' as const, label: 'Unworn & tagged', body: 'Original condition with tags attached.' },
+  { icon: 'sealCheck' as const, label: 'Easy exchanges', body: 'Swap size or colour, subject to stock.' },
+];
+
+const description = `Everything about delivery and returns at ${SITE.name} — options, timelines, free shipping over $${FREE} and our 30-day, free returns policy.`;
+---
+
+<BaseLayout title="Shipping & Returns" description={description}>
+  {/* ===================== HERO ===================== */}
+  <section class="py-hero">
+    <div class="container-mag" data-enter data-stagger>
+      <span class="mag-label mb-[18px]">Client Care · Issue N°02</span>
+      <div class="flex flex-col items-start justify-between gap-8 lg:flex-row lg:items-end">
+        <h1 class="h1 uppercase">Shipping &amp; <em class="not-italic text-coral">returns.</em></h1>
+        <p class="max-w-[440px] text-base leading-[1.65] text-text-secondary">
+          Fast, tracked, carbon-neutral delivery and an easy 30-day returns policy — so you can
+          shop with total confidence. Free standard shipping over ${FREE}.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  {/* ===================== SHIPPING OPTIONS ===================== */}
+  <section class="pb-section">
+    <div class="container-mag">
+      <div class="mb-6 flex items-center gap-3" data-reveal>
+        <span class="grid h-11 w-11 flex-none place-items-center rounded-pill bg-coral-soft text-coral">
+          <Icon name="truck" size={20} />
+        </span>
+        <h2 class="h4">Delivery options</h2>
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-reveal>
+        {
+          shipping.map((s) => (
+            <div class="flex flex-col rounded-lg bg-surface p-6 ring-1 ring-inset ring-border transition-fluid hover:ring-coral/40">
+              <span class="mb-4 grid h-11 w-11 place-items-center rounded-md bg-surface-cool text-coral">
+                <Icon name={s.icon} size={20} />
+              </span>
+              <h3 class="font-heading text-[20px] font-bold leading-tight text-text-primary">
+                {s.name}
+              </h3>
+              <div class="mt-1.5 flex items-baseline gap-1.5">
+                <span class="text-[15px] font-bold text-coral">{s.price}</span>
+                <span class="text-[12px] text-text-muted">{s.sub}</span>
+              </div>
+              <p class="mt-3 flex items-center gap-1.5 text-[12.5px] font-semibold text-text-primary">
+                <Icon name="clock" size={14} class="text-text-muted" /> {s.time}
+              </p>
+              <p class="mt-2 text-[12.5px] leading-[1.55] text-text-secondary">{s.note}</p>
+            </div>
+          ))
+        }
+      </div>
+
+      <p class="mt-5 flex items-start gap-2.5 rounded-md bg-coral-soft px-5 py-4 text-[13px] leading-[1.6] text-text-secondary" data-reveal>
+        <Icon name="truck" size={18} class="mt-0.5 flex-none text-coral" />
+        <span>
+          <b class="text-text-primary">Free standard shipping</b> on every order over ${FREE}. All
+          timelines are estimates from dispatch; you’ll receive a tracking link by email the moment
+          your parcel leaves us.
+        </span>
+      </p>
+    </div>
+  </section>
+
+  {/* ===================== RETURNS ===================== */}
+  <section class="pb-section">
+    <div class="container-mag">
+      <div class="rounded-xl bg-surface-cool p-6 ring-1 ring-inset ring-border sm:p-10" data-reveal>
+        <div class="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
+          <div>
+            <span class="mag-label mb-3">Returns &amp; Exchanges</span>
+            <h2 class="h3">Changed your mind? <em class="not-italic text-coral">No problem.</em></h2>
+          </div>
+          <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 md:flex md:gap-3">
+            {
+              policy.map((p) => (
+                <div class="flex flex-col items-start gap-1.5 rounded-md bg-surface px-4 py-3 ring-1 ring-inset ring-border md:min-w-[132px]">
+                  <Icon name={p.icon} size={18} class="text-coral" />
+                  <span class="text-[12.5px] font-bold text-text-primary">{p.label}</span>
+                  <span class="text-[11.5px] leading-[1.4] text-text-muted">{p.body}</span>
+                </div>
+              ))
+            }
+          </div>
+        </div>
+
+        {/* Steps */}
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {
+            returnSteps.map((s) => (
+              <div class="relative rounded-lg bg-surface p-5 ring-1 ring-inset ring-border">
+                <span class="font-heading text-[30px] font-extrabold leading-none text-coral/25">
+                  {s.n}
+                </span>
+                <h3 class="mt-2 text-[14px] font-bold text-text-primary">{s.title}</h3>
+                <p class="mt-1.5 text-[12.5px] leading-[1.55] text-text-secondary">{s.body}</p>
+              </div>
+            ))
+          }
+        </div>
+
+        <div class="mt-6 flex flex-wrap gap-3">
+          <a
+            href="/account"
+            class="btn inline-flex h-11 items-center gap-2 rounded-sm bg-dark px-5 text-white transition-fluid hover:bg-dark-hover"
+          >
+            <Icon name="package" size={16} /> Start a return
+          </a>
+          <a
+            href="/track-order"
+            class="btn inline-flex h-11 items-center gap-2 rounded-sm border border-border bg-surface px-5 text-text-primary transition-fluid hover:border-dark hover:text-coral"
+          >
+            Track an order <Icon name="arrowRight" size={15} />
+          </a>
+        </div>
+      </div>
+
+      {/* Fine print */}
+      <div class="mt-6 grid gap-4 md:grid-cols-2" data-reveal>
+        <div class="rounded-lg bg-surface p-6 ring-1 ring-inset ring-border">
+          <h3 class="mb-2 flex items-center gap-2 text-[13px] font-bold uppercase tracking-[1px] text-text-primary">
+            <Icon name="shield" size={16} class="text-coral" /> Good to know
+          </h3>
+          <ul class="space-y-2 text-[13px] leading-[1.6] text-text-secondary">
+            <li class="flex gap-2"><Icon name="check" size={15} class="mt-0.5 flex-none text-green" /> Refunds are issued to your original payment method.</li>
+            <li class="flex gap-2"><Icon name="check" size={15} class="mt-0.5 flex-none text-green" /> Final-sale and personalised pieces are non-returnable (noted on the product page).</li>
+            <li class="flex gap-2"><Icon name="check" size={15} class="mt-0.5 flex-none text-green" /> Faulty item? Contact us and we’ll make it right at no cost to you.</li>
+          </ul>
+        </div>
+        <div class="rounded-lg bg-surface p-6 ring-1 ring-inset ring-border">
+          <h3 class="mb-2 flex items-center gap-2 text-[13px] font-bold uppercase tracking-[1px] text-text-primary">
+            <Icon name="ruler" size={16} class="text-coral" /> Avoid a return
+          </h3>
+          <p class="text-[13px] leading-[1.6] text-text-secondary">
+            Getting the size right first time is the easiest way to skip the round trip. Check our
+            <a href="/size-guide" class="font-semibold text-coral underline underline-offset-2">size guide</a>
+            and the fit notes on every product page — or ask a stylist before you buy.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {/* ===================== CLOSING CTA ===================== */}
+  <section class="pb-section">
+    <div class="container-mag">
+      <div
+        class="flex flex-col items-center gap-5 rounded-xl bg-surface-cool px-6 py-12 text-center ring-1 ring-inset ring-border md:flex-row md:justify-between md:px-12 md:text-left"
+        data-reveal
+      >
+        <div>
+          <span class="mag-label mb-3">Need A Hand</span>
+          <h2 class="h3">Question about <em class="not-italic text-coral">your order?</em></h2>
+          <p class="mt-2 max-w-[520px] text-[14.5px] leading-[1.6] text-text-secondary">
+            Our Paris-based client team can help with delivery, returns and exchanges — usually
+            within 24 hours.
+          </p>
+        </div>
+        <div class="flex flex-none flex-wrap justify-center gap-3">
+          <a
+            href="/contact"
+            class="btn inline-flex h-12 items-center gap-2.5 rounded-sm bg-coral px-6 text-white transition-fluid hover:bg-coral-hover"
+          >
+            Contact us <Icon name="arrowRight" size={16} />
+          </a>
+          <a
+            href="/faq"
+            class="btn inline-flex h-12 items-center gap-2 rounded-sm border border-border bg-surface px-6 text-text-primary transition-fluid hover:border-dark hover:text-coral"
+          >
+            <Icon name="search" size={16} /> Read the FAQ
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

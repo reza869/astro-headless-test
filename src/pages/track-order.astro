@@ -1,0 +1,226 @@
+---
+// ============================================================
+//  Track Order — a lookup form + the order journey. Live parcel
+//  tracking lives behind the customer account (where the real
+//  carrier link is stored), so the form validates and routes the
+//  shopper to their order history; guest orders are pointed to
+//  the tracking link emailed at dispatch. Honest + functional.
+// ============================================================
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import Icon from '~/components/ui/Icon.astro';
+import { SITE } from '~/config/site';
+
+const SUPPORT_EMAIL = 'care@ledition.com';
+
+const journey = [
+  { icon: 'check' as const, title: 'Order confirmed', body: 'We’ve received your order and payment. A confirmation lands in your inbox.' },
+  { icon: 'package' as const, title: 'Packed with care', body: 'Your pieces are checked and hand-packed at our Paris atelier.' },
+  { icon: 'truck' as const, title: 'On its way', body: 'Dispatched — a tracking link is emailed the moment it leaves us.' },
+  { icon: 'mapPin' as const, title: 'Delivered', body: 'Your order arrives. Not quite right? You have 30 days to return it.' },
+];
+
+const description = `Track your ${SITE.name} order — look up your order status, follow the delivery journey, or find the tracking link emailed at dispatch.`;
+---
+
+<BaseLayout title="Track Order" description={description}>
+  {/* ===================== HERO ===================== */}
+  <section class="py-hero">
+    <div class="container-mag" data-enter data-stagger>
+      <span class="mag-label mb-[18px]">Client Care · Issue N°02</span>
+      <div class="flex flex-col items-start justify-between gap-8 lg:flex-row lg:items-end">
+        <h1 class="h1 uppercase">Track <em class="not-italic text-coral">order.</em></h1>
+        <p class="max-w-[440px] text-base leading-[1.65] text-text-secondary">
+          Follow your parcel from our Paris atelier to your door. Look up your order below, or use
+          the tracking link we email the moment it ships.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  {/* ===================== LOOKUP + JOURNEY ===================== */}
+  <section class="pb-section">
+    <div class="container-mag">
+      <div class="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-10">
+        {/* ── Lookup form ─────────────────────────────── */}
+        <div class="rounded-xl bg-surface p-6 ring-1 ring-inset ring-border sm:p-8" data-reveal>
+          <span class="grid h-12 w-12 place-items-center rounded-full bg-coral-soft text-coral">
+            <Icon name="package" size={22} />
+          </span>
+          <h2 class="mt-4 font-heading text-[26px] font-extrabold leading-tight text-text-primary">
+            Look up your order
+          </h2>
+          <p class="mt-2 text-[13.5px] leading-[1.6] text-text-secondary">
+            Enter your order number and email to jump straight to its status and live tracking.
+          </p>
+
+          <form class="mt-6 flex flex-col gap-4" data-track-form novalidate>
+            <div>
+              <label for="orderNo" class="mb-1.5 block text-[11px] font-bold uppercase tracking-[1.2px] text-text-muted">
+                Order number
+              </label>
+              <input
+                id="orderNo"
+                name="orderNo"
+                type="text"
+                required
+                placeholder="e.g. #LE-10432"
+                autocomplete="off"
+                class="h-12 w-full rounded-sm bg-surface-cool px-4 text-sm text-text-primary ring-1 ring-inset ring-border transition-shadow placeholder:text-text-muted focus:outline-none focus:ring-coral"
+              />
+            </div>
+            <div>
+              <label for="orderEmail" class="mb-1.5 block text-[11px] font-bold uppercase tracking-[1.2px] text-text-muted">
+                Email address
+              </label>
+              <input
+                id="orderEmail"
+                name="orderEmail"
+                type="email"
+                required
+                placeholder="you@email.com"
+                autocomplete="email"
+                class="h-12 w-full rounded-sm bg-surface-cool px-4 text-sm text-text-primary ring-1 ring-inset ring-border transition-shadow placeholder:text-text-muted focus:outline-none focus:ring-coral"
+              />
+            </div>
+
+            <p data-track-error class="hidden items-start gap-2 text-[12.5px] font-semibold text-coral">
+              <Icon name="close" size={15} class="mt-0.5 flex-none" />
+              <span data-track-error-msg>Please enter your order number and the email used at checkout.</span>
+            </p>
+
+            <button
+              type="submit"
+              class="btn mt-1 inline-flex h-12 items-center justify-center gap-2 rounded-sm bg-coral px-6 text-white transition-fluid hover:bg-coral-hover"
+            >
+              Track my order <Icon name="arrowRight" size={16} />
+            </button>
+          </form>
+
+          <p class="mt-4 border-t border-border pt-4 text-[12.5px] leading-[1.6] text-text-muted">
+            Have an account? <a href="/account" class="font-semibold text-coral underline underline-offset-2">Sign in</a>
+            to see every order and its live tracking in one place.
+          </p>
+        </div>
+
+        {/* ── Order journey ───────────────────────────── */}
+        <div data-reveal>
+          <h2 class="h4 mb-2">The order journey</h2>
+          <p class="mb-6 max-w-[440px] text-[13.5px] leading-[1.6] text-text-secondary">
+            Here’s what happens after you check out. You’ll get an email at each milestone.
+          </p>
+
+          <ol class="relative ml-[19px] border-l border-dashed border-border">
+            {
+              journey.map((j, i) => (
+                <li class="relative pb-8 pl-8 last:pb-0">
+                  <span class="absolute -left-[19px] top-0 grid h-[38px] w-[38px] place-items-center rounded-full bg-coral-soft text-coral ring-4 ring-surface">
+                    <Icon name={j.icon} size={17} />
+                  </span>
+                  <span class="text-[10.5px] font-bold uppercase tracking-[1.4px] text-text-muted">
+                    Step {i + 1}
+                  </span>
+                  <h3 class="mt-0.5 font-heading text-[19px] font-bold leading-tight text-text-primary">
+                    {j.title}
+                  </h3>
+                  <p class="mt-1 max-w-[420px] text-[13px] leading-[1.6] text-text-secondary">
+                    {j.body}
+                  </p>
+                </li>
+              ))
+            }
+          </ol>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {/* ===================== HELP CTA ===================== */}
+  <section class="pb-section">
+    <div class="container-mag">
+      <div
+        class="flex flex-col items-center gap-5 rounded-xl bg-surface-cool px-6 py-12 text-center ring-1 ring-inset ring-border md:flex-row md:justify-between md:px-12 md:text-left"
+        data-reveal
+      >
+        <div>
+          <span class="mag-label mb-3">Can’t Find It</span>
+          <h2 class="h3">Order gone <em class="not-italic text-coral">quiet?</em></h2>
+          <p class="mt-2 max-w-[520px] text-[14.5px] leading-[1.6] text-text-secondary">
+            If your tracking hasn’t updated or you can’t find your order, our client team will chase
+            it down for you — usually within 24 hours.
+          </p>
+        </div>
+        <div class="flex flex-none flex-wrap justify-center gap-3">
+          <a
+            href="/contact"
+            class="btn inline-flex h-12 items-center gap-2.5 rounded-sm bg-coral px-6 text-white transition-fluid hover:bg-coral-hover"
+          >
+            Contact us <Icon name="arrowRight" size={16} />
+          </a>
+          <a
+            href={`mailto:${SUPPORT_EMAIL}`}
+            class="btn inline-flex h-12 items-center gap-2 rounded-sm border border-border bg-surface px-6 text-text-primary transition-fluid hover:border-dark hover:text-coral"
+          >
+            <Icon name="mail" size={16} /> {SUPPORT_EMAIL}
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {/* ============================================================
+       Track-order form — validates order number + email, then
+       routes to the account order history where live tracking
+       lives. Idempotent + View-Transition safe.
+       ============================================================ */}
+  <script>
+    function initTrackForm(): void {
+      const form = document.querySelector<HTMLFormElement>('[data-track-form]');
+      if (!form || form.dataset.bound) return;
+      form.dataset.bound = 'true';
+
+      const err = form.querySelector<HTMLElement>('[data-track-error]');
+      const errMsg = form.querySelector<HTMLElement>('[data-track-error-msg]');
+      const orderNo = form.querySelector<HTMLInputElement>('#orderNo');
+      const email = form.querySelector<HTMLInputElement>('#orderEmail');
+
+      const showError = (msg: string): void => {
+        if (errMsg) errMsg.textContent = msg;
+        err?.classList.remove('hidden');
+        err?.classList.add('flex');
+      };
+      const clearError = (): void => {
+        err?.classList.add('hidden');
+        err?.classList.remove('flex');
+      };
+
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        clearError();
+
+        const no = orderNo?.value.trim() ?? '';
+        const mail = email?.value.trim() ?? '';
+        const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail);
+
+        if (!no || !emailOk) {
+          showError(
+            !no
+              ? 'Please enter your order number.'
+              : 'Please enter the email address used at checkout.',
+          );
+          (!no ? orderNo : email)?.focus();
+          return;
+        }
+
+        // Live tracking is stored against the account order — hand off there,
+        // carrying the looked-up order number so the account can preselect it.
+        const params = new URLSearchParams({ order: no, email: mail });
+        window.location.assign(`/account?${params.toString()}`);
+      });
+
+      [orderNo, email].forEach((el) => el?.addEventListener('input', clearError));
+    }
+
+    initTrackForm();
+    document.addEventListener('astro:page-load', initTrackForm);
+  </script>
+</BaseLayout>

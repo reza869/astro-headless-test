@@ -1,0 +1,62 @@
+---
+// ============================================================
+//  Button — shared CTA primitive. Renders <a> when href is set,
+//  otherwise <button>. Variants encode the action hierarchy:
+//  ink = primary, accent = express/Buy Now, outline/ghost = quiet.
+// ============================================================
+import { cn } from '~/lib/utils';
+
+type Variant = 'ink' | 'accent' | 'outline' | 'ghost';
+type Size = 'sm' | 'md' | 'lg';
+
+interface Props {
+  href?: string;
+  variant?: Variant;
+  size?: Size;
+  block?: boolean;
+  type?: 'button' | 'submit';
+  class?: string;
+  disabled?: boolean;
+  [key: string]: unknown;
+}
+
+const {
+  href,
+  variant = 'ink',
+  size = 'md',
+  block = false,
+  type = 'button',
+  class: className,
+  disabled = false,
+  ...rest
+} = Astro.props;
+
+const base =
+  'inline-flex items-center justify-center gap-2 font-medium tracking-tight transition-fluid select-none rounded-md disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap';
+
+const variants: Record<Variant, string> = {
+  ink: 'bg-dark text-white hover:bg-dark-hover',
+  accent: 'bg-coral text-white hover:brightness-110',
+  outline: 'border border-dark/20 text-text-primary hover:border-dark hover:bg-dark/[0.03]',
+  ghost: 'text-text-primary hover:bg-dark/[0.05]',
+};
+
+const sizes: Record<Size, string> = {
+  sm: 'h-9 px-4 text-[0.8125rem]',
+  md: 'h-11 px-6 text-sm',
+  lg: 'h-14 px-8 text-base',
+};
+
+const classes = cn(base, variants[variant], sizes[size], block && 'w-full', className);
+const Tag = href ? 'a' : 'button';
+---
+
+<Tag
+  class={classes}
+  href={href}
+  type={href ? undefined : type}
+  aria-disabled={disabled ? 'true' : undefined}
+  {...rest}
+>
+  <slot />
+</Tag>

@@ -1,0 +1,44 @@
+---
+// ============================================================
+//  MagHeading — the designer's .sec-head (label + display H2
+//  with a coral accent word, optional sub + right-side CTA).
+// ============================================================
+import Icon from '~/components/ui/Icon.astro';
+
+interface Props {
+  eyebrow: string;
+  title: string;
+  /** Accent word rendered in coral after the title. */
+  em?: string;
+  sub?: string;
+  href?: string;
+  cta?: string;
+  class?: string;
+}
+
+const { eyebrow, title, em, sub, href, cta, class: className = '' } = Astro.props;
+---
+
+<div
+  class={`flex flex-col items-start gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-7 ${className}`}
+>
+  <div>
+    <span class="mag-label mb-[15px]">{eyebrow}</span>
+    <h2 class="h2 max-w-[720px]">
+      {title}{em && <em class="not-italic text-coral"> {em}</em>}
+    </h2>
+    {sub && <p class="mt-4 max-w-[360px] text-[14.5px] leading-[1.6] text-text-secondary">{sub}</p>}
+  </div>
+
+  {
+    href && cta && (
+      <a
+        href={href}
+        class="btn inline-flex flex-none items-center gap-2 rounded-sm bg-dark px-6 py-[15px] text-white transition-fluid hover:bg-dark-hover"
+      >
+        {cta} <Icon name="arrowRight" size={15} />
+      </a>
+    )
+  }
+  <slot name="actions" />
+</div>

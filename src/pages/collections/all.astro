@@ -1,0 +1,35 @@
+---
+// ============================================================
+//  /collections/all — the full designed catalogue. Thin wrapper:
+//  fetch the enriched catalogue, flatten, and hand it to the
+//  shared ShopCatalogue component (hero + control deck + grid +
+//  CTA + the client controller). Single-collection pages reuse
+//  the same component via /collections/[handle].
+// ============================================================
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import ShopCatalogue from '~/components/shop/ShopCatalogue.astro';
+import { getShopProducts } from '~/lib/shopify';
+import { toShopItems, catalogueCurrency } from '~/lib/shop-catalogue';
+import type { ProductCard } from '~/lib/shopify/types';
+
+let raw: ProductCard[] = [];
+let loadError = false;
+try {
+  raw = await getShopProducts({ pageSize: 48 });
+} catch (err) {
+  console.error('[shop] catalogue load failed:', (err as Error).message);
+  loadError = true;
+}
+
+const items = toShopItems(raw);
+const currency = catalogueCurrency(raw);
+
+// Real hero stats (ShopHero falls back to marketing figures when empty).
+const designers = new Set(items.map((i) => i.vendor).filter(Boolean)).size;
+const categories = new Set(items.flatMap((i) => i.cats)).size;
+const hero = items.length ? { products: items.length, designers, categories } : {};
+---
+
+<BaseLayout title="Shop" description="The full catalogue — every piece from Issue N°02.">
+  <ShopCatalogue items={items} currency={currency} hero={hero} loadError={loadError} />
+</BaseLayout>

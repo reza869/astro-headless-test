@@ -1,0 +1,132 @@
+---
+// ============================================================
+//  ShopDeck — the control deck: count + sort pills + view
+//  toggle + Refine button (row 1), category browse tabs (row 2)
+//  and the drop-down refine panel (price · designer · rating ·
+//  deals · colour). Dynamic innards (#ticker-free) are injected
+//  by the page script; state classes (.on/.active/.open) are
+//  styled in the page-level global block.
+// ============================================================
+---
+
+<div class="deck mb-10 overflow-hidden rounded-lg bg-surface shadow-[inset_0_0_0_1px_var(--color-border),var(--sh-sm)]" id="deck">
+  {/* ── Row 1: bar ─────────────────────────────────────────── */}
+  <div class="flex flex-wrap items-center justify-between gap-6 px-6 pb-4 pt-[18px]">
+    <div class="flex flex-col gap-2 leading-none text-text-secondary">
+      <span class="inline-flex items-center gap-[9px] text-[10.5px] font-extrabold uppercase tracking-[2.4px] text-text-muted">
+        <span class="h-0.5 w-[18px] bg-border"></span>The Catalogue
+      </span>
+      <span class="flex items-baseline gap-[9px] text-[11px] font-bold uppercase tracking-[1.8px] text-text-muted">
+        <b id="shownCount" class="font-heading text-[38px] font-extrabold leading-[0.82] tracking-[0.5px] text-text-primary">0</b>
+        <span class="font-heading text-[19px] font-normal text-border">/</span>
+        <b id="totalCount" class="font-heading text-[19px] font-extrabold text-text-secondary">0</b> pieces
+      </span>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-3.5">
+      <div class="flex flex-wrap items-center gap-1.5">
+        <span class="mr-1.5 text-[10px] font-bold uppercase tracking-[1.8px] text-text-muted max-[760px]:hidden">Sort by</span>
+        <button class="sortpill on rounded-pill px-[13px] py-2 text-[12px] font-semibold text-text-secondary shadow-[inset_0_0_0_1px_var(--color-border)] transition-all duration-200 hover:text-text-primary hover:shadow-[inset_0_0_0_1px_var(--color-text-muted)]" data-sort="featured">Popular</button>
+        <button class="sortpill rounded-pill px-[13px] py-2 text-[12px] font-semibold text-text-secondary shadow-[inset_0_0_0_1px_var(--color-border)] transition-all duration-200 hover:text-text-primary hover:shadow-[inset_0_0_0_1px_var(--color-text-muted)]" data-sort="new">Newest</button>
+        <button class="sortpill rounded-pill px-[13px] py-2 text-[12px] font-semibold text-text-secondary shadow-[inset_0_0_0_1px_var(--color-border)] transition-all duration-200 hover:text-text-primary hover:shadow-[inset_0_0_0_1px_var(--color-text-muted)]" data-sort="price-asc">Price ↑</button>
+        <button class="sortpill rounded-pill px-[13px] py-2 text-[12px] font-semibold text-text-secondary shadow-[inset_0_0_0_1px_var(--color-border)] transition-all duration-200 hover:text-text-primary hover:shadow-[inset_0_0_0_1px_var(--color-text-muted)]" data-sort="price-desc">Price ↓</button>
+      </div>
+
+      <div class="view-toggle flex gap-0.5 rounded-xs bg-surface-cool p-[3px] max-[760px]:hidden" id="viewToggle">
+        <button data-view="4" class="on grid h-[34px] w-[34px] place-items-center rounded-[5px] text-text-secondary transition-all duration-200" aria-label="4 columns"><i class="ph ph-grid-nine text-[17px]"></i></button>
+        <button data-view="3" class="grid h-[34px] w-[34px] place-items-center rounded-[5px] text-text-secondary transition-all duration-200" aria-label="3 columns"><i class="ph ph-squares-four text-[17px]"></i></button>
+      </div>
+
+      <button class="refine-btn inline-flex items-center gap-2 rounded-xs bg-dark px-[18px] py-[11px] text-[12px] font-bold uppercase tracking-[0.8px] text-white transition-colors duration-300 hover:bg-dark-hover" id="refineOpen">
+        <i class="ph ph-sliders-horizontal text-[16px]"></i> Refine
+        <span class="rb-num hidden h-4 min-w-4 items-center justify-center rounded-pill bg-coral px-1 text-[10px] text-white" id="refineNum">0</span>
+      </button>
+    </div>
+  </div>
+
+  {/* ── Row 2: browse tabs ─────────────────────────────────── */}
+  <div class="deck-tabsrow flex items-stretch shadow-[inset_0_1px_0_var(--color-border)] max-[760px]:flex-col max-[760px]:items-stretch">
+    <span class="dt-lead inline-flex flex-none items-center gap-2 px-5 text-[10.5px] font-extrabold uppercase tracking-[2px] text-text-secondary shadow-[inset_-1px_0_0_var(--color-border)] max-[760px]:py-[13px] max-[760px]:shadow-[inset_0_-1px_0_var(--color-border)]">
+      <i class="ph ph-squares-four text-[15px] opacity-85"></i> Browse
+    </span>
+    <div class="deck-tabs flex overflow-x-auto px-1.5" id="catStrip"></div>
+  </div>
+
+  {/* ── Refine panel ───────────────────────────────────────── */}
+  <div class="deck-panel max-h-0 overflow-hidden bg-surface-cool transition-[max-height] duration-[550ms] ease-[var(--ez)]" id="deckPanel">
+    <div class="grid grid-cols-[0.8fr_1.2fr_1fr_1.05fr_0.92fr] gap-0 px-[26px] pb-3.5 pt-8 max-[1080px]:grid-cols-2 max-[1080px]:gap-x-0 max-[1080px]:gap-y-[26px] max-[680px]:grid-cols-1">
+      {/* intro */}
+      <div class="pr-[26px] shadow-[inset_-1px_0_0_var(--color-border)] max-[1080px]:hidden">
+        <span class="inline-flex items-center gap-2 text-[10.5px] font-extrabold uppercase tracking-[2px] text-coral">
+          <span class="text-[13px]">✦</span> Refine
+        </span>
+        <h4 class="mb-[12px] mt-[13px] font-heading text-[clamp(30px,2.4vw,38px)] font-extrabold leading-[0.86]">Narrow the catalogue.</h4>
+        <p class="max-w-[190px] text-[12.5px] leading-[1.55] text-text-secondary">
+          Filter <b id="diTotal" class="font-bold text-coral">20</b> pieces down to exactly your taste.
+        </p>
+      </div>
+
+      {/* price */}
+      <div class="px-6 shadow-[inset_-1px_0_0_var(--color-border)] max-[1080px]:px-4 max-[1080px]:pl-0 max-[1080px]:shadow-none max-[680px]:px-0">
+        <h6 class="mb-4 flex items-center gap-[9px] text-[10.5px] font-extrabold uppercase tracking-[1.8px] text-text-primary"><span class="h-0.5 w-3.5 bg-coral"></span>Price Range</h6>
+        <div class="mb-1 flex items-baseline gap-2 font-heading text-[clamp(26px,2vw,32px)] font-extrabold leading-[0.9] text-text-primary">
+          <span id="pMinL">$0</span><span class="mx-0.5 text-[18px] text-text-muted">–</span><span id="pMaxL">$500</span>
+        </div>
+        <div class="mb-4 text-[11px] font-semibold tracking-[0.4px] text-text-muted">Drag to set your budget</div>
+        <div class="dp-range relative mb-[18px] h-7">
+          <div class="absolute left-0 right-0 top-3 h-1 rounded-pill bg-border"></div>
+          <div class="absolute top-3 h-1 rounded-pill bg-coral" id="pFill"></div>
+          <input type="range" id="pMin" min="0" max="500" step="10" value="0" class="dp-rng absolute left-0 top-0 m-0 h-7 w-full appearance-none bg-transparent" />
+          <input type="range" id="pMax" min="0" max="500" step="10" value="500" class="dp-rng absolute left-0 top-0 m-0 h-7 w-full appearance-none bg-transparent" />
+        </div>
+        <div class="flex flex-wrap gap-[7px]" id="dpBuckets"></div>
+      </div>
+
+      {/* designer */}
+      <div class="px-6 shadow-[inset_-1px_0_0_var(--color-border)] max-[1080px]:px-4 max-[1080px]:shadow-none max-[680px]:px-0">
+        <h6 class="mb-4 flex items-center gap-[9px] text-[10.5px] font-extrabold uppercase tracking-[1.8px] text-text-primary"><span class="h-0.5 w-3.5 bg-coral"></span>Designer</h6>
+        <div class="flex flex-wrap gap-2" id="dpBrands"></div>
+      </div>
+
+      {/* deals & stock */}
+      <div class="px-6 shadow-[inset_-1px_0_0_var(--color-border)] max-[1080px]:px-4 max-[1080px]:shadow-none max-[680px]:px-0">
+        <h6 class="mb-4 flex items-center gap-[9px] text-[10.5px] font-extrabold uppercase tracking-[1.8px] text-text-primary"><span class="h-0.5 w-3.5 bg-coral"></span>Deals &amp; Stock</h6>
+        <div class="flex flex-wrap gap-[7px]" id="dpDeals"></div>
+      </div>
+
+      {/* colour */}
+      <div class="px-6 pr-0 shadow-none max-[1080px]:px-4 max-[680px]:px-0">
+        <h6 class="mb-4 flex items-center gap-[9px] text-[10.5px] font-extrabold uppercase tracking-[1.8px] text-text-primary"><span class="h-0.5 w-3.5 bg-coral"></span>Colour</h6>
+        <div class="flex flex-wrap gap-[11px]" id="dpColors"></div>
+      </div>
+    </div>
+
+    <div class="mt-[18px] flex flex-wrap items-center justify-between gap-3 bg-surface px-[26px] py-[18px] shadow-[inset_0_1px_0_var(--color-border)]">
+      <button class="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.8px] text-text-muted transition-colors hover:text-coral" id="clearAll">
+        <i class="ph ph-arrow-counter-clockwise text-[15px]"></i> Reset all filters
+      </button>
+      <button class="inline-flex items-center gap-[9px] rounded-xs bg-coral px-[26px] py-[13px] text-[12px] font-bold uppercase tracking-[0.8px] text-white transition-colors duration-300 hover:bg-coral-hover" id="refineApply">
+        Show <b id="showCount" class="font-heading text-[14px]">20</b> Results
+      </button>
+    </div>
+  </div>
+</div>
+
+{/* active filter chips + grid + empty + load-more */}
+<div class="mb-5 flex flex-wrap items-center gap-[9px]" id="activeChips" style="display:none"></div>
+<div class="shop-grid grid gap-6" id="shopGrid"></div>
+<div class="col-span-full hidden px-5 py-20 text-center" id="shopEmpty">
+  <i class="ph ph-magnifying-glass text-[48px] text-text-muted"></i>
+  <h4 class="my-4 mb-2 font-heading text-[30px] font-bold">No pieces match your filters</h4>
+  <p class="mb-5 text-[14px] text-text-secondary">Try removing a filter or two to see more.</p>
+  <button class="inline-flex items-center justify-center gap-2.5 rounded-xs bg-dark px-[26px] py-[15px] text-[12.5px] font-bold uppercase tracking-[1.4px] text-white transition-colors duration-300 hover:bg-coral-hover" id="emptyClear">Clear Filters</button>
+</div>
+<div class="mt-[46px] flex flex-col items-center gap-4" id="loadWrap">
+  <button class="inline-flex items-center justify-center gap-2.5 rounded-xs bg-dark px-[26px] py-[15px] text-[12.5px] font-bold uppercase tracking-[1.4px] text-white transition-all duration-300 hover:bg-coral-hover" id="loadMore">
+    Load More <i class="ph ph-arrow-down text-[16px]"></i>
+  </button>
+  <div class="text-[12.5px] text-text-muted" id="lwCount"></div>
+  <div class="h-1 w-[200px] overflow-hidden rounded-pill bg-surface-cool">
+    <div class="h-full rounded-pill bg-coral transition-[width] duration-500 ease-[var(--ez)]" id="lwFill" style="width:0%"></div>
+  </div>
+</div>

@@ -1,0 +1,73 @@
+---
+// ============================================================
+//  ShopHero — catalogue masthead (eyebrow + display title + intro
+//  + stat row). Content is prop-driven so the same hero serves the
+//  full catalogue (/collections/all) and a single collection
+//  (/collections/[handle]); stat counts + intro fall back sensibly.
+// ============================================================
+interface Props {
+  eyebrow?: string;
+  /** Heading HTML (allows the coral <em> accent). */
+  titleHtml?: string;
+  intro?: string;
+  /** Clamp the intro to 3 lines (collection descriptions). */
+  clampIntro?: boolean;
+  products?: number;
+  designers?: number;
+  categories?: number;
+}
+const {
+  eyebrow = 'The Catalogue · Issue N°02',
+  titleHtml = 'Shop <em class="not-italic text-coral">Everything.</em>',
+  intro = "Every piece from Issue N°02 — hand-selected and editor-styled. Use the control deck below to cut straight to what you're after.",
+  clampIntro = false,
+  products,
+  designers,
+  categories,
+} = Astro.props;
+
+const stats = [
+  { n: products != null ? String(products) : '248', l: 'Products' },
+  { n: designers != null ? String(designers) : '12', l: 'Designers' },
+  { n: categories != null ? String(categories) : '8', l: 'Categories' },
+  { n: 'Weekly', l: 'Restocks' },
+];
+---
+
+<section class="pb-3.5 pt-[34px]">
+  <div class="mx-auto max-w-[1550px] px-[3.5%]">
+    {/* eyebrow */}
+    <span class="mb-[18px] flex w-fit items-center gap-[11px] text-[11px] font-extrabold uppercase tracking-[2.6px] text-text-primary">
+      <span class="text-[14px] leading-none text-coral">✦</span>{eyebrow}
+      <span class="h-px w-6 bg-border"></span>
+    </span>
+
+    <div class="flex flex-col gap-6 min-[1081px]:flex-row min-[1081px]:items-start min-[1081px]:justify-between min-[1081px]:gap-10">
+      <h1
+        class="font-heading text-[clamp(54px,7.2vw,112px)] font-extrabold uppercase leading-[0.8] tracking-[-1.5px]"
+        set:html={titleHtml}
+      />
+      <p
+        class:list={[
+          'max-w-[430px] pt-3 text-[16px] leading-[1.65] text-text-secondary',
+          clampIntro && 'line-clamp-3',
+        ]}
+      >
+        {intro}
+      </p>
+    </div>
+
+    <div class="mt-[34px] flex flex-wrap items-start gap-[18px]">
+      {
+        stats.map((s, i) => (
+          <div class={`pr-[18px]${i < stats.length - 1 ? ' shadow-[inset_-1px_0_0_var(--color-border)]' : ''}`}>
+            <b class="block font-heading text-[34px] font-extrabold leading-[0.9]">{s.n}</b>
+            <span class="mt-[7px] block text-[10.5px] font-semibold uppercase tracking-[1.4px] text-text-muted">
+              {s.l}
+            </span>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>

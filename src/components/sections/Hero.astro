@@ -1,0 +1,404 @@
+---
+// ============================================================
+//  Hero — editorial cover + side rail (product · stat · look)
+//  + ticker strip. Mirrors the designer's magazine hero.
+//  GSAP: data-enter/-stagger (text rise), data-reveal-img (wipe).
+// ============================================================
+import { Image } from 'astro:assets';
+import Icon from '~/components/ui/Icon.astro';
+import { getProduct, getProducts } from '~/lib/shopify';
+import { formatMoney } from '~/lib/utils';
+import coverImg from '~/assets/images/hero-cover.png';
+
+const ticker = ['New In', 'Atelier Series', 'Everyday Luxe', 'The Edit List', 'Resort 2026'];
+// One group's words, doubled so a single group always exceeds the strip width
+// (prevents any blank on wide screens). Two such groups run back-to-back.
+const marquee = [...ticker, ...ticker];
+
+// Live product behind the editorial "feature" card. Prefer a matching handle,
+// then fall back to the newest product. Every display field degrades to the
+// original mockup copy/image if Shopify is unreachable, so the card never
+// renders blank and the (+) button only enables with a real variant id.
+let product = null;
+try {
+  product = await getProduct('relaxed-linen-blazer');
+  if (!product) {
+    const newest = await getProducts({ pageSize: 1, sortKey: 'CREATED_AT', reverse: true });
+    const handle = newest.items[0]?.handle;
+    if (handle) product = await getProduct(handle);
+  }
+} catch (err) {
+  console.error('[hero] feature product lookup failed:', (err as Error).message);
+}
+
+const variant = product?.variants.find((v) => v.availableForSale) ?? product?.variants[0] ?? null;
+const heroVariantId = variant?.id ?? null;
+
+// Mapped display fields (variant price preferred; range as backstop).
+const featTitle = product?.title ?? 'Relaxed Linen Blazer';
+const featHref = product ? `/products/${product.handle}` : '/products';
+// Image is intentionally pinned to the designer mockup asset for visual
+// consistency with the magazine layout — NOT the live Shopify product image.
+// Title, price and the variant id below stay fully dynamic.
+const featImage = '/images/hero-product.png';
+const featImageAlt = 'Ready-to-Wear editorial look — relaxed tailoring';
+
+const priceMoney = variant?.price ?? product?.priceRange.minVariantPrice ?? null;
+const compareMoney = variant?.compareAtPrice ?? product?.compareAtPriceRange?.minVariantPrice ?? null;
+const onSale =
+  !!priceMoney && !!compareMoney && Number(compareMoney.amount) > Number(priceMoney.amount);
+
+let featPrice = '$245';
+let featCompare: string | null = '$295';
+if (priceMoney) {
+  featPrice = formatMoney(priceMoney.amount, priceMoney.currencyCode);
+  featCompare = onSale ? formatMoney(compareMoney!.amount, compareMoney!.currencyCode) : null;
+}
+---
+
+<section class="hero relative box-border overflow-hidden container-mag pt-4 pb-5 md:pb-6">
+  {/* Master grid (cards ONLY) — banner spans 2 cols, rail is the 3rd */}
+  <div class="grid grid-cols-1 gap-4 lg:grid-cols-3 items-stretch">
+    {/* ===== Cover (2 columns) ===== */}
+    <article
+      class="cover group relative flex min-h-[60vh] flex-col justify-between overflow-hidden rounded-3xl p-7 shadow-md sm:p-9 lg:col-span-2 lg:min-h-[660px]"
+    >
+      <Image
+        src={coverImg}
+        alt="Soft power, sharp tailoring — the Summer 2026 cover"
+        loading="eager"
+        fetchpriority="high"
+        widths={[640, 1024, 1600]}
+        sizes="(max-width: 1024px) 100vw, 62vw"
+        data-reveal-img
+        class="cimg absolute inset-0 h-full w-full transform-gpu object-cover object-top transition-transform duration-[3000ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.045]"
+      />
+      <span class="grain pointer-events-none absolute inset-0 z-[1]"></span>
+
+      {/* Top row */}
+      <div class="relative z-[2] flex items-start justify-between">
+        <span class="glass inline-flex items-center gap-2 rounded-pill px-4 py-2.5 text-[10.5px] font-bold uppercase tracking-[1.6px] text-white">
+          <span class="h-1.5 w-1.5 rounded-pill bg-coral"></span>Cover Story · N°02
+        </span>
+        <button
+          type="button"
+          class="glass inline-flex items-center gap-1.5 rounded-pill px-3.5 py-2.5 text-[11.5px] font-semibold text-white transition-fluid hover:bg-white/30"
+        >
+          <Icon name="heart" size={15} /> Save
+        </button>
+      </div>
+
+      {/* Bottom copy — staggered entry */}
+      <div class="relative z-[2] text-white" data-enter data-stagger data-delay="0.1">
+        <span class="cover-eyebrow mb-3.5 inline-flex items-center gap-2.5 text-[10.5px] font-bold uppercase tracking-[2.4px]">
+          The Summer 2026 Issue
+        </span>
+        <h1 class="font-heading text-[clamp(40px,8.5vw,82px)] font-extrabold leading-[0.86] tracking-[-0.5px] [text-shadow:0_2px_30px_rgba(9,10,11,0.25)]">
+          Soft power,<br /><em class="not-italic text-coral-soft">sharp</em> tailoring.
+        </h1>
+        <p class="mt-4 max-w-[440px] text-[15px] leading-[1.6] text-white/90">
+          The season's defining tension — fluid silhouettes meet structured precision in the new
+          Atelier Series.
+        </p>
+        <div class="mt-6 flex flex-wrap items-center gap-3">
+          <a
+            href="/pages/journal"
+            class="btn inline-flex items-center gap-2.5 rounded-sm bg-coral px-6 py-[15px] text-white shadow-[0_8px_22px_rgba(217,88,70,0.32)] transition-fluid hover:-translate-y-0.5 hover:bg-coral-hover"
+          >
+            Read the feature <Icon name="arrowRight" size={16} />
+          </a>
+          <a
+            href="/products"
+            class="btn glass inline-flex items-center rounded-sm px-6 py-[15px] text-white transition-fluid hover:bg-white hover:text-text-primary"
+          >
+            Shop the look
+          </a>
+        </div>
+      </div>
+
+      {/* Rotating seal */}
+      <div class="absolute bottom-7 right-7 z-[3] hidden h-28 w-28 sm:block">
+        <svg class="spin h-full w-full" viewBox="0 0 120 120" aria-hidden="true">
+          <defs>
+            <path id="heroSeal" d="M60,60 m-46,0 a46,46 0 1,1 92,0 a46,46 0 1,1 -92,0"></path>
+          </defs>
+          <text class="fill-white text-[8px] font-bold uppercase tracking-[2.8px]">
+            <textPath href="#heroSeal" startOffset="0%"
+              >L'ÉDITION · SUMMER 2026 · ISSUE N°02 · </textPath
+            >
+          </text>
+        </svg>
+        <span class="absolute inset-0 grid place-items-center">
+          <span
+            class="grid h-[50px] w-[50px] place-items-center rounded-pill bg-coral text-white shadow-[0_8px_22px_rgba(217,88,70,0.45)]"
+          >
+            <Icon name="arrowUpRight" size={22} />
+          </span>
+        </span>
+      </div>
+    </article>
+
+    {/* ===== Right column (3rd) — product on top, stat + look below.
+         No data-enter here: these above-the-fold cards must render
+         instantly and never depend on the GSAP tween completing. ===== */}
+    <div class="flex h-full flex-col justify-between gap-4">
+      {/* Product card — fills the top half. Plain <img> from /public so it always loads; surface-cool fallback prevents a white flash. */}
+      <article class="prod group relative min-h-[340px] flex-[1.55] overflow-hidden rounded-3xl bg-dark shadow-sm transition-fluid  hover:shadow-md">
+        <img
+          src={featImage}
+          alt={featImageAlt}
+          loading="eager"
+          decoding="async"
+          class="absolute inset-0 z-0 h-full w-full object-cover opacity-100 transition-transform duration-[3000ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.06]"
+        />
+        {/* Floating frosted capsule — inset 16px from every edge, rounded all 4 corners */}
+        <div class="absolute bottom-4 left-4 right-4 z-10 flex flex-row items-center justify-between gap-4 rounded-2xl bg-[#151719]/85 p-5 shadow-md backdrop-blur-[12px]">
+          <div class="min-w-0 text-white">
+            <span class="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[1.2px] text-white">
+              <span class="h-[5px] w-[5px] rounded-pill bg-green"></span>Ready-to-Wear
+            </span>
+            <h3 class="my-1.5 font-heading text-[25px] font-bold leading-[0.94] text-white">
+              <a href={featHref} class="transition-fluid hover:text-coral-soft">{featTitle}</a>
+            </h3>
+            <p class="text-[15px] font-bold tabular text-white">
+              {featPrice}
+              {featCompare && (
+                <span class="ml-1.5 text-[12px] font-medium text-white/60 line-through">{featCompare}</span>
+              )}
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label={`Add ${featTitle} to bag`}
+            data-hero-add
+            data-variant-id={heroVariantId}
+            disabled={!heroVariantId}
+            class="group/add relative flex h-9 w-9 flex-none items-center justify-center rounded-md bg-white text-dark transition-fluid hover:bg-coral hover:text-white disabled:cursor-not-allowed disabled:opacity-50 data-[loading]:pointer-events-none"
+          >
+            <Icon name="plus" size={18} class="add-plus transition-transform duration-300 group-hover/add:rotate-90" />
+            <span class="add-spin absolute inset-0 hidden place-items-center">
+              <span class="h-4 w-4 animate-spin rounded-pill border-2 border-current border-t-transparent"></span>
+            </span>
+          </button>
+        </div>
+
+        {/* Chips + wishlist sit above the overlay */}
+        <div class="absolute left-4 top-4 z-20 flex gap-1.5">
+          <span class="rounded-pill bg-coral px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.8px] text-white">Trending</span>
+          <span class="rounded-pill bg-white/90 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.8px] text-text-primary shadow-xs">New In</span>
+        </div>
+        <button
+          type="button"
+          aria-label="Add to wishlist"
+          class="glass absolute right-3.5 top-3.5 z-20 grid h-[39px] w-[39px] place-items-center rounded-pill text-white transition-fluid hover:bg-coral"
+        >
+          <Icon name="heart" size={18} />
+        </button>
+      </article>
+
+      {/* Lower split — coral stat + lookbook (shares height so bottoms align) */}
+      <div class="grid min-h-[220px] flex-1 grid-cols-2 gap-4">
+        {/* Stat */}
+        <div class="stat relative flex flex-col justify-between overflow-hidden rounded-2xl bg-coral p-[18px] text-white">
+          <div class="relative z-[2] flex items-center justify-between">
+            <span class="flex items-center gap-1.5 text-[9.5px] font-bold uppercase tracking-[1.6px]">
+              <span class="h-[1.5px] w-3.5 bg-white/70"></span>Inside the Issue
+            </span>
+            <span class="rounded-pill px-2 py-1 text-[9.5px] font-bold uppercase leading-none tracking-[1px] ring-1 ring-inset ring-white/45">N°02</span>
+          </div>
+          <div class="relative z-[2] flex items-end gap-2.5">
+            <span class="font-heading text-[clamp(44px,5.6vw,82px)] font-extrabold leading-[0.72]">48</span>
+            <span class="pb-2 text-[11px] font-bold uppercase leading-[1.25] text-white/85">Curated<br />looks</span>
+          </div>
+          <div class="relative z-[2] mt-0.5 flex items-center gap-4 pt-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.22)]">
+            <div><b class="block font-heading text-[21px] font-bold leading-none">12</b><span class="text-[9px] font-semibold uppercase tracking-[0.7px] text-white/70">Designers</span></div>
+            <div class="h-[26px] w-px bg-white/30"></div>
+            <div><b class="block font-heading text-[21px] font-bold leading-none">06</b><span class="text-[9px] font-semibold uppercase tracking-[0.7px] text-white/70">Stories</span></div>
+          </div>
+        </div>
+
+        {/* Lookbook */}
+        <a href="/pages/lookbook" class="look group relative flex flex-col justify-between overflow-hidden rounded-2xl bg-dark p-[18px] text-white">
+          <img
+            src="/images/hero-look.png"
+            alt="Coastal Hours — Resort 26 lookbook"
+            loading="lazy"
+            decoding="async"
+            class="absolute inset-0 z-0 h-full w-full object-cover opacity-100 transition-transform duration-[3000ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.07]"
+          />
+          <div class="relative z-[2] flex items-start justify-between">
+            <span class="glass rounded-pill px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-[1.3px]">Lookbook · Resort 26</span>
+            <span class="font-heading text-[30px] font-extrabold leading-[0.8] text-white/85">01</span>
+          </div>
+          <div class="relative z-[2]">
+            <h3 class="font-heading text-[26px] font-bold leading-[0.9]">Coastal Hours</h3>
+            <div class="mt-1.5 flex items-center gap-2 text-[10.5px] font-semibold text-white/80">
+              <span>8 Looks</span><span class="h-[3px] w-[3px] rounded-pill bg-white/60"></span><span>Resort Film</span>
+            </div>
+            <span class="mt-2.5 flex w-full items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-[0.5px]">
+              View the edit
+              <span class="grid h-6 w-6 flex-none place-items-center rounded-pill bg-white text-dark transition-transform duration-300 group-hover:translate-x-0.5">
+                <Icon name="arrowUpRight" size={13} />
+              </span>
+            </span>
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  {/* ===== Category strip — seamless marquee, full-width, BELOW the grid.
+       Two identical groups run back-to-back; the track animates -50%. Uniform
+       gap-12 between every child + a matching pr-12 on each group makes the
+       seam spacing equal the inter-item spacing → zero jump, zero extra gap. ===== */}
+  <div class="strip mt-4 flex w-full overflow-hidden rounded-2xl bg-dark py-4">
+    <div class="strip-track flex">
+      {[0, 1].map((group) => (
+        <div
+          class="flex shrink-0 flex-row items-center gap-12 whitespace-nowrap pr-12"
+          aria-hidden={group === 1 ? 'true' : undefined}
+        >
+          {marquee.map((w) => (
+            <>
+              <span class="font-heading text-lg uppercase tracking-wider text-white md:text-xl">{w}</span>
+              <span class="text-lg text-coral md:text-xl">✦</span>
+            </>
+          ))}
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  /* Gradient scrims over the editorial images. */
+  .cover :global(.cimg) {
+    z-index: 0;
+  }
+  .cover::after,
+  .look::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+  }
+  .cover::after {
+    background: linear-gradient(
+      157deg,
+      rgba(9, 10, 11, 0.36) 0%,
+      rgba(9, 10, 11, 0) 36%,
+      rgba(9, 10, 11, 0.08) 58%,
+      rgba(9, 10, 11, 0.8) 100%
+    );
+  }
+  .look::after {
+    background: linear-gradient(165deg, rgba(9, 10, 11, 0.42) 0%, rgba(9, 10, 11, 0) 42%, rgba(9, 10, 11, 0.8) 100%);
+  }
+  /* Coral stat — soft corner glow + oversized ghost numeral. */
+  .stat::before {
+    content: '';
+    position: absolute;
+    right: -46px;
+    top: -46px;
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.16), transparent 68%);
+  }
+  .stat::after {
+    content: 'N°02';
+    position: absolute;
+    right: -6px;
+    bottom: -22px;
+    z-index: 1;
+    font-family: var(--font-heading);
+    font-size: 96px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -2px;
+    color: rgba(255, 255, 255, 0.1);
+  }
+
+  /* Frosted glass surfaces. */
+  .glass {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(12px);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+  }
+  .cover-eyebrow::before {
+    content: '';
+    width: 26px;
+    height: 1.5px;
+    background: var(--color-coral);
+  }
+
+  /* Film grain over the cover. */
+  .grain {
+    opacity: 0.07;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .spin {
+    animation: hero-spin 20s linear infinite;
+  }
+  .strip-track {
+    animation: hero-marq 28s linear infinite;
+  }
+  @keyframes hero-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @keyframes hero-marq {
+    to {
+      transform: translateX(-50%);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .spin,
+    .strip-track {
+      animation: none;
+    }
+  }
+
+  /* Add-to-bag loading: swap the plus glyph for an inline spinner. */
+  [data-hero-add][data-loading] .add-plus {
+    display: none;
+  }
+  [data-hero-add][data-loading] .add-spin {
+    display: grid;
+  }
+</style>
+
+<script>
+  // Live add-to-cart for the editorial hero card. Imports the shared
+  // nanostore action (same singleton the React CartDrawer subscribes to),
+  // so a successful add opens the drawer automatically. Idempotent across
+  // View Transitions; the SSR-resolved variant id rides on a data-attr.
+  import { addItem } from '~/stores/cart';
+
+  function wireHeroAdd(): void {
+    document.querySelectorAll<HTMLButtonElement>('[data-hero-add]').forEach((btn) => {
+      if (btn.dataset.bound) return;
+      btn.dataset.bound = 'true';
+
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const variantId = btn.dataset.variantId;
+        if (!variantId || btn.hasAttribute('data-loading')) return;
+
+        btn.setAttribute('data-loading', '');
+        try {
+          await addItem(variantId, 1); // opens the CartDrawer on success
+        } finally {
+          btn.removeAttribute('data-loading');
+        }
+      });
+    });
+  }
+
+  wireHeroAdd();
+  document.addEventListener('astro:page-load', wireHeroAdd);
+</script>

@@ -1,0 +1,29 @@
+---
+// ============================================================
+//  Contour — topographic line motif. The brand "signature":
+//  faint elevation contours behind hero / footer / empty states.
+//  Purely decorative (aria-hidden), respects currentColor.
+// ============================================================
+interface Props {
+  class?: string;
+}
+const { class: className = '' } = Astro.props;
+---
+
+<svg
+  class={`contour-svg ${className}`}
+  viewBox="0 0 800 480"
+  preserveAspectRatio="xMidYMid slice"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="1"
+  aria-hidden="true"
+>
+  <path d="M-20 360 C 120 320 200 380 320 340 S 560 280 720 320 S 840 360 860 350" />
+  <path d="M-20 320 C 140 270 220 340 360 300 S 580 230 740 280 S 850 320 860 312" />
+  <path d="M-20 280 C 160 220 250 300 400 260 S 600 180 760 240 S 850 280 860 274" />
+  <path d="M-20 240 C 180 175 280 260 430 220 S 620 135 770 200 S 850 240 860 236" />
+  <path d="M-20 200 C 200 135 300 220 450 180 S 630 95 780 165 S 850 205 860 200" />
+  <path d="M-20 160 C 220 100 320 185 470 145 S 640 60 790 130 S 850 168 860 165" />
+  <path d="M-20 120 C 240 65 340 150 490 110 S 650 30 800 100 S 850 132 860 130" />
+</svg>

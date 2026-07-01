@@ -1,0 +1,45 @@
+---
+// ============================================================
+//  NewArrivals — designer "NEW ARRIVALS" section (#new-arrivals).
+//  Data-driven: renders the .prod-grid from a ProductCard[] prop.
+//  The mockup's #newGrid is JS-filled; here it's server-rendered.
+// ============================================================
+import MagHeading from '~/components/sections/MagHeading.astro';
+import ProductCard from '~/components/cards/ProductCard.astro';
+import type { ProductCard as ProductCardType } from '~/lib/shopify/types';
+
+interface Props {
+  products: ProductCardType[];
+}
+
+const { products } = Astro.props;
+// Designer layout is a single row of exactly four — cap it here so a larger
+// fetch upstream can't leak a second row.
+const items = products.slice(0, 4);
+---
+
+{
+  items.length > 0 && (
+    <section id="new-arrivals" class="py-section">
+      <div class="container-mag">
+        <MagHeading
+          eyebrow="Just Landed"
+          title="New"
+          em="Arrivals"
+          href="/products"
+          cta="View All"
+          class="mb-12 md:mb-[60px]"
+          data-reveal
+        />
+
+        <div class="prod-grid grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {items.map((p) => (
+            <div data-reveal>
+              <ProductCard product={p} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}

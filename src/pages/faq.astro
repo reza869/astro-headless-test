@@ -1,0 +1,405 @@
+---
+// ============================================================
+//  FAQ — the help centre. Editorial hero + a live client-side
+//  filter, a sticky category rail (scrollspy) and grouped
+//  <details> accordions (the same .faq-item pattern the Contact
+//  page uses), closed with a "still need help" CTA to /contact.
+//  Fully static content; chrome + motion + tokens from the theme.
+// ============================================================
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import Icon from '~/components/ui/Icon.astro';
+
+const SUPPORT_EMAIL = 'care@ledition.com';
+
+interface Faq {
+  q: string;
+  a: string;
+}
+interface Category {
+  id: string;
+  label: string;
+  icon: string;
+  items: Faq[];
+}
+
+const categories: Category[] = [
+  {
+    id: 'orders-shipping',
+    label: 'Orders & Shipping',
+    icon: 'truck',
+    items: [
+      {
+        q: 'How long does shipping take?',
+        a: 'Standard delivery takes 3–5 business days and is complimentary on orders over $250. Express (1–2 business days) is available at checkout. International timelines vary by destination and are always shown before you pay.',
+      },
+      {
+        q: 'Which countries do you ship to?',
+        a: 'We ship to over 40 countries worldwide. Available methods, duties and estimated delivery dates are calculated at checkout once you enter your address.',
+      },
+      {
+        q: 'Can I track my order?',
+        a: 'Yes. The moment your parcel leaves our Paris atelier you’ll receive a tracking link by email. You can also follow every order from your account under “Order history”.',
+      },
+      {
+        q: 'Can I change or cancel my order?',
+        a: `We pack quickly, so email ${SUPPORT_EMAIL} as soon as possible with your order number. If it hasn’t entered fulfilment yet, we’ll happily amend or cancel it for you.`,
+      },
+    ],
+  },
+  {
+    id: 'returns-exchanges',
+    label: 'Returns & Exchanges',
+    icon: 'rotate',
+    items: [
+      {
+        q: 'What is your returns policy?',
+        a: 'Enjoy 30 days to return unworn pieces with their tags attached. Returns are free and fully refunded to your original payment method once the parcel reaches us.',
+      },
+      {
+        q: 'How do I start a return or exchange?',
+        a: `Open a return from your account under “Order history”, or email ${SUPPORT_EMAIL} with your order number. We’ll send a prepaid label and step-by-step instructions.`,
+      },
+      {
+        q: 'When will I be refunded?',
+        a: 'Refunds are issued within 3–5 business days of your return arriving at our studio. Your bank may take a further few days to show the funds.',
+      },
+    ],
+  },
+  {
+    id: 'sizing-fit',
+    label: 'Sizing & Fit',
+    icon: 'ruler',
+    items: [
+      {
+        q: 'How do I find my size?',
+        a: 'Every product page includes a detailed size guide and fit notes. Still unsure? Our stylists can advise over chat or email — just share your usual size and the piece you’re considering.',
+      },
+      {
+        q: 'Do your pieces run true to size?',
+        a: 'Most of our range is designed to a true, considered fit. Where a piece runs small, large or oversized, we call it out clearly in the fit notes on its product page.',
+      },
+      {
+        q: 'What if my piece doesn’t fit?',
+        a: 'No problem — start a free exchange or return within 30 days. If you’d like help choosing a different size, our stylists are glad to recommend one before you send anything back.',
+      },
+    ],
+  },
+  {
+    id: 'products-care',
+    label: 'Products & Care',
+    icon: 'tag',
+    items: [
+      {
+        q: 'How should I care for my pieces?',
+        a: 'Each garment carries specific care instructions on its label and product page. As a rule we recommend gentle, cold washing and air-drying to keep natural fibres looking their best for years.',
+      },
+      {
+        q: 'Are your materials responsibly sourced?',
+        a: 'Yes. We work with certified mills and family-run ateliers in Italy and France, favouring natural fibres and construction that’s built to be repaired rather than replaced.',
+      },
+      {
+        q: 'Do you offer gift wrapping?',
+        a: 'Add signature hand-wrapping at checkout for $8, along with a personalised gift message that we’ll print on a card and tuck inside the box.',
+      },
+    ],
+  },
+  {
+    id: 'payments-security',
+    label: 'Payments & Security',
+    icon: 'shield',
+    items: [
+      {
+        q: 'Which payment methods do you accept?',
+        a: 'We accept all major cards (Visa, Mastercard, Amex, Discover), PayPal, Apple Pay and other wallets shown at checkout. Available options depend on your region.',
+      },
+      {
+        q: 'Is my payment information secure?',
+        a: 'Absolutely. Checkout is fully encrypted and PCI-compliant, and we never store your full card details on our servers.',
+      },
+      {
+        q: 'Do you charge duties and taxes?',
+        a: 'Taxes are shown at checkout. For international orders, any import duties are calculated up front where possible so there are no surprises on delivery.',
+      },
+    ],
+  },
+  {
+    id: 'account-wholesale',
+    label: 'Account & Wholesale',
+    icon: 'user',
+    items: [
+      {
+        q: 'Do I need an account to order?',
+        a: 'No — you can check out as a guest. Creating an account simply lets you track orders, save your wishlist and check out faster next time.',
+      },
+      {
+        q: 'How do I manage my newsletter preferences?',
+        a: 'Use the unsubscribe or preferences link at the foot of any email, or drop us a line and we’ll update your preferences for you.',
+      },
+      {
+        q: 'Can I shop wholesale or collaborate?',
+        a: 'We’d love to hear from you. Email wholesale@ledition.com for stockist enquiries or press@ledition.com for media and collaborations, and our team will be in touch.',
+      },
+    ],
+  },
+];
+
+const totalQuestions = categories.reduce((n, c) => n + c.items.length, 0);
+const description =
+  'Answers to the questions we hear most — shipping, returns, sizing, care, payments and more. Can’t find what you need? Our Paris-based team is a message away.';
+---
+
+<BaseLayout title="FAQ" description={description}>
+  {/* ===================== HERO ===================== */}
+  <section class="py-hero">
+    <div class="container-mag" data-enter data-stagger>
+      <span class="mag-label mb-[18px]">Help Centre · Issue N°02</span>
+      <div class="flex flex-col items-start justify-between gap-8 lg:flex-row lg:items-end">
+        <h1 class="h1 uppercase">Questions, <em class="not-italic text-coral">answered.</em></h1>
+        <p class="max-w-[440px] text-base leading-[1.65] text-text-secondary">
+          Everything you need to know about ordering, shipping, returns and caring for your
+          L’ÉDITION pieces — {totalQuestions} answers across {categories.length} topics.
+        </p>
+      </div>
+
+      {/* Live filter — narrows the questions as you type */}
+      <div
+        class="mt-8 flex max-w-[520px] items-center gap-1.5 rounded-sm bg-surface-cool p-1.5 ring-1 ring-inset ring-border transition-shadow focus-within:ring-coral"
+      >
+        <span class="grid h-11 w-11 flex-none place-items-center text-text-muted">
+          <Icon name="search" size={18} />
+        </span>
+        <input
+          type="search"
+          data-faq-search
+          placeholder="Search the help centre…"
+          aria-label="Search frequently asked questions"
+          class="min-w-0 flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted focus:outline-none"
+        />
+      </div>
+    </div>
+  </section>
+
+  {/* ===================== BODY ===================== */}
+  <section class="pb-section">
+    <div class="container-mag">
+      <div class="grid grid-cols-1 gap-8 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-12">
+        {/* ── Category rail: horizontal scroll on mobile, sticky on desktop ── */}
+        <aside class="lg:sticky lg:top-[100px] lg:self-start">
+          <p class="mb-3 hidden text-[11px] font-bold uppercase tracking-[1.6px] text-text-muted lg:block">
+            Browse topics
+          </p>
+          <nav
+            aria-label="FAQ categories"
+            class="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 lg:mx-0 lg:flex-col lg:gap-1 lg:overflow-visible lg:px-0 lg:pb-0"
+          >
+            {
+              categories.map((c) => (
+                <a
+                  href={`#${c.id}`}
+                  data-faq-nav={c.id}
+                  class="faq-nav-link flex flex-none items-center gap-2.5 rounded-sm px-4 py-2.5 text-sm font-semibold text-text-secondary transition-fluid hover:bg-surface-cool hover:text-coral lg:flex-auto"
+                >
+                  <Icon name={c.icon} size={16} class="flex-none" />
+                  <span class="whitespace-nowrap">{c.label}</span>
+                </a>
+              ))
+            }
+          </nav>
+
+          {/* Support card — desktop only */}
+          <div class="mt-6 hidden rounded-lg bg-dark p-5 text-white lg:block">
+            <h3 class="font-heading text-[19px] font-bold leading-[1.1]">Still stuck?</h3>
+            <p class="mt-2 text-[13px] leading-[1.55] text-white/70">
+              Our Paris-based client team replies within 24 hours.
+            </p>
+            <a
+              href="/contact"
+              class="btn mt-4 inline-flex h-11 items-center gap-2 rounded-xs bg-coral px-5 text-white transition-fluid hover:bg-coral-hover"
+            >
+              Contact us <Icon name="arrowRight" size={15} />
+            </a>
+          </div>
+        </aside>
+
+        {/* ── Grouped accordions ─────────────────────────── */}
+        <div class="min-w-0">
+          {
+            categories.map((c, ci) => (
+              <section
+                id={c.id}
+                data-faq-cat
+                class="faq-cat scroll-mt-[110px] [&:not(:first-child)]:mt-12"
+                data-reveal
+              >
+                <div class="mb-5 flex items-center gap-3">
+                  <span class="grid h-11 w-11 flex-none place-items-center rounded-pill bg-coral-soft text-coral">
+                    <Icon name={c.icon} size={20} />
+                  </span>
+                  <h2 class="h4">{c.label}</h2>
+                </div>
+
+                {c.items.map((f, i) => (
+                  <details
+                    class="faq-item group mb-3 overflow-hidden rounded-md bg-surface ring-1 ring-inset ring-border"
+                    open={ci === 0 && i === 0}
+                  >
+                    <summary class="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-5 font-heading text-[19px] font-bold text-text-primary group-open:text-coral">
+                      <span data-faq-q>{f.q}</span>
+                      <Icon
+                        name="plus"
+                        size={20}
+                        class="flex-none text-text-secondary transition-transform group-open:rotate-45"
+                      />
+                    </summary>
+                    <div data-faq-a class="px-6 pb-[22px] text-sm leading-[1.7] text-text-secondary">
+                      {f.a}
+                    </div>
+                  </details>
+                ))}
+              </section>
+            ))
+          }
+
+          {/* No-results state — shown when the filter matches nothing */}
+          <div
+            data-faq-empty
+            class="flex flex-col items-center rounded-xl border border-border bg-surface px-6 py-16 text-center"
+            hidden
+          >
+            <span class="mb-4 grid h-14 w-14 place-items-center rounded-full bg-coral-soft text-coral">
+              <Icon name="search" size={26} />
+            </span>
+            <h3 class="font-heading text-[24px] font-bold">No matching answers</h3>
+            <p class="mt-2 max-w-[360px] text-sm leading-[1.6] text-text-secondary">
+              Try a different search, or reach out and we’ll help you directly.
+            </p>
+            <a
+              href="/contact"
+              class="btn mt-5 inline-flex h-11 items-center gap-2 rounded-sm bg-dark px-6 text-white transition-fluid hover:bg-dark-hover"
+            >
+              Contact us <Icon name="arrowRight" size={15} />
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {/* ===================== CLOSING CTA ===================== */}
+  <section class="pb-section">
+    <div class="container-mag">
+      <div
+        class="flex flex-col items-center gap-5 rounded-xl bg-surface-cool px-6 py-12 text-center ring-1 ring-inset ring-border md:flex-row md:justify-between md:px-12 md:text-left"
+        data-reveal
+      >
+        <div>
+          <span class="mag-label mb-3">Good To Know</span>
+          <h2 class="h3">Still have <em class="not-italic text-coral">questions?</em></h2>
+          <p class="mt-2 max-w-[520px] text-[14.5px] leading-[1.6] text-text-secondary">
+            Can’t find your answer above? Our client team is a message away and replies to every
+            enquiry — usually within 24 hours.
+          </p>
+        </div>
+        <div class="flex flex-none flex-wrap justify-center gap-3">
+          <a
+            href="/contact"
+            class="btn inline-flex h-12 items-center gap-2.5 rounded-sm bg-coral px-6 text-white transition-fluid hover:bg-coral-hover"
+          >
+            Contact us <Icon name="arrowRight" size={16} />
+          </a>
+          <a
+            href={`mailto:${SUPPORT_EMAIL}`}
+            class="btn inline-flex h-12 items-center gap-2 rounded-sm border border-border bg-surface px-6 text-text-primary transition-fluid hover:border-dark hover:text-coral"
+          >
+            <Icon name="mail" size={16} /> Email us
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {/* ============================================================
+       FAQ controller — a client-side filter (matches question +
+       answer text, expands hits, hides empty categories, shows a
+       no-results card) and a scrollspy that highlights the active
+       category in the rail. Idempotent + View-Transition safe.
+       ============================================================ */}
+  <script>
+    function initFaq(): void {
+      const root = document.querySelector<HTMLElement>('[data-faq-search]')?.closest('main');
+      if (!root || root.dataset.faqBound) return;
+      root.dataset.faqBound = 'true';
+
+      const search = root.querySelector<HTMLInputElement>('[data-faq-search]');
+      const cats = Array.from(root.querySelectorAll<HTMLElement>('[data-faq-cat]'));
+      const empty = root.querySelector<HTMLElement>('[data-faq-empty]');
+      const navLinks = Array.from(root.querySelectorAll<HTMLAnchorElement>('[data-faq-nav]'));
+
+      // ── Live filter ──────────────────────────────────────
+      const applyFilter = (raw: string): void => {
+        const q = raw.trim().toLowerCase();
+        let anyVisible = false;
+
+        cats.forEach((cat) => {
+          let catHas = false;
+          cat.querySelectorAll<HTMLDetailsElement>('.faq-item').forEach((item) => {
+            const text = (item.textContent ?? '').toLowerCase();
+            const match = !q || text.includes(q);
+            item.hidden = !match;
+            item.open = q ? match : item.open; // expand hits while searching
+            if (match) catHas = true;
+          });
+          cat.hidden = !catHas;
+          if (catHas) anyVisible = true;
+        });
+
+        if (empty) empty.hidden = anyVisible;
+      };
+
+      search?.addEventListener('input', () => applyFilter(search.value));
+
+      // ── Scrollspy — highlight the in-view category ───────
+      const setActive = (id: string): void => {
+        navLinks.forEach((l) =>
+          l.classList.toggle('is-active', l.getAttribute('data-faq-nav') === id),
+        );
+      };
+
+      if ('IntersectionObserver' in window && cats.length) {
+        const io = new IntersectionObserver(
+          (entries) => {
+            const visible = entries
+              .filter((e) => e.isIntersecting)
+              .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+            if (visible) setActive((visible.target as HTMLElement).id);
+          },
+          { rootMargin: '-120px 0px -65% 0px', threshold: 0 },
+        );
+        cats.forEach((c) => io.observe(c));
+      }
+      setActive(cats[0]?.id ?? '');
+    }
+
+    initFaq();
+    document.addEventListener('astro:page-load', initFaq);
+  </script>
+</BaseLayout>
+
+<style>
+  /* Hide the native disclosure marker (matches the Contact FAQ). */
+  .faq-item summary::-webkit-details-marker {
+    display: none;
+  }
+
+  /* Active category in the rail. */
+  .faq-nav-link.is-active {
+    background: var(--color-coral-soft);
+    color: var(--color-coral);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .faq-item :global(svg) {
+      transition: none;
+    }
+  }
+</style>

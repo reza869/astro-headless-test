@@ -1,0 +1,70 @@
+---
+// ============================================================
+//  ProductListing — shared PLP body: result-count + sort toolbar,
+//  product grid, cursor pagination, empty state. Used by the
+//  all-products, collection, and search pages (DRY).
+// ============================================================
+import type { ProductCard, SortOption } from '~/lib/shopify/types';
+import ProductGrid from './ProductGrid.astro';
+import Pagination from './Pagination.astro';
+import SortSelect from './SortSelect.astro';
+import Icon from '~/components/ui/Icon.astro';
+
+interface Props {
+  products: ProductCard[];
+  countLabel: string;
+  sortOptions?: SortOption[];
+  sortValue?: string;
+  sortAction?: string;
+  sortHidden?: Record<string, string>;
+  prevUrl?: string | null;
+  nextUrl?: string | null;
+  emptyTitle?: string;
+  emptyBody?: string;
+}
+
+const {
+  products,
+  countLabel,
+  sortOptions,
+  sortValue = '',
+  sortAction = '',
+  sortHidden = {},
+  prevUrl = null,
+  nextUrl = null,
+  emptyTitle = 'Nothing here yet',
+  emptyBody = 'No products match. Try a different filter or browse everything.',
+} = Astro.props;
+---
+
+<div class="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-5">
+  <p class="font-mono text-xs text-text-secondary tabular">{countLabel}</p>
+  {sortOptions && (
+    <SortSelect options={sortOptions} value={sortValue} action={sortAction} hidden={sortHidden} />
+  )}
+</div>
+
+{
+  products.length > 0 ? (
+    <div class="pt-10">
+      <h2 class="sr-only">Products</h2>
+      <ProductGrid products={products} />
+      <Pagination prevUrl={prevUrl} nextUrl={nextUrl} />
+    </div>
+  ) : (
+    <div class="flex flex-col items-center justify-center py-24 text-center">
+      <span class="mb-5 grid h-16 w-16 place-items-center rounded-full border border-border text-text-muted">
+        <Icon name="bag" size={26} />
+      </span>
+      <h2 class="masthead text-2xl uppercase">{emptyTitle}</h2>
+      <p class="mt-2 max-w-sm text-sm text-text-secondary">{emptyBody}</p>
+      <a
+        href="/products"
+        class="mt-6 inline-flex h-11 items-center gap-2 rounded-md bg-dark px-6 text-sm font-medium text-white transition-fluid hover:bg-dark-hover"
+      >
+        Browse all products
+        <Icon name="arrowRight" size={16} />
+      </a>
+    </div>
+  )
+}

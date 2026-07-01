@@ -1,0 +1,51 @@
+---
+// ============================================================
+//  CMS page — renders a Shopify page, or a tidy "in the works"
+//  placeholder so footer links never dead-end.
+// ============================================================
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import PageHeader from '~/components/global/PageHeader.astro';
+import { getPage, type ShopifyPage } from '~/lib/shopify';
+import { SITE } from '~/config/site';
+
+const { handle } = Astro.params;
+
+let page: ShopifyPage | null = null;
+try {
+  page = await getPage(handle!);
+} catch (err) {
+  console.error('[page] load failed:', (err as Error).message);
+}
+
+const prettyTitle = (handle ?? '')
+  .split('-')
+  .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+  .join(' ');
+---
+
+<BaseLayout
+  title={page?.seo?.title ?? page?.title ?? prettyTitle}
+  description={page?.seo?.description ?? page?.bodySummary}
+>
+  <PageHeader eyebrow={SITE.name} title={page?.title ?? prettyTitle} />
+  <div class="wrap py-12 md:py-16">
+    {
+      page?.body ? (
+        <article class="rte max-w-2xl" set:html={page.body} />
+      ) : (
+        <div class="max-w-xl">
+          <p class="text-text-secondary">
+            This page is still being written. In the meantime, the catalogue is open — go have
+            a look around.
+          </p>
+          <a
+            href="/products"
+            class="mt-6 inline-flex h-11 items-center rounded-md bg-dark px-6 text-sm font-medium text-white transition-fluid hover:bg-dark-hover"
+          >
+            Shop all products
+          </a>
+        </div>
+      )
+    }
+  </div>
+</BaseLayout>

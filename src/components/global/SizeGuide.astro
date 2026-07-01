@@ -1,0 +1,345 @@
+---
+// ============================================================
+//  SizeGuide — the reusable size-chart block: department tabs
+//  (Women's / Men's), a cm ⇄ in unit toggle and a "how to
+//  measure" guide. Single source of truth used by both the
+//  /size-guide page and the PDP size-guide modal. All behaviour
+//  is scoped to each [data-sizeguide] root, so multiple instances
+//  are safe. Measurements are authored once in centimetres;
+//  inches are derived at build time.
+// ============================================================
+import Icon from '~/components/ui/Icon.astro';
+
+interface Props {
+  /** Extra classes on the root wrapper. */
+  class?: string;
+}
+const { class: className = '' } = Astro.props;
+
+const cmToIn = (cm: number): number => Math.round(cm / 2.54);
+
+interface Table {
+  title: string;
+  cols: string[];
+  /** Each row: the size label followed by measurements in cm. */
+  rows: [string, ...number[]][];
+}
+interface Department {
+  id: string;
+  label: string;
+  tables: Table[];
+}
+
+const departments: Department[] = [
+  {
+    id: 'women',
+    label: "Women's",
+    tables: [
+      {
+        title: 'Tops & Dresses',
+        cols: ['Size', 'UK', 'Bust', 'Waist', 'Hips'],
+        rows: [
+          ['XS', 6, 82, 64, 88],
+          ['S', 8, 86, 68, 92],
+          ['M', 10, 90, 72, 96],
+          ['L', 12, 95, 77, 101],
+          ['XL', 14, 101, 83, 107],
+        ],
+      },
+      {
+        title: 'Bottoms',
+        cols: ['Size', 'Waist', 'Hips', 'Inseam'],
+        rows: [
+          ['XS', 64, 88, 78],
+          ['S', 68, 92, 78],
+          ['M', 72, 96, 79],
+          ['L', 77, 101, 79],
+          ['XL', 83, 107, 80],
+        ],
+      },
+    ],
+  },
+  {
+    id: 'men',
+    label: "Men's",
+    tables: [
+      {
+        title: 'Tops & Shirts',
+        cols: ['Size', 'Chest', 'Waist', 'Neck'],
+        rows: [
+          ['S', 92, 78, 38],
+          ['M', 98, 84, 40],
+          ['L', 104, 90, 42],
+          ['XL', 110, 96, 43],
+          ['XXL', 116, 102, 44],
+        ],
+      },
+      {
+        title: 'Bottoms',
+        cols: ['Size', 'Waist', 'Hips', 'Inseam'],
+        rows: [
+          ['S', 78, 92, 81],
+          ['M', 84, 98, 81],
+          ['L', 90, 104, 82],
+          ['XL', 96, 110, 82],
+          ['XXL', 102, 116, 83],
+        ],
+      },
+    ],
+  },
+];
+
+// Columns that are plain labels/sizing (not convertible measurements).
+const NON_METRIC = new Set(['Size', 'UK']);
+
+const measureSteps = [
+  {
+    icon: 'ruler' as const,
+    title: 'Bust / Chest',
+    body: 'Measure around the fullest part of your chest, keeping the tape level and relaxed.',
+  },
+  {
+    icon: 'ruler' as const,
+    title: 'Waist',
+    body: 'Measure around your natural waistline — the narrowest part, roughly above the navel.',
+  },
+  {
+    icon: 'ruler' as const,
+    title: 'Hips',
+    body: 'Stand with feet together and measure around the fullest part of your hips and seat.',
+  },
+  {
+    icon: 'ruler' as const,
+    title: 'Inseam',
+    body: 'Measure from the top inner thigh down to the ankle along the inside of the leg.',
+  },
+];
+---
+
+<div class:list={['sizeguide', className]} data-sizeguide data-unit="cm">
+  {/* ── Toolbar: department tabs + unit toggle ─────────────── */}
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex gap-1.5 rounded-sm bg-surface-cool p-1.5" role="tablist" aria-label="Department">
+      {
+        departments.map((d, i) => (
+          <button
+            type="button"
+            role="tab"
+            data-sg-tab={d.id}
+            aria-selected={i === 0 ? 'true' : 'false'}
+            class:list={[
+              'sg-tab rounded-xs px-4 py-2 text-[13px] font-bold uppercase tracking-[0.8px] text-text-secondary transition-fluid',
+              i === 0 && 'is-active',
+            ]}
+          >
+            {d.label}
+          </button>
+        ))
+      }
+    </div>
+
+    <div class="flex items-center gap-2.5">
+      <span class="text-[11px] font-bold uppercase tracking-[1.4px] text-text-muted">Units</span>
+      <div class="flex gap-1 rounded-sm bg-surface-cool p-1" role="group" aria-label="Units">
+        <button
+          type="button"
+          data-sg-unit="cm"
+          class="sg-unit is-active rounded-xs px-3 py-1.5 text-[12px] font-bold text-text-secondary transition-fluid"
+        >
+          cm
+        </button>
+        <button
+          type="button"
+          data-sg-unit="in"
+          class="sg-unit rounded-xs px-3 py-1.5 text-[12px] font-bold text-text-secondary transition-fluid"
+        >
+          in
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {/* ── Department panels ──────────────────────────────────── */}
+  {
+    departments.map((d, i) => (
+      <div
+        data-sg-panel={d.id}
+        class:list={['sg-panel grid gap-6 md:grid-cols-2', i === 0 && 'is-active']}
+        hidden={i !== 0}
+      >
+        {d.tables.map((t) => (
+          <div class="overflow-hidden rounded-lg ring-1 ring-inset ring-border">
+            <div class="flex items-center gap-2 bg-surface-cool px-5 py-3.5">
+              <Icon name="ruler" size={16} class="text-coral" />
+              <h4 class="text-[12px] font-bold uppercase tracking-[1.4px] text-text-primary">
+                {t.title}
+              </h4>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="sg-table w-full min-w-[360px] text-left">
+                <thead>
+                  <tr>
+                    {t.cols.map((c) => (
+                      <th class="px-4 py-3 text-[10.5px] font-bold uppercase tracking-[1.2px] text-text-muted">
+                        {c}
+                        {!NON_METRIC.has(c) && (
+                          <>
+                            {' '}
+                            <span class="u-cm font-semibold normal-case tracking-normal text-text-muted/70">
+                              (cm)
+                            </span>
+                            <span class="u-in font-semibold normal-case tracking-normal text-text-muted/70">
+                              (in)
+                            </span>
+                          </>
+                        )}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {t.rows.map((row) => (
+                    <tr>
+                      {t.cols.map((col, ci) => {
+                        const val = row[ci];
+                        // First column (and any NON_METRIC col) render as-is.
+                        if (ci === 0 || NON_METRIC.has(col)) {
+                          return (
+                            <td
+                              class:list={[
+                                'px-4 py-3 text-[13px]',
+                                ci === 0
+                                  ? 'font-bold text-text-primary'
+                                  : 'font-medium text-text-secondary',
+                              ]}
+                            >
+                              {val}
+                            </td>
+                          );
+                        }
+                        const cm = val as number;
+                        return (
+                          <td class="px-4 py-3 text-[13px] font-medium text-text-secondary">
+                            <span class="u-cm">{cm}</span>
+                            <span class="u-in">{cmToIn(cm)}</span>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
+      </div>
+    ))
+  }
+
+  {/* ── How to measure ─────────────────────────────────────── */}
+  <div class="mt-9">
+    <h4 class="mb-4 flex items-center gap-2.5 text-[12px] font-bold uppercase tracking-[1.6px] text-text-primary">
+      <span class="h-0.5 w-4 bg-coral"></span> How to measure
+    </h4>
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {
+        measureSteps.map((s) => (
+          <div class="rounded-md bg-surface-cool p-4">
+            <span class="mb-2.5 grid h-9 w-9 place-items-center rounded-full bg-coral-soft text-coral">
+              <Icon name={s.icon} size={17} />
+            </span>
+            <p class="text-[13px] font-bold text-text-primary">{s.title}</p>
+            <p class="mt-1 text-[12.5px] leading-[1.5] text-text-secondary">{s.body}</p>
+          </div>
+        ))
+      }
+    </div>
+    <p class="mt-4 text-[12.5px] leading-[1.6] text-text-muted">
+      Sizes are a guide — between two sizes, we recommend sizing up for a relaxed fit. Each product
+      page also lists garment-specific measurements and fit notes.
+    </p>
+  </div>
+</div>
+
+<style>
+  /* Unit visibility — driven by the root's data-unit attribute. */
+  .sizeguide .u-in {
+    display: none;
+  }
+  .sizeguide[data-unit='in'] .u-cm {
+    display: none;
+  }
+  .sizeguide[data-unit='in'] .u-in {
+    display: inline;
+  }
+
+  /* Active states for tabs + unit toggle. */
+  .sizeguide .sg-tab.is-active {
+    background: var(--color-surface);
+    color: var(--color-coral);
+    box-shadow: var(--shadow-xs);
+  }
+  .sizeguide .sg-unit.is-active {
+    background: var(--color-text-primary);
+    color: #fff;
+  }
+
+  /* Panels — swapped via .is-active (initial hidden attr for no-JS). */
+  .sizeguide .sg-panel[hidden] {
+    display: none;
+  }
+  .sizeguide .sg-panel.is-active {
+    display: grid;
+  }
+
+  /* Zebra rows for legibility. */
+  .sizeguide .sg-table tbody tr:nth-child(even) {
+    background: color-mix(in srgb, var(--color-surface-cool) 55%, transparent);
+  }
+  .sizeguide .sg-table tbody tr + tr {
+    border-top: 1px solid var(--color-border);
+  }
+</style>
+
+<script>
+  // Size-guide controller — department tabs + cm/in toggle. Scoped to
+  // each [data-sizeguide] root and idempotent (safe with the PDP modal
+  // + View Transitions).
+  function initSizeGuides(): void {
+    document.querySelectorAll<HTMLElement>('[data-sizeguide]').forEach((root) => {
+      if (root.dataset.bound) return;
+      root.dataset.bound = 'true';
+
+      // Department tabs
+      const tabs = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-sg-tab]'));
+      const panels = Array.from(root.querySelectorAll<HTMLElement>('[data-sg-panel]'));
+      tabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+          const id = tab.dataset.sgTab;
+          tabs.forEach((t) => {
+            const on = t === tab;
+            t.classList.toggle('is-active', on);
+            t.setAttribute('aria-selected', String(on));
+          });
+          panels.forEach((p) => {
+            const on = p.dataset.sgPanel === id;
+            p.classList.toggle('is-active', on);
+            p.hidden = !on;
+          });
+        });
+      });
+
+      // Unit toggle
+      const units = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-sg-unit]'));
+      units.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          root.dataset.unit = btn.dataset.sgUnit;
+          units.forEach((u) => u.classList.toggle('is-active', u === btn));
+        });
+      });
+    });
+  }
+
+  initSizeGuides();
+  document.addEventListener('astro:page-load', initSizeGuides);
+</script>

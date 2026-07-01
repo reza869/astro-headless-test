@@ -1,0 +1,158 @@
+---
+// ============================================================
+//  Cta — designer closing "CTA" / newsletter band (#cta).
+//  Full-width editorial dark panel split into media + content:
+//  a full-bleed CTA image with a dark diagonal scrim, a glass
+//  badge + pull-quote, then a Big-Shoulders headline with a
+//  coral accent word, a sub line, a pill newsletter form (email
+//  input + coral submit), social-proof avatars and a privacy
+//  note. Presentational, no props.
+//
+//  NOTE: the newsletter form is presentational only — it POSTs
+//  nowhere (no `action`/handler). It is kept fully accessible
+//  (labelled input, real <button type="submit">) so it can be
+//  wired to a backend later.
+// ============================================================
+import Icon from '~/components/ui/Icon.astro';
+
+const avatars = [
+  '/images/Product Image 8.png',
+  '/images/Product Image 9.png',
+  '/images/Product Image 13.png',
+  '/images/Product Image 16.png',
+];
+---
+
+<section id="cta" class="pb-section">
+  <div class="container-mag">
+    <div class="cta relative grid grid-cols-1 min-h-[478px] overflow-hidden rounded-xl bg-dark text-white lg:grid-cols-[minmax(0,1fr)_minmax(0,0.92fr)]">
+      {/* ---------------- Media ---------------- */}
+      <div class="cta-media relative min-h-[240px] overflow-hidden lg:min-h-0">
+        <img
+          src="/images/CTA Image.png"
+          alt=""
+          loading="lazy"
+          data-reveal-img
+          class="absolute inset-0 h-full w-full object-cover"
+        />
+
+        {/* Glass badge */}
+        <span
+          class="absolute left-[26px] top-[26px] z-[2] inline-flex items-center gap-[7px] rounded-pill bg-white/[0.16] px-[14px] py-2 text-[10px] font-bold uppercase tracking-[1.4px] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.25)] backdrop-blur-[10px]"
+        >
+          <Icon name="star" size={13} class="text-coral-soft" /> The Weekly Edit
+        </span>
+
+        {/* Pull-quote */}
+        <div class="absolute bottom-[30px] left-[30px] z-[2] max-w-[280px]">
+          <p class="font-heading text-[23px] font-bold leading-[1.04] text-white">
+            “The only newsletter I actually open.”
+          </p>
+          <p class="mt-[9px] text-[10.5px] uppercase tracking-[1px] text-white/70">
+            — Vogue Readers’ Choice
+          </p>
+        </div>
+      </div>
+
+      {/* ---------------- Content ---------------- */}
+      <div
+        data-reveal
+        class="relative z-[2] flex flex-col justify-center px-[26px] py-[34px] md:px-14 md:py-[54px] lg:pl-[72px]"
+      >
+        <span class="mag-label mag-label-light">Join The List</span>
+
+        <h2 class="my-[14px] font-heading text-[clamp(38px,4.2vw,58px)] font-extrabold leading-[0.9] tracking-[-0.5px]">
+          Style notes, <em class="not-italic text-coral">in your inbox.</em>
+        </h2>
+
+        <p class="mb-6 max-w-[420px] text-[15px] leading-[1.6] text-white/80">
+          New arrivals, members-only offers and editorial stories — delivered
+          every Thursday. Subscribe and get 10% off your first order.
+        </p>
+
+        {/* Presentational newsletter form — no action/handler */}
+        <form
+          class="flex max-w-[450px] items-center rounded-pill bg-white py-[6px] pl-[22px] pr-[6px]"
+          aria-label="Newsletter sign-up"
+        >
+          <label for="cta-email" class="sr-only">Your email address</label>
+          <input
+            type="email"
+            id="cta-email"
+            name="email"
+            placeholder="Your email address"
+            autocomplete="email"
+            class="min-w-0 flex-1 border-none bg-transparent font-body text-[14px] text-text-primary outline-none placeholder:text-text-muted"
+          />
+          <button
+            type="submit"
+            class="flex-none rounded-pill bg-coral px-[26px] py-[14px] text-[12px] font-bold uppercase tracking-[1px] text-white transition-colors duration-300 hover:bg-coral-hover"
+          >
+            Subscribe
+          </button>
+        </form>
+
+        {/* Social proof */}
+        <div class="mt-[22px] flex flex-wrap items-center gap-4">
+          <div class="flex">
+            {
+              avatars.map((src, i) => (
+                <img
+                  src={src}
+                  alt=""
+                  loading="lazy"
+                  class:list={[
+                    'h-9 w-9 rounded-full object-cover shadow-[0_0_0_2px_var(--color-dark)]',
+                    i > 0 && '-ml-[11px]',
+                  ]}
+                />
+              ))
+            }
+          </div>
+          <span class="text-[12.5px] text-white/[0.78]">
+            Joined by <b class="font-bold text-white">40,000+</b> readers worldwide
+          </span>
+        </div>
+
+        <p class="mt-4 flex items-center gap-2 text-[11.5px] text-white/60">
+          <Icon name="shield" size={14} class="text-green" /> No spam. Unsubscribe anytime.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  /* Diagonal dark scrim over the media so the right edge melts into
+     the dark panel — multi-stop angled gradient, not a clean utility. */
+  .cta-media::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      95deg,
+      rgba(9, 10, 11, 0.2) 0%,
+      transparent 35%,
+      var(--color-dark) 96%
+    );
+  }
+  /* On stacked mobile the panel is single-column; let the scrim fade
+     from the bottom so the content below stays legible. */
+  @media (max-width: 1023px) {
+    .cta-media::after {
+      background: linear-gradient(
+        180deg,
+        transparent 35%,
+        var(--color-dark) 98%
+      );
+    }
+  }
+
+  /* Designer recolours the mag-label lead line + text to white here. */
+  .mag-label-light {
+    color: #fff;
+  }
+  .mag-label-light::before {
+    background: rgba(255, 255, 255, 0.32);
+  }
+</style>

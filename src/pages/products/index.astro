@@ -1,0 +1,89 @@
+---
+// ============================================================
+//  Products index — pixel-perfect mirror of the Collections index.
+//  Same editorial "departments" directory: on-brand hero (eyebrow +
+//  display title + intro + count) over a grid of collection cover
+//  tiles. Kept identical to /collections so only the route differs.
+// ============================================================
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import CollectionTile from '~/components/collection/CollectionTile.astro';
+import { getAllCollections } from '~/lib/shopify';
+import type { Collection } from '~/lib/shopify/types';
+
+let collections: Collection[] = [];
+let loadError = false;
+try {
+  collections = await getAllCollections();
+} catch (err) {
+  console.error('[collections] load failed:', (err as Error).message);
+  loadError = true;
+}
+const count = collections.length;
+---
+
+<BaseLayout title="Collections" description="Shop the full range by collection.">
+  {/* ── Hero ─────────────────────────────────────────────── */}
+  <section class="container-mag pb-3.5 pt-10 md:pt-[34px]">
+    <span class="mb-[18px] flex w-fit items-center gap-[11px] text-[11px] font-extrabold uppercase tracking-[2.6px] text-text-primary">
+      <span class="text-[14px] leading-none text-coral">✦</span>Browse · The House
+      <span class="h-px w-6 bg-border"></span>
+    </span>
+
+    <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between lg:gap-10">
+      <h1 class="font-heading text-[clamp(54px,7.2vw,112px)] font-extrabold uppercase leading-[0.8] tracking-[-1.5px]">
+        The <em class="not-italic text-coral">Collections.</em>
+      </h1>
+      <p class="max-w-[430px] pt-3 text-[16px] leading-[1.65] text-text-secondary">
+        Curated edits for every part of the rotation — explore the house department by department, or
+        <a href="/collections/all" class="font-semibold text-coral underline underline-offset-[3px]">shop everything</a>.
+      </p>
+    </div>
+
+    <div class="mt-[34px] flex flex-wrap items-start gap-[18px]">
+      <div class="pr-[18px] shadow-[inset_-1px_0_0_var(--color-border)]">
+        <b class="block font-heading text-[34px] font-extrabold leading-[0.9]">
+          {count ? String(count).padStart(2, '0') : '—'}
+        </b>
+        <span class="mt-[7px] block text-[10.5px] font-semibold uppercase tracking-[1.4px] text-text-muted">Departments</span>
+      </div>
+      <div class="pr-[18px] shadow-[inset_-1px_0_0_var(--color-border)]">
+        <b class="block font-heading text-[34px] font-extrabold leading-[0.9]">Issue 02</b>
+        <span class="mt-[7px] block text-[10.5px] font-semibold uppercase tracking-[1.4px] text-text-muted">Season</span>
+      </div>
+      <div class="pr-[18px]">
+        <b class="block font-heading text-[34px] font-extrabold leading-[0.9]">Weekly</b>
+        <span class="mt-[7px] block text-[10.5px] font-semibold uppercase tracking-[1.4px] text-text-muted">Restocks</span>
+      </div>
+    </div>
+  </section>
+
+  {/* ── Grid ─────────────────────────────────────────────── */}
+  <section class="container-mag pt-section-sm pb-section">
+    {
+      count > 0 ? (
+        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 md:gap-6">
+          {collections.map((c, i) => (
+            <div data-reveal>
+              <CollectionTile collection={c} index={i} eager={i < 3} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div class="flex flex-col items-center rounded-xl border border-border bg-surface py-24 text-center">
+          <h3 class="h4">{loadError ? 'Collections unavailable' : 'No collections yet'}</h3>
+          <p class="mt-2 max-w-md text-[14px] text-text-secondary">
+            {loadError
+              ? 'We could not load the collections right now. Please try again shortly.'
+              : 'Check back soon — new edits drop weekly.'}
+          </p>
+          <a
+            href="/collections/all"
+            class="mt-6 inline-flex items-center justify-center gap-2.5 rounded-xs bg-dark px-[26px] py-[15px] text-[12.5px] font-bold uppercase tracking-[1.4px] text-white transition-colors duration-300 hover:bg-coral-hover"
+          >
+            Shop everything
+          </a>
+        </div>
+      )
+    }
+  </section>
+</BaseLayout>

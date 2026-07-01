@@ -1,0 +1,223 @@
+---
+// ============================================================
+//  Footer — dark editorial footer: brand wordmark + tagline +
+//  social row, data-driven link columns (SITE.footerColumns), a
+//  contact column (email / phone / address + app-store buttons)
+//  and a legal + payment bottom bar.
+// ============================================================
+import { SITE } from '~/config/site';
+import Icon from '~/components/ui/Icon.astro';
+import Logo from '~/components/global/Logo.astro';
+
+const year = new Date().getFullYear();
+const payments = ['VISA', 'MASTERCARD', 'AMEX', 'PAYPAL', 'APPLE PAY'];
+const legal = [
+  { label: 'Privacy', href: '/pages/privacy' },
+  { label: 'Terms', href: '/terms' },
+  { label: 'Cookies', href: '/pages/cookies' },
+  { label: 'Accessibility', href: '/pages/accessibility' },
+];
+---
+
+<footer class="mt-[30px] rounded-t-xl bg-dark text-white">
+  <div class="container-mag pb-[calc(80px+env(safe-area-inset-bottom))] pt-[60px] md:pb-[28px]">
+    {/* ── Top: brand + dispatch + columns ───────────────────── */}
+    <div
+      class="grid gap-0 border-b border-white/10 pb-0 md:grid-cols-2 md:gap-x-10 md:gap-y-9 md:pb-[42px] lg:grid-cols-[1.7fr_1fr_1fr_1fr_1.1fr] lg:gap-9"
+      data-reveal
+    >
+      {/* Brand + tagline + social — always visible (not collapsible). Spans
+          the full width on tablet (2-col), then rejoins the 5-col row at lg. */}
+      <div class="pb-8 md:col-span-2 md:pb-0 lg:col-span-1">
+        <a href="/" aria-label={`${SITE.name} — home`} class="inline-flex text-white">
+          <Logo class="h-[42px] w-auto" />
+        </a>
+        <p class="mb-[22px] mt-[18px] max-w-[280px] text-[13.5px] leading-[1.65] text-white/[0.62]">
+          {SITE.tagline}
+        </p>
+
+        <div class="flex gap-2.5">
+          {
+            SITE.social.map((s) => (
+              <a
+                href={s.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={s.label}
+                class="grid h-[42px] w-[42px] place-items-center rounded-full bg-white/[0.08] text-white transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-[3px] hover:bg-coral"
+              >
+                <Icon name={s.icon} size={19} />
+              </a>
+            ))
+          }
+        </div>
+      </div>
+
+      {/* Link columns — collapsible accordions < md, static on md+ */}
+      {
+        SITE.footerColumns.map((col, i) => (
+          <nav
+            aria-label={col.title}
+            class="footer-acc border-t border-white/10 md:border-t-0"
+            data-facc
+          >
+            <h5 class="m-0">
+              <button
+                type="button"
+                data-facc-btn
+                aria-expanded="false"
+                aria-controls={`facc-col-${i}`}
+                class="flex w-full items-center justify-between gap-3 py-[15px] text-left text-[11px] font-semibold uppercase tracking-[1.6px] text-white/55 md:pointer-events-none md:mb-[18px] md:py-0"
+              >
+                {col.title}
+                <Icon
+                  name="plus"
+                  size={16}
+                  class="facc-icon shrink-0 text-white/55 transition-transform duration-300 md:hidden"
+                />
+              </button>
+            </h5>
+            <div
+              id={`facc-col-${i}`}
+              class="facc-body grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-out md:grid-rows-[1fr]"
+            >
+              <div class="overflow-hidden">
+                <ul class="flex flex-col pb-3 md:pb-0">
+                  {col.links.map((link) => (
+                    <li>
+                      <a
+                        href={link.href}
+                        class="block py-[7px] text-[13.5px] text-white/[0.78] transition-all duration-200 hover:pl-[5px] hover:text-white"
+                      >
+                        {link.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </nav>
+        ))
+      }
+
+      {/* Contact — collapsible accordion < md, static on md+ */}
+      <div class="footer-acc border-t border-white/10 md:border-t-0" data-facc>
+        <h5 class="m-0">
+          <button
+            type="button"
+            data-facc-btn
+            aria-expanded="false"
+            aria-controls="facc-contact"
+            class="flex w-full items-center justify-between gap-3 py-[15px] text-left text-[11px] font-semibold uppercase tracking-[1.6px] text-white/55 md:pointer-events-none md:mb-[18px] md:py-0"
+          >
+            Get in Touch
+            <Icon
+              name="plus"
+              size={16}
+              class="facc-icon shrink-0 text-white/55 transition-transform duration-300 md:hidden"
+            />
+          </button>
+        </h5>
+        <div
+          id="facc-contact"
+          class="facc-body grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-out md:grid-rows-[1fr]"
+        >
+          <div class="overflow-hidden">
+            <div class="pb-3 md:pb-0">
+              <a
+                href="mailto:care@ledition.com"
+                class="flex items-center gap-[11px] py-1.5 text-[13.5px] text-white/[0.78] transition-colors hover:text-white"
+              >
+                <Icon name="mail" size={18} class="shrink-0 text-coral" /> care@ledition.com
+              </a>
+              <a
+                href="tel:+33184800202"
+                class="flex items-center gap-[11px] py-1.5 text-[13.5px] text-white/[0.78] transition-colors hover:text-white"
+              >
+                <Icon name="phone" size={18} class="shrink-0 text-coral" /> +33 1 84 80 02 02
+              </a>
+              <p class="flex items-center gap-[11px] py-1.5 text-[13.5px] text-white/[0.78]">
+                <Icon name="mapPin" size={18} class="shrink-0 text-coral" /> 12 Rue Saint-Honoré, Paris
+              </p>
+
+              {/* App store buttons — wrap when the contact column is narrow
+                  (e.g. at the lg breakpoint) so they never overflow the grid. */}
+              <div class="mt-[14px] flex flex-wrap gap-[9px]">
+                <a
+                  href="#"
+                  class="inline-flex items-center gap-2 rounded-sm bg-white/[0.08] px-[13px] py-[9px] text-[11px] font-semibold text-white transition-colors hover:bg-white/[0.16]"
+                >
+                  <Icon name="apple" size={18} /> App Store
+                </a>
+                <a
+                  href="#"
+                  class="inline-flex items-center gap-2 rounded-sm bg-white/[0.08] px-[13px] py-[9px] text-[11px] font-semibold text-white transition-colors hover:bg-white/[0.16]"
+                >
+                  <Icon name="googlePlay" size={18} /> Google Play
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* ── Bottom: legal + payments ──────────────────────────── */}
+    <div class="flex flex-wrap items-center justify-between gap-5 pt-6" data-reveal>
+      <p class="text-[12.5px] text-white/50">© {year} {SITE.name}. All rights reserved.</p>
+      <nav aria-label="Legal" class="flex gap-[18px]">
+        {
+          legal.map((l) => (
+            <a href={l.href} class="text-xs text-white/60 transition-colors hover:text-white">
+              {l.label}
+            </a>
+          ))
+        }
+      </nav>
+      <div class="flex items-center gap-2">
+        {
+          payments.map((p) => (
+            <span class="rounded-xs bg-white/10 px-[11px] py-[7px] text-[10px] font-bold tracking-[0.5px] text-white/70">
+              {p}
+            </span>
+          ))
+        }
+      </div>
+    </div>
+  </div>
+</footer>
+
+<style is:global>
+  /* Mobile-only collapsible footer sections. Desktop (md+) is forced open
+     by the `md:grid-rows-[1fr]` utility + `md:pointer-events-none` header,
+     so these open-state rules only ever take effect below the md breakpoint. */
+  [data-facc].open > .facc-body {
+    grid-template-rows: 1fr;
+  }
+  [data-facc].open .facc-icon {
+    transform: rotate(45deg);
+  }
+</style>
+
+<script>
+  // Footer accordion — collapses link/contact columns on mobile. Idempotent
+  // + View-Transition safe. On md+ the trigger is pointer-events-none, so
+  // this listener is effectively inert there (bodies are CSS-forced open).
+  function initFooterAccordion(): void {
+    document.querySelectorAll<HTMLElement>('[data-facc]').forEach((acc) => {
+      if (acc.dataset.bound) return;
+      acc.dataset.bound = 'true';
+
+      const btn = acc.querySelector<HTMLButtonElement>('[data-facc-btn]');
+      if (!btn) return;
+
+      btn.addEventListener('click', () => {
+        const open = acc.classList.toggle('open');
+        btn.setAttribute('aria-expanded', String(open));
+      });
+    });
+  }
+
+  initFooterAccordion();
+  document.addEventListener('astro:page-load', initFooterAccordion);
+</script>
