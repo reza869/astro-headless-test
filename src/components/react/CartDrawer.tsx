@@ -76,7 +76,9 @@ export default function CartDrawer() {
       .then((r) => (r.ok ? r.json() : { products: [] }))
       .then((data: { products?: ProductCard[] }) => {
         if (!active) return;
-        const list = (data.products ?? []).filter((p) => !inBag.has(p.handle)).slice(0, 4);
+        // Keep it to a single, balanced row of two — a tidy nudge, not a
+        // second product grid competing with the bag itself.
+        const list = (data.products ?? []).filter((p) => !inBag.has(p.handle)).slice(0, 2);
         setRecs(list);
       })
       .catch(() => active && setRecs([]));
@@ -175,11 +177,13 @@ export default function CartDrawer() {
                 </ul>
 
                 {recs.length > 0 && (
-                  <section className="mt-7">
-                    <h3 className="mb-3 px-1 text-[11px] font-bold uppercase tracking-[1.6px] text-text-muted">
+                  <section className="mt-8 border-t border-border/60 pt-6">
+                    <h3 className="mb-4 flex items-center justify-center gap-2.5 text-[11px] font-bold uppercase tracking-[1.8px] text-text-muted">
+                      <span className="h-px w-5 bg-border" />
                       You may also like
+                      <span className="h-px w-5 bg-border" />
                     </h3>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3.5">
                       {recs.map((p) => (
                         <RecommendationCard key={p.id} product={p} />
                       ))}
@@ -235,6 +239,14 @@ export default function CartDrawer() {
                       </>
                     )}
                   </button>
+
+                  <a
+                    href="/cart"
+                    onClick={closeCart}
+                    className="mt-2.5 flex h-[50px] w-full items-center justify-center rounded-xl border border-border text-[12.5px] font-bold uppercase tracking-[1.4px] text-text-primary transition-fluid hover:border-dark hover:text-coral"
+                  >
+                    View Cart
+                  </a>
                 </div>
               </footer>
             </>
@@ -330,7 +342,7 @@ function RecommendationCard({ product }: { product: ProductCard }) {
       onClick={closeCart}
       className="group block overflow-hidden rounded-2xl bg-surface shadow-xs ring-1 ring-border/70 transition-fluid hover:shadow-md"
     >
-      <div className="aspect-[4/3] overflow-hidden bg-surface-cool">
+      <div className="aspect-[4/5] overflow-hidden bg-surface-cool">
         {img ? (
           <img
             src={img.url}
@@ -341,10 +353,10 @@ function RecommendationCard({ product }: { product: ProductCard }) {
         ) : null}
       </div>
       <div className="p-3">
-        <p className="truncate text-[13px] font-semibold text-text-primary group-hover:text-coral">
+        <p className="truncate text-[13px] font-semibold leading-tight text-text-primary group-hover:text-coral">
           {product.title}
         </p>
-        <p className="mt-0.5 text-[13px] tabular text-text-secondary">
+        <p className="mt-1 text-[13px] tabular text-text-secondary">
           {formatMoney(price.amount, price.currencyCode)}
         </p>
       </div>
