@@ -1,0 +1,121 @@
+---
+// ============================================================
+//  /account/addresses — saved delivery addresses. Signed-in only.
+//  Addresses render from the API's `formatted` lines. The address
+//  query runs in its own try/catch so any field mismatch degrades
+//  to a graceful "unavailable" state instead of breaking the page.
+// ============================================================
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import AccountShell from '~/components/account/AccountShell.astro';
+import Icon from '~/components/ui/Icon.astro';
+import {
+  createCustomerClient,
+  CUSTOMER_OVERVIEW_QUERY,
+  CUSTOMER_ADDRESSES_QUERY,
+  getPublicOrigin,
+  NotAuthenticatedError,
+} from '~/lib/shopify/customer';
+import type { CustomerOverview, CustomerAddressesResult, CustomerAddress } from '~/lib/shopify/customer';
+
+export const prerender = false;
+
+const client = createCustomerClient(Astro.cookies, getPublicOrigin(Astro.request, Astro.url));
+if (!client.isLoggedIn()) {
+  return Astro.redirect('/account/login?return_to=/account/addresses');
+}
+
+let name = '';
+let email = '';
+let addresses: CustomerAddress[] = [];
+let defaultId: string | null = null;
+let addrError = false;
+
+// Identity for the shell (known-good query).
+try {
+  const overview = await client.query<CustomerOverview>(CUSTOMER_OVERVIEW_QUERY, { first: 1 });
+  name = [overview.customer?.firstName, overview.customer?.lastName].filter(Boolean).join(' ');
+  email = overview.customer?.emailAddress?.emailAddress ?? '';
+} catch (err) {
+  if (err instanceof NotAuthenticatedError) {
+    return Astro.redirect('/account/login?return_to=/account/addresses');
+  }
+  console.error('[account/addresses] identity load failed:', (err as Error).message);
+}
+
+// Addresses — isolated so a schema hiccup never breaks the page.
+try {
+  const data = await client.query<CustomerAddressesResult>(CUSTOMER_ADDRESSES_QUERY, { first: 20 });
+  addresses = data.customer?.addresses?.nodes ?? [];
+  defaultId = data.customer?.defaultAddress?.id ?? null;
+} catch (err) {
+  console.error('[account/addresses] addresses load failed:', (err as Error).message);
+  addrError = true;
+}
+---
+
+<BaseLayout title="Addresses">
+  <AccountShell active="addresses" name={name} email={email}>
+    <div class="mb-6">
+      <h2 class="h3">Addresses</h2>
+      <p class="mt-1 text-[13.5px] text-text-secondary">
+        Delivery addresses saved to your account. Add or edit them securely at checkout.
+      </p>
+    </div>
+
+    {
+      addrError ? (
+        <div class="flex flex-col items-center rounded-xl bg-surface px-6 py-14 text-center ring-1 ring-inset ring-border">
+          <span class="mb-4 grid h-14 w-14 place-items-center rounded-full bg-surface-cool text-text-muted">
+            <Icon name="mapPin" size={24} />
+          </span>
+          <p class="font-heading text-[20px] font-bold text-text-primary">Addresses unavailable</p>
+          <p class="mt-1 max-w-[340px] text-[13.5px] text-text-secondary">
+            We couldn't load your saved addresses right now. Please try again shortly.
+          </p>
+        </div>
+      ) : addresses.length === 0 ? (
+        <div class="flex flex-col items-center rounded-xl bg-surface px-6 py-16 text-center ring-1 ring-inset ring-border">
+          <span class="mb-4 grid h-16 w-16 place-items-center rounded-full bg-coral-soft text-coral">
+            <Icon name="mapPin" size={26} />
+          </span>
+          <p class="font-heading text-[22px] font-bold text-text-primary">No saved addresses</p>
+          <p class="mt-1 max-w-[360px] text-[13.5px] text-text-secondary">
+            Addresses you use at checkout are saved here so future orders are quicker.
+          </p>
+          <a
+            href="/collections/all"
+            class="btn mt-6 inline-flex h-12 items-center gap-2 rounded-sm bg-dark px-6 text-white transition-fluid hover:bg-dark-hover"
+          >
+            Start shopping <Icon name="arrowRight" size={16} />
+          </a>
+        </div>
+      ) : (
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {addresses.map((addr) => (
+            <div class="relative rounded-xl bg-surface p-5 ring-1 ring-inset ring-border">
+              <div class="mb-3 flex items-center justify-between gap-3">
+                <span class="grid h-10 w-10 place-items-center rounded-full bg-surface-cool text-text-primary">
+                  <Icon name="mapPin" size={18} />
+                </span>
+                {addr.id === defaultId && (
+                  <span class="inline-flex items-center gap-1.5 rounded-pill bg-green-soft px-3 py-1 text-[10.5px] font-bold uppercase tracking-[1px] text-green">
+                    <Icon name="check" size={12} /> Default
+                  </span>
+                )}
+              </div>
+              <address class="not-italic text-[14px] leading-[1.7] text-text-secondary">
+                {addr.formatted.map((line) => (
+                  <span class="block">{line}</span>
+                ))}
+              </address>
+            </div>
+          ))}
+        </div>
+      )
+    }
+
+    <p class="mt-6 inline-flex items-center gap-2 text-[12.5px] text-text-muted">
+      <Icon name="shield" size={15} class="text-green" /> Addresses are managed securely through Shopify checkout.
+    </p>
+  </AccountShell>
+</BaseLayout>

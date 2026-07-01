@@ -1,0 +1,104 @@
+---
+// ============================================================
+//  AccountShell — shared chrome for every signed-in account page.
+//  Editorial header (greeting + sign out) over a two-column body:
+//  a sticky profile card + section nav (horizontal-scroll rail on
+//  mobile, vertical list on desktop) and a content <slot />. Uses
+//  the theme's tokens so all account views feel like one section.
+// ============================================================
+import Icon from '~/components/ui/Icon.astro';
+
+interface Props {
+  active: 'overview' | 'orders' | 'addresses';
+  name?: string | null;
+  email?: string | null;
+}
+const { active, name, email } = Astro.props;
+
+const displayName = (name ?? '').trim();
+const greeting = displayName || (email ?? '').split('@')[0] || 'there';
+const initials =
+  (displayName
+    ? displayName
+        .split(/\s+/)
+        .map((p) => p[0])
+        .slice(0, 2)
+        .join('')
+    : (email ?? '?')[0]
+  ).toUpperCase();
+
+const nav = [
+  { key: 'overview', label: 'Overview', href: '/account', icon: 'grid' },
+  { key: 'orders', label: 'Orders', href: '/account/orders', icon: 'package' },
+  { key: 'addresses', label: 'Addresses', href: '/account/addresses', icon: 'mapPin' },
+] as const;
+---
+
+<section class="container-mag pb-section pt-hero">
+  {/* Header */}
+  <div
+    class="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-border pb-6"
+    data-enter
+    data-stagger
+  >
+    <div>
+      <span class="mag-label mb-3">My Account</span>
+      <h1 class="h2">
+        Hi, <em class="not-italic text-coral">{greeting}.</em>
+      </h1>
+    </div>
+    <a
+      href="/account/logout"
+      class="inline-flex items-center gap-2 rounded-sm border border-border px-4 py-2.5 text-[12px] font-bold uppercase tracking-[1.4px] text-text-secondary transition-fluid hover:border-coral hover:text-coral"
+    >
+      <Icon name="arrowUpRight" size={15} /> Sign out
+    </a>
+  </div>
+
+  <div class="grid gap-8 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-12">
+    {/* Sidebar — profile card + section nav */}
+    <aside class="lg:sticky lg:top-[100px] lg:self-start" data-reveal>
+      <div class="flex items-center gap-3.5 rounded-xl bg-surface p-4 ring-1 ring-inset ring-border">
+        <span
+          class="grid h-12 w-12 flex-none place-items-center rounded-full bg-coral font-heading text-[18px] font-extrabold text-white"
+        >
+          {initials}
+        </span>
+        <div class="min-w-0">
+          <p class="truncate font-heading text-[17px] font-bold leading-tight text-text-primary">
+            {displayName || 'Welcome'}
+          </p>
+          {email && <p class="truncate text-[12.5px] text-text-muted">{email}</p>}
+        </div>
+      </div>
+
+      <nav
+        aria-label="Account sections"
+        class="-mx-1 mt-4 flex gap-2 overflow-x-auto px-1 pb-1 lg:mx-0 lg:mt-3 lg:flex-col lg:gap-1 lg:overflow-visible lg:px-0 lg:pb-0"
+      >
+        {
+          nav.map((item) => (
+            <a
+              href={item.href}
+              aria-current={active === item.key ? 'page' : undefined}
+              class:list={[
+                'flex flex-none items-center gap-2.5 rounded-sm px-4 py-2.5 text-sm font-semibold transition-fluid lg:flex-auto',
+                active === item.key
+                  ? 'bg-coral-soft text-coral'
+                  : 'text-text-secondary hover:bg-surface-cool hover:text-coral',
+              ]}
+            >
+              <Icon name={item.icon} size={16} class="flex-none" />
+              <span class="whitespace-nowrap">{item.label}</span>
+            </a>
+          ))
+        }
+      </nav>
+    </aside>
+
+    {/* Content */}
+    <div class="min-w-0" data-reveal>
+      <slot />
+    </div>
+  </div>
+</section>

@@ -1,0 +1,118 @@
+---
+// ============================================================
+//  /account/orders — full order history. Signed-in only.
+// ============================================================
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import AccountShell from '~/components/account/AccountShell.astro';
+import Icon from '~/components/ui/Icon.astro';
+import {
+  createCustomerClient,
+  CUSTOMER_OVERVIEW_QUERY,
+  CUSTOMER_ORDERS_QUERY,
+  getPublicOrigin,
+  NotAuthenticatedError,
+} from '~/lib/shopify/customer';
+import type { CustomerOverview, CustomerOrdersResult, CustomerOrder } from '~/lib/shopify/customer';
+import { formatMoney } from '~/lib/utils';
+
+export const prerender = false;
+
+const client = createCustomerClient(Astro.cookies, getPublicOrigin(Astro.request, Astro.url));
+if (!client.isLoggedIn()) {
+  return Astro.redirect('/account/login?return_to=/account/orders');
+}
+
+let name = '';
+let email = '';
+let orders: CustomerOrder[] = [];
+let error: string | null = null;
+
+try {
+  // One round-trip for the identity (shell) + a fuller order list.
+  const [overview, orderData] = await Promise.all([
+    client.query<CustomerOverview>(CUSTOMER_OVERVIEW_QUERY, { first: 1 }),
+    client.query<CustomerOrdersResult>(CUSTOMER_ORDERS_QUERY, { first: 30 }),
+  ]);
+  name = [overview.customer?.firstName, overview.customer?.lastName].filter(Boolean).join(' ');
+  email = overview.customer?.emailAddress?.emailAddress ?? '';
+  orders = orderData.customer?.orders?.nodes ?? [];
+} catch (err) {
+  if (err instanceof NotAuthenticatedError) {
+    return Astro.redirect('/account/login?return_to=/account/orders');
+  }
+  console.error('[account/orders] load failed:', (err as Error).message);
+  error = (err as Error).message;
+}
+
+const fmtDate = (iso: string) =>
+  new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric' }).format(
+    new Date(iso),
+  );
+---
+
+<BaseLayout title="Orders">
+  <AccountShell active="orders" name={name} email={email}>
+    <div class="mb-6 flex items-end justify-between gap-4">
+      <div>
+        <h2 class="h3">Order history</h2>
+        <p class="mt-1 text-[13.5px] text-text-secondary">
+          {orders.length > 0
+            ? `${orders.length} order${orders.length === 1 ? '' : 's'} placed`
+            : 'Your orders will appear here.'}
+        </p>
+      </div>
+    </div>
+
+    {
+      error ? (
+        <p class="rounded-md bg-coral-soft px-4 py-3 text-[13px] font-medium text-coral" role="alert">
+          We couldn't load your orders right now: {error}
+        </p>
+      ) : orders.length === 0 ? (
+        <div class="flex flex-col items-center rounded-xl bg-surface px-6 py-16 text-center ring-1 ring-inset ring-border">
+          <span class="mb-4 grid h-16 w-16 place-items-center rounded-full bg-surface-cool text-text-muted">
+            <Icon name="package" size={26} />
+          </span>
+          <p class="font-heading text-[22px] font-bold text-text-primary">No orders yet</p>
+          <p class="mt-1 max-w-[340px] text-[13.5px] text-text-secondary">
+            Once you place your first order, you'll be able to track it and reorder from here.
+          </p>
+          <a
+            href="/collections/all"
+            class="btn mt-6 inline-flex h-12 items-center gap-2 rounded-sm bg-dark px-6 text-white transition-fluid hover:bg-dark-hover"
+          >
+            Explore the catalogue <Icon name="arrowRight" size={16} />
+          </a>
+        </div>
+      ) : (
+        <ul class="flex flex-col gap-3">
+          {orders.map((order) => (
+            <li class="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-surface p-5 ring-1 ring-inset ring-border transition-fluid hover:shadow-xs">
+              <div class="flex items-center gap-4">
+                <span class="grid h-11 w-11 flex-none place-items-center rounded-full bg-coral-soft text-coral">
+                  <Icon name="package" size={20} />
+                </span>
+                <div>
+                  <p class="font-heading text-[18px] font-bold leading-tight text-text-primary">
+                    {order.name}
+                  </p>
+                  <p class="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-text-muted">
+                    <Icon name="clock" size={13} /> {fmtDate(order.processedAt)}
+                  </p>
+                </div>
+              </div>
+              <div class="ml-auto text-right">
+                <p class="text-[10.5px] font-bold uppercase tracking-[1.4px] text-text-muted">Total</p>
+                <p class="font-heading text-[20px] font-extrabold tabular text-text-primary">
+                  {order.totalPrice
+                    ? formatMoney(order.totalPrice.amount, order.totalPrice.currencyCode)
+                    : '—'}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </AccountShell>
+</BaseLayout>

@@ -1,10 +1,14 @@
 ---
 // ============================================================
-//  /account — authenticated customer dashboard (profile + orders).
-//  Redirects to login when there is no valid session.
+//  /account — signed-out sign-in landing, or the signed-in
+//  overview dashboard (profile + quick links + recent orders).
+//  Login / create-account / password reset are handled by
+//  Shopify's hosted Customer Account pages (OAuth) via
+//  /account/login — this is the branded entry point.
 // ============================================================
 import BaseLayout from '~/layouts/BaseLayout.astro';
-import PageHeader from '~/components/global/PageHeader.astro';
+import AccountShell from '~/components/account/AccountShell.astro';
+import Icon from '~/components/ui/Icon.astro';
 import {
   createCustomerClient,
   CUSTOMER_OVERVIEW_QUERY,
@@ -12,99 +16,191 @@ import {
   NotAuthenticatedError,
 } from '~/lib/shopify/customer';
 import type { CustomerOverview } from '~/lib/shopify/customer';
+import { formatMoney } from '~/lib/utils';
 
 export const prerender = false;
 
 const client = createCustomerClient(Astro.cookies, getPublicOrigin(Astro.request, Astro.url));
-
-if (!client.isLoggedIn()) {
-  return Astro.redirect('/account/login?return_to=/account');
-}
+const loggedIn = client.isLoggedIn();
 
 let customer: CustomerOverview['customer'] = null;
 let error: string | null = null;
 
-try {
-  const data = await client.query<CustomerOverview>(CUSTOMER_OVERVIEW_QUERY, { first: 10 });
-  customer = data.customer;
-} catch (err) {
-  if (err instanceof NotAuthenticatedError) {
-    return Astro.redirect('/account/login?return_to=/account');
+if (loggedIn) {
+  try {
+    const data = await client.query<CustomerOverview>(CUSTOMER_OVERVIEW_QUERY, { first: 4 });
+    customer = data.customer;
+  } catch (err) {
+    if (err instanceof NotAuthenticatedError) {
+      return Astro.redirect('/account/login?return_to=/account');
+    }
+    console.error('[account] load failed:', (err as Error).message);
+    error = (err as Error).message;
   }
-  console.error('[account] load failed:', (err as Error).message);
-  error = (err as Error).message;
 }
 
 const fullName = [customer?.firstName, customer?.lastName].filter(Boolean).join(' ');
-const greeting = fullName || customer?.emailAddress?.emailAddress || 'there';
+const email = customer?.emailAddress?.emailAddress ?? '';
 const orders = customer?.orders?.nodes ?? [];
-
-const fmtMoney = (m: { amount: string; currencyCode: string } | null) =>
-  m
-    ? new Intl.NumberFormat('en-US', { style: 'currency', currency: m.currencyCode }).format(
-        Number(m.amount),
-      )
-    : '—';
 
 const fmtDate = (iso: string) =>
   new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric' }).format(
     new Date(iso),
   );
+
+const perks = [
+  { icon: 'package', title: 'Track your orders', copy: 'Follow every order from dispatch to doorstep.' },
+  { icon: 'mapPin', title: 'Saved addresses', copy: 'Check out faster with your details on file.' },
+  { icon: 'heart', title: 'Your wishlist', copy: 'Keep the pieces you love in one place.' },
+  { icon: 'sealCheck', title: 'Members-only', copy: 'Early access to new arrivals and offers.' },
+] as const;
+
+const quickLinks = [
+  { icon: 'package', title: 'Orders', copy: 'View your order history', href: '/account/orders' },
+  { icon: 'mapPin', title: 'Addresses', copy: 'Manage delivery details', href: '/account/addresses' },
+  { icon: 'heart', title: 'Wishlist', copy: 'Your saved pieces', href: '/wishlist' },
+  { icon: 'bag', title: 'Keep shopping', copy: 'Explore the catalogue', href: '/collections/all' },
+] as const;
 ---
 
-<BaseLayout title="Account">
-  <PageHeader eyebrow="My account" title={`Hi, ${greeting}`} />
+{
+  !loggedIn ? (
+    <BaseLayout title="Sign in" description="Sign in to your L’ÉDITION account to track orders, save addresses and shop faster.">
+      <section class="container-mag py-hero">
+        <div
+          class="grid items-stretch overflow-hidden rounded-2xl ring-1 ring-inset ring-border md:grid-cols-2"
+          data-enter
+          data-stagger
+        >
+          {/* Copy + actions */}
+          <div class="flex flex-col justify-center bg-surface p-8 sm:p-12">
+            <span class="mag-label mb-4">Account</span>
+            <h1 class="h1 uppercase">
+              Sign <em class="not-italic text-coral">in.</em>
+            </h1>
+            <p class="mt-4 max-w-[420px] text-base leading-[1.65] text-text-secondary">
+              Access your orders, saved addresses and wishlist — and check out in a couple of taps
+              next time. New here? Create an account in seconds.
+            </p>
 
-  <div class="wrap py-12">
-    {
-      error && (
-        <p class="mb-8 rounded-md border border-danger/30 bg-danger/5 px-4 py-3 text-danger">
-          Couldn't load your account: {error}
-        </p>
-      )
-    }
+            <div class="mt-8 flex flex-wrap gap-3">
+              <a
+                href="/account/login"
+                class="btn inline-flex h-12 items-center gap-2.5 rounded-sm bg-dark px-7 text-white transition-fluid hover:bg-dark-hover"
+              >
+                Sign in <Icon name="arrowRight" size={16} />
+              </a>
+              <a
+                href="/account/login?return_to=/account"
+                class="btn inline-flex h-12 items-center rounded-sm border border-border px-7 text-text-primary transition-fluid hover:border-dark hover:text-coral"
+              >
+                Create account
+              </a>
+            </div>
 
-    {/* Profile */}
-    <section class="mb-12">
-      <div class="flex items-center justify-between gap-4">
-        <h2 class="text-[11px] font-bold uppercase tracking-[1.8px] text-text-muted">Profile</h2>
-        <a href="/account/logout" class="text-sm font-medium text-text-secondary transition-fluid hover:text-text-primary">
-          Sign out
-        </a>
-      </div>
-      <dl class="mt-4 grid gap-4 sm:grid-cols-2">
-        <div class="rounded-lg border border-border bg-surface p-4">
-          <dt class="text-[11px] font-bold uppercase tracking-[1.8px] text-text-muted">Name</dt>
-          <dd class="mt-1 text-text-primary">{fullName || '—'}</dd>
-        </div>
-        <div class="rounded-lg border border-border bg-surface p-4">
-          <dt class="text-[11px] font-bold uppercase tracking-[1.8px] text-text-muted">Email</dt>
-          <dd class="mt-1 text-text-primary">{customer?.emailAddress?.emailAddress || '—'}</dd>
-        </div>
-      </dl>
-    </section>
+            <p class="mt-6 inline-flex items-center gap-2 text-[12.5px] text-text-muted">
+              <Icon name="shield" size={15} class="text-green" /> Secure sign-in powered by Shopify.
+            </p>
+          </div>
 
-    {/* Orders */}
-    <section>
-      <h2 class="text-[11px] font-bold uppercase tracking-[1.8px] text-text-muted">Recent orders</h2>
-
-      {
-        orders.length === 0 ? (
-          <p class="mt-4 text-text-secondary">You haven't placed any orders yet.</p>
-        ) : (
-          <ul class="mt-4 divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface">
-            {orders.map((order) => (
-              <li class="flex items-center justify-between gap-4 px-4 py-3">
-                <div>
-                  <p class="font-medium text-text-primary">{order.name}</p>
-                  <p class="text-sm text-text-muted">{fmtDate(order.processedAt)}</p>
+          {/* Perks panel */}
+          <div class="relative flex flex-col justify-center gap-5 bg-dark p-8 sm:p-12">
+            <span class="mag-label mb-1">Why sign in</span>
+            {
+              perks.map((p) => (
+                <div class="flex items-start gap-4">
+                  <span class="grid h-11 w-11 flex-none place-items-center rounded-full bg-white/[0.08] text-coral">
+                    <Icon name={p.icon} size={20} />
+                  </span>
+                  <div>
+                    <p class="font-heading text-[17px] font-bold text-white">{p.title}</p>
+                    <p class="mt-0.5 text-[13px] leading-[1.5] text-white/60">{p.copy}</p>
+                  </div>
                 </div>
-                <p class="tabular font-medium text-text-primary">{fmtMoney(order.totalPrice)}</p>
-              </li>
-            ))}
-          </ul>
-        )
-      }
-    </section>
-  </div>
-</BaseLayout>
+              ))
+            }
+          </div>
+        </div>
+      </section>
+    </BaseLayout>
+  ) : (
+    <BaseLayout title="Account">
+      <AccountShell active="overview" name={fullName} email={email}>
+        {error && (
+          <p class="mb-6 rounded-md bg-coral-soft px-4 py-3 text-[13px] font-medium text-coral" role="alert">
+            We couldn't load part of your account: {error}
+          </p>
+        )}
+
+        {/* Quick links */}
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {quickLinks.map((l) => (
+            <a
+              href={l.href}
+              class="group flex items-center gap-4 rounded-xl bg-surface p-5 ring-1 ring-inset ring-border transition-fluid hover:-translate-y-1 hover:shadow-md"
+            >
+              <span class="grid h-12 w-12 flex-none place-items-center rounded-full bg-coral-soft text-coral">
+                <Icon name={l.icon} size={22} />
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="font-heading text-[19px] font-bold leading-tight text-text-primary group-hover:text-coral">
+                  {l.title}
+                </p>
+                <p class="mt-0.5 text-[13px] text-text-secondary">{l.copy}</p>
+              </div>
+              <Icon name="arrowUpRight" size={18} class="flex-none text-text-muted transition-fluid group-hover:text-coral" />
+            </a>
+          ))}
+        </div>
+
+        {/* Recent orders */}
+        <div class="mt-10">
+          <div class="mb-4 flex items-center justify-between gap-4">
+            <h2 class="text-[11px] font-bold uppercase tracking-[1.8px] text-text-muted">
+              Recent orders
+            </h2>
+            {orders.length > 0 && (
+              <a href="/account/orders" class="text-[13px] font-semibold text-coral hover:underline">
+                View all
+              </a>
+            )}
+          </div>
+
+          {orders.length === 0 ? (
+            <div class="flex flex-col items-center rounded-xl bg-surface px-6 py-14 text-center ring-1 ring-inset ring-border">
+              <span class="mb-4 grid h-14 w-14 place-items-center rounded-full bg-surface-cool text-text-muted">
+                <Icon name="package" size={24} />
+              </span>
+              <p class="font-heading text-[20px] font-bold text-text-primary">No orders yet</p>
+              <p class="mt-1 max-w-[320px] text-[13.5px] text-text-secondary">
+                When you place an order it will appear here for easy tracking.
+              </p>
+              <a
+                href="/collections/all"
+                class="btn mt-5 inline-flex h-11 items-center gap-2 rounded-sm bg-dark px-6 text-white transition-fluid hover:bg-dark-hover"
+              >
+                Start shopping <Icon name="arrowRight" size={15} />
+              </a>
+            </div>
+          ) : (
+            <ul class="divide-y divide-border overflow-hidden rounded-xl bg-surface ring-1 ring-inset ring-border">
+              {orders.map((order) => (
+                <li class="flex items-center justify-between gap-4 px-5 py-4">
+                  <div class="min-w-0">
+                    <p class="font-heading text-[17px] font-bold text-text-primary">{order.name}</p>
+                    <p class="mt-0.5 text-[12.5px] text-text-muted">{fmtDate(order.processedAt)}</p>
+                  </div>
+                  <p class="shrink-0 font-bold tabular text-text-primary">
+                    {order.totalPrice
+                      ? formatMoney(order.totalPrice.amount, order.totalPrice.currencyCode)
+                      : '—'}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </AccountShell>
+    </BaseLayout>
+  )
+}
