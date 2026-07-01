@@ -6,11 +6,15 @@ dist/
 
 # Astro cache
 .astro/
+.screenshots/
 
 # Environment files
 .env
 .env.local
 .env.*.local
+
+# Plan file
+SHOPIFY_STOREFRONT_API_2026-04_REFERENCE.md
 
 # OS
 .DS_Store

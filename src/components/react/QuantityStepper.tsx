@@ -9,6 +9,8 @@ interface Props {
   max?: number;
   disabled?: boolean;
   size?: 'sm' | 'md';
+  /** Visual style: bordered (default, white) or soft (borderless grey pill). */
+  variant?: 'bordered' | 'soft';
   ariaLabel?: string;
 }
 
@@ -19,6 +21,7 @@ export default function QuantityStepper({
   max = 99,
   disabled = false,
   size = 'md',
+  variant = 'bordered',
   ariaLabel = 'Quantity',
 }: Props) {
   const dec = () => onChange(Math.max(min, value - 1));
@@ -28,19 +31,19 @@ export default function QuantityStepper({
     'grid place-items-center text-text-primary transition-fluid hover:bg-dark/[0.06] disabled:opacity-30 disabled:pointer-events-none';
   const dims = size === 'sm' ? 'h-9 w-9' : 'h-11 w-11';
   const iconSize = size === 'sm' ? 15 : 17;
+  const soft = variant === 'soft';
+  const shell = soft ? 'rounded-full bg-surface-cool' : 'border border-border rounded-md bg-surface';
+  const edge = soft ? 'rounded-full' : '';
 
   return (
     <div
-      className={cn(
-        'inline-flex items-center border border-border rounded-md bg-surface',
-        disabled && 'opacity-60',
-      )}
+      className={cn('inline-flex items-center', shell, disabled && 'opacity-60')}
       role="group"
       aria-label={ariaLabel}
     >
       <button
         type="button"
-        className={cn(btn, dims, 'rounded-l-md')}
+        className={cn(btn, dims, soft ? edge : 'rounded-l-md')}
         onClick={dec}
         disabled={disabled || value <= min}
         aria-label="Decrease quantity"
@@ -58,7 +61,7 @@ export default function QuantityStepper({
       </span>
       <button
         type="button"
-        className={cn(btn, dims, 'rounded-r-md')}
+        className={cn(btn, dims, soft ? edge : 'rounded-r-md')}
         onClick={inc}
         disabled={disabled || value >= max}
         aria-label="Increase quantity"
