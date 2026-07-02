@@ -12,6 +12,7 @@ dist/
 .env
 .env.local
 .env.*.local
+.claude
 
 # Plan file
 SHOPIFY_STOREFRONT_API_2026-04_REFERENCE.md

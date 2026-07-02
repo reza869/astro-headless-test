@@ -1,8 +1,8 @@
-<h1 align="center">L'ÉDITION</h1>
+<h1 align="center">TAILORED</h1>
 
 <p align="center">
   <strong>A production-grade, headless Shopify storefront</strong><br />
-  Publication-first fashion commerce — built with Astro 6 SSR, React 19 islands, nanostores &amp; Tailwind CSS v4.
+  Modern tailoring &amp; everyday luxury — built with Astro 6 SSR, React 19 islands, nanostores &amp; Tailwind CSS v4, deployed on Cloudflare Workers.
 </p>
 
 <p align="center">
@@ -10,6 +10,7 @@
   <img alt="React" src="https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white" />
   <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind_CSS-4.x-38BDF8?logo=tailwindcss&logoColor=white" />
   <img alt="Shopify" src="https://img.shields.io/badge/Shopify-Storefront_API_2026--04-96BF48?logo=shopify&logoColor=white" />
+  <img alt="Cloudflare Workers" src="https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white" />
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" />
   <img alt="Node" src="https://img.shields.io/badge/Node-%E2%89%A522.12-5FA04E?logo=node.js&logoColor=white" />
 </p>
@@ -36,14 +37,14 @@
 
 ## 🧭 Overview
 
-**L'ÉDITION** is a fully-featured **headless e-commerce storefront** that renders on the server (SSR) and talks to Shopify entirely through the **Storefront API** and **Customer Account API**. Shopify remains the source of truth for products, collections, content, cart, checkout, customers, and orders — while the front end is a bespoke, editorial "magazine" experience you fully control.
+**TAILORED** is a fully-featured **headless e-commerce storefront** that renders on the server (SSR) and talks to Shopify entirely through the **Storefront API** and **Customer Account API**. Shopify remains the source of truth for products, collections, content, cart, checkout, customers, and orders — while the front end is a bespoke, editorial "magazine" experience you fully control.
 
 The whole app is designed around one principle: **secrets never touch the browser.** All Shopify traffic is proxied through same-origin `/api/*` routes using a **private** Storefront token, and the interactive parts of the UI are small **React islands** hydrated on demand over an otherwise static, fast HTML shell.
 
 **Design direction** — *Parisian editorial*: a refined magazine layout with a signal-coral accent, the `Big Shoulders Display` display face for headings and `Manrope` for body copy. Motion is handled with **GSAP** scroll reveals that fully respect `prefers-reduced-motion`.
 
 > [!NOTE]
-> The npm package is named `satellite-shell` (the internal codename). The storefront brand rendered site-wide is configured in [`src/config/site.ts`](src/config/site.ts) and can be changed in one place.
+> The storefront brand rendered site-wide (name, tagline, footer, nav fallback, value props) is configured in a single source of truth — [`src/config/site.ts`](src/config/site.ts) — and can be changed in one place.
 
 ---
 
@@ -83,7 +84,7 @@ The whole app is designed around one principle: **secrets never touch the browse
 | Dependency | Version | Purpose |
 | --- | --- | --- |
 | [Astro](https://astro.build) | `^6.4` | SSR framework &amp; routing (`output: "server"`) |
-| [@astrojs/node](https://docs.astro.build/en/guides/integrations-guide/node/) | `^10` | Standalone Node server adapter |
+| [@astrojs/cloudflare](https://docs.astro.build/en/guides/integrations-guide/cloudflare/) | `^13.7` | Cloudflare Workers SSR adapter |
 | [@astrojs/react](https://docs.astro.build/en/guides/integrations-guide/react/) | `^4` | React island renderer |
 | [React](https://react.dev) / React DOM | `^19` | Interactive islands |
 | [Tailwind CSS](https://tailwindcss.com) | `^4.3` | Styling (via `@tailwindcss/vite`) |
@@ -91,9 +92,13 @@ The whole app is designed around one principle: **secrets never touch the browse
 | [GSAP](https://gsap.com) | `^3.15` | Scroll-reveal animations |
 | [lucide-react](https://lucide.dev) | `^1.20` | Icon set for React islands |
 | [clsx](https://github.com/lukeed/clsx) | `^2.1` | Conditional class names |
+| [wrangler](https://developers.cloudflare.com/workers/wrangler/) | `^4` | Cloudflare Workers CLI (build config + deploy) |
 | [TypeScript](https://www.typescriptlang.org) | `5.x` | End-to-end type safety |
 
 **APIs:** Shopify **Storefront API** `2026-04` · Shopify **Customer Account API** `2025-01` · **Judge.me** REST.
+
+> [!IMPORTANT]
+> Pin `@astrojs/cloudflare@^13` for Astro 6 — **v14 requires Astro 7** and pulls in Vite 8, which breaks `@tailwindcss/vite`. Keep `"overrides": { "vite": "^7" }` in `package.json`.
 
 ---
 
@@ -101,7 +106,7 @@ The whole app is designed around one principle: **secrets never touch the browse
 
 ```
                         ┌──────────────────────────────────────────────┐
-   Browser              │                Astro SSR (Node)              │
+   Browser              │           Astro SSR (Cloudflare Workers)     │
  ┌─────────┐  HTML/CSS  │  .astro pages ──▶ src/lib/shopify/services   │   HTTPS + private token
  │  Static │◀───────────│                        │                     │ ┌──────────────────────┐
  │  shell  │            │                        └────────────────────────▶│  Shopify Storefront  │
@@ -119,9 +124,10 @@ The whole app is designed around one principle: **secrets never touch the browse
 
 **Key decisions**
 
-- **The private token stays on the server.** Environment variables have **no `PUBLIC_` prefix**, so they are never bundled into client code. The browser only ever calls same-origin `/api/*` routes, which perform the actual Shopify requests using the `Shopify-Storefront-Private-Token` header.
+- **The private token stays on the server.** Environment variables have **no `PUBLIC_` prefix**, so they are never exposed to client code. The browser only ever calls same-origin `/api/*` routes, which perform the actual Shopify requests using the `Shopify-Storefront-Private-Token` header.
 - **Cart state is a nanostore**, not React context — because Astro renders each island in its own isolated root, a framework-agnostic store is the correct way to share cart/wishlist state across the header button, drawer, PDP, and cart page. It is backed by an **httpOnly cart-id cookie** so the cart survives reloads without exposing the cart ID to scripts.
 - **The Shopify layer is cleanly separated:** GraphQL operations (`graphql/*`) → typed fetch + transform (`services/*`) → clean domain shapes (`transforms.ts`, `types.ts`). Pages and API routes only ever import from the tidy `services` layer.
+- **Runs on the edge.** The Cloudflare adapter needs the `nodejs_compat` flag (for `node:crypto` in the OAuth PKCE flow and `process.env` access) — configured in [`wrangler.jsonc`](wrangler.jsonc).
 
 ---
 
@@ -130,11 +136,12 @@ The whole app is designed around one principle: **secrets never touch the browse
 | Requirement | Notes |
 | --- | --- |
 | **Node.js ≥ 22.12.0** | Enforced via `engines` in `package.json`. Use `nvm`/`fnm` to match. |
-| **npm** (or yarn / pnpm) | A `package-lock.json` **and** `yarn.lock` are present — pick one and stick with it. |
+| **npm** | A `package-lock.json` is committed — use `npm ci` for reproducible installs. |
 | **A Shopify store** | Any plan. A development store works. |
 | **Storefront API access** | A **private** (delegate) Storefront access token — see [Shopify Setup](#-shopify-setup). |
 | **(Optional) Customer Account API** | For customer login. Requires a public **HTTPS** origin (a tunnel in dev). |
 | **(Optional) Judge.me account** | For product reviews. The free plan is enough for the REST read used here. |
+| **(Deploy) Cloudflare account** | To deploy to Cloudflare Workers via `wrangler`. |
 
 ---
 
@@ -142,12 +149,12 @@ The whole app is designed around one principle: **secrets never touch the browse
 
 ```bash
 # 1. Clone
-git clone <your-repo-url> ledition
-cd ledition
+git clone <your-repo-url> tailored
+cd tailored
 
 # 2. Install dependencies
 npm install
-#   or: yarn install   |   pnpm install
+#   or, for a reproducible install: npm ci
 
 # 3. Create your environment file
 cp .env.example .env
@@ -165,7 +172,7 @@ npm run dev
 
 ## 🔐 Environment Variables
 
-All variables are **server-side only** (no `PUBLIC_` prefix, except the Judge.me shop domain which is a non-secret identifier). They are read at runtime via `import.meta.env` in dev with a `process.env` fallback in production. A fully-commented template lives in [`.env.example`](.env.example).
+All variables are **server-side only** (no `PUBLIC_` prefix, except the Judge.me shop domain which is a non-secret identifier). They are read at build/runtime via `import.meta.env` with a `process.env` fallback. A fully-commented template lives in [`.env.example`](.env.example).
 
 ### Storefront API — required
 
@@ -240,7 +247,7 @@ The header can read the Shopify **`main-menu`** (Online Store → Navigation) wh
    | --- | --- |
    | Callback URI(s) | `https://YOUR_HOST/account/authorize` |
    | JavaScript origin(s) | `https://YOUR_HOST` |
-   | Logout URI | `https://YOUR_HOST` |
+   | Logout URI | `https://YOUR_HOST/account` |
 4. Copy the **Client ID** and your numeric **Shop ID** into `.env` (`CUSTOMER_ACCOUNT_API_CLIENT_ID`, `SHOPIFY_SHOP_ID`).
 
 > The app derives its origin from `X-Forwarded-Proto` / `X-Forwarded-Host` (see [`src/lib/shopify/customer/origin.ts`](src/lib/shopify/customer/origin.ts)), so OAuth works automatically behind tunnels and proxies.
@@ -271,7 +278,8 @@ npm run dev      # http://localhost:4321 (HMR)
 **Testing customer login locally** — the Customer Account API requires a **public HTTPS origin**. Expose your dev server with a tunnel and register that host in the Shopify Customer Account API settings (step 3 above):
 
 ```bash
-# example — any HTTPS tunnel works (cloudflared, ngrok, etc.)
+# cloudflared is recommended — ngrok's free tier serves a warning
+# interstitial in place of JS modules, which breaks the dev bundle.
 cloudflared tunnel --url http://localhost:4321
 ```
 
@@ -288,9 +296,11 @@ cloudflared tunnel --url http://localhost:4321
 | Command | Description |
 | --- | --- |
 | `npm run dev` | Start the dev server with HMR at `http://localhost:4321`. |
-| `npm run build` | Build the standalone production server into `dist/`. |
-| `npm run preview` | Serve the production build locally. |
-| `npm run astro` | Run the Astro CLI (`npm run astro -- add`, `-- check`, etc.). |
+| `npm run build` | Build the production Worker into `dist/` (+ the adapter's `dist/server/wrangler.json`). |
+| `npm run preview` | Serve the production build locally (via `wrangler dev`). |
+| `npm run check` | Run `astro check` for TypeScript type safety. |
+| `npm run astro` | Run the Astro CLI (`npm run astro -- add`, etc.). |
+| `npm run release:patch` \| `:minor` \| `:major` | Bump the version, tag, and push (triggers the release workflows). |
 
 ---
 
@@ -330,7 +340,8 @@ cloudflared tunnel --url http://localhost:4321
 
 ```
 tailored/
-├─ astro.config.mjs          # SSR + Node standalone adapter, React, Tailwind (Vite)
+├─ astro.config.mjs          # SSR + Cloudflare adapter, React, Tailwind (Vite)
+├─ wrangler.jsonc            # Cloudflare config: name, nodejs_compat, SESSION KV, assets
 ├─ .env.example              # Documented environment template
 ├─ tsconfig.json             # "~/*" → "src/*" path alias, react-jsx
 └─ src/
@@ -351,6 +362,7 @@ tailored/
    │  │  └─ types.ts · pagination.ts · sort-options.ts
    │  ├─ judgeme/            # Judge.me REST reviews (server-side)
    │  ├─ cart-server.ts · cart-cookie.ts   # httpOnly cart-id cookie + server cart
+   │  ├─ scroll-lock.ts      # Reference-counted body scroll lock shared by overlays
    │  └─ utils.ts · pagination.ts · article-utils.ts · shop-catalogue.ts
    ├─ stores/
    │  ├─ cart.ts             # nanostore cart (shared across islands)
@@ -371,24 +383,28 @@ tailored/
 
 ## 🚀 Deployment
 
-This is an **SSR app** (`output: "server"`), so it deploys as a **long-running Node service**, not static files.
+This is an **SSR app** (`output: "server"`) deployed to **Cloudflare Workers** via `@astrojs/cloudflare`. The adapter emits a deploy-ready config at `dist/server/wrangler.json` (with `main`/`assets` filled in) that you deploy with `wrangler`.
 
 ```bash
-# 1. Build the standalone server
-npm run build          # → dist/server/entry.mjs
+# 1. Authenticate with Cloudflare (once)
+npx wrangler login
 
-# 2. Run it (set the env vars in your runtime)
-HOST=0.0.0.0 PORT=4321 node ./dist/server/entry.mjs
+# 2. Build — generates dist/ + dist/server/wrangler.json
+npm run build
+
+# 3. Deploy the generated config, uploading .env as encrypted secrets
+npx wrangler deploy -c ./dist/server/wrangler.json --secrets-file .env
 ```
 
-**Checklist**
+**Notes**
 
-- Provide the Storefront env vars (and any optional Customer Account / Judge.me vars) in the **runtime environment**, not a committed file.
-- Terminate TLS at a reverse proxy (Nginx, Caddy, a platform load balancer) and forward `X-Forwarded-Proto` / `X-Forwarded-Host` — the Customer Account API origin detection relies on them.
-- Use a process manager (`pm2`, systemd) or a container.
-- Register your **production HTTPS origin** in the Shopify Customer Account API settings (callback/JS-origin/logout URIs), exactly as you did for the tunnel in development.
-
-Any host that runs Node works — a VPS, a container platform, or a Node-friendly PaaS (Railway, Render, Fly.io, a Dockerized deploy, etc.). For other targets, swap `@astrojs/node` for the matching Astro SSR adapter.
+- **`nodejs_compat` is required** — the root [`wrangler.jsonc`](wrangler.jsonc) pins `compatibility_date` + `compatibility_flags: ["nodejs_compat"]` (needed for `node:crypto` in the OAuth PKCE flow and `process.env`). The adapter merges it into the generated config; deploy with **`-c ./dist/server/wrangler.json`** (deploying the bare root config has no `main` and skips the SSR Worker).
+- **`SESSION` KV namespace** — the adapter declares a `SESSION` KV binding. Create it once and pin its `id` in `wrangler.jsonc` so deploys don't try to auto-provision it:
+  ```bash
+  npx wrangler kv namespace create SESSION
+  ```
+- **Secrets** — `--secrets-file .env` uploads every key as an encrypted Worker secret (or set them in the dashboard / via `wrangler secret put`). Note the build also inlines env values at build time, so a fresh build is required after changing them.
+- **Customer Account API** — register your **production HTTPS origin** (the `*.workers.dev` URL or your custom domain) in the Shopify Customer Account API settings (callback/JS-origin/logout URIs), exactly as you did for the tunnel in development.
 
 ---
 
@@ -396,13 +412,15 @@ Any host that runs Node works — a VPS, a container platform, or a Node-friendl
 
 | Symptom | Cause &amp; fix |
 | --- | --- |
-| **Build fails on `@astrojs/node`** | Version mismatch. `astro@6` needs `@astrojs/node@^10` (v9 targets Astro 5) and `@astrojs/react@^4`. Keep the React 19 set intact. |
+| **Build error with Vite/Tailwind, or `rollupOptions.input should not be an html file`** | Adapter/Vite mismatch. Use `@astrojs/cloudflare@^13` for `astro@6` (v14 needs Astro 7 and drags in Vite 8). Keep `"overrides": { "vite": "^7" }` in `package.json`. |
+| **`Astro.clientAddress is not available in the @astrojs/cloudflare adapter`** | Don't read `Astro.clientAddress`. The app derives the buyer IP from request headers (`cf-connecting-ip` / `x-forwarded-for`) — see [`src/lib/cart-server.ts`](src/lib/cart-server.ts) `clientIp()`. |
 | **Empty catalogue / Shopify 401 / 403** | Missing or wrong Storefront token. Confirm you copied the **private** token and that `.env` has all three `SHOPIFY_*` values. |
 | **`X-Shopify-Storefront-Access-Token` errors** | You're using a *public* token. This app expects the **private** token via `Shopify-Storefront-Private-Token`. |
-| **Customer login redirect fails / "invalid origin"** | The Customer Account API rejects `http://` and `localhost`. Use an **HTTPS tunnel** and register that exact host (callback `…/account/authorize`, JS origin, logout) in Shopify. |
-| **Dev server blocks a tunnel host** | Already handled via `server.allowedHosts: true` in `astro.config.mjs`; restart `npm run dev` after config changes. |
+| **Signed in, but `/account` is blank + `Unexpected token '<' … is not valid JSON`** | The Customer Account API GraphQL call returned a `403 "Access denied"` HTML page — Shopify blocks server requests with **no `User-Agent`**. The `query()` fetch in [`src/lib/shopify/customer/client.ts`](src/lib/shopify/customer/client.ts) must send a `User-Agent` (and `Origin`) header. The token is fine; do **not** add a token-exchange step (this public client rejects it with `unsupported_grant_type`). |
+| **Customer login "redirect_uri mismatch" / "invalid origin"** | The Customer Account API rejects `http://` and `localhost`. Use an **HTTPS tunnel** and register that exact host (callback `…/account/authorize`, JS origin, logout) in Shopify. |
+| **Blank page / content stuck invisible over a tunnel** | ngrok's free tier serves a warning interstitial in place of JS modules, so the reveal script never runs. Use **cloudflared** instead. |
+| **Deploy fails: "bindings need to be provisioned" / KV auth error 10000** | The `SESSION` KV binding has no `id`. Run `npx wrangler kv namespace create SESSION` and pin the returned `id` in `wrangler.jsonc`, then rebuild + redeploy. |
 | **No reviews on the PDP** | `JUDGEME_PRIVATE_TOKEN` unset (or the store has no reviews). This is a graceful no-op, not an error. |
-| **Node engine warning** | Use **Node ≥ 22.12.0** (`nvm use 22`). |
 | **A page 404s that should exist** | This app is **SSR** — do not add `export const prerender = true`; prerendering the catalogue/PDP is unsupported here and breaks the build with the current Vite + Tailwind v4 setup. |
 | **Two React copies / hydration errors** | `astro.config.mjs` already dedupes and pre-bundles React; run a clean install (`rm -rf node_modules && npm install`) if this appears. |
 
@@ -424,6 +442,6 @@ Internal contributions welcome. Please keep the project's conventions:
 
 ## 📄 License
 
-Proprietary — © L'ÉDITION. All rights reserved. No license file is included; contact the maintainers before reusing any part of this codebase.
+Proprietary — © TAILORED. All rights reserved. Released under a single-use commercial license; contact the maintainers before reusing any part of this codebase.
 
-<p align="center"><sub>Built with ❤️ on <a href="https://astro.build">Astro</a> · Powered by the <a href="https://shopify.dev/docs/api/storefront">Shopify Storefront API</a></sub></p>
+<p align="center"><sub>Built by <a href="https://hasthemes.com">Aslam Hasib</a> · Powered by <a href="https://astro.build">Astro</a> &amp; the <a href="https://shopify.dev/docs/api/storefront">Shopify Storefront API</a> · Deployed on <a href="https://developers.cloudflare.com/workers/">Cloudflare Workers</a></sub></p>
