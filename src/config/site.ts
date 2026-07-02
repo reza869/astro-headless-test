@@ -4,9 +4,8 @@
 // ============================================================
 
 export const SITE = {
-  name: "L'ÉDITION",
-  tagline:
-    'A publication-first fashion house bridging high-fashion editorial with wearable, everyday luxury.',
+  name: 'TAILORED',
+  tagline: 'Modern Fashion & Everyday Luxury',
   /** Free-shipping threshold (matches the value in `announcements`). */
   freeShippingThreshold: 150,
   description:

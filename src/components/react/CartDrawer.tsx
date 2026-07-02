@@ -23,6 +23,7 @@ import {
 } from '~/stores/cart';
 import type { CartLine, ProductCard } from '~/lib/shopify/types';
 import { formatMoney } from '~/lib/utils';
+import { lockScroll, unlockScroll } from '~/lib/scroll-lock';
 import { SITE } from '~/config/site';
 import QuantityStepper from './QuantityStepper';
 import Spinner from './Spinner';
@@ -40,11 +41,10 @@ export default function CartDrawer() {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeCart();
     document.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    lockScroll();
     return () => {
       document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prev;
+      unlockScroll();
     };
   }, [open]);
 

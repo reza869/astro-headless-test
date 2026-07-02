@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, X } from 'lucide-react';
 import { formatMoney } from '~/lib/utils';
+import { lockScroll, unlockScroll } from '~/lib/scroll-lock';
 import { useFocusTrap } from './useFocusTrap';
 
 interface PredictProduct {
@@ -78,11 +79,10 @@ export default function PredictiveSearch() {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
     document.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    lockScroll();
     return () => {
       document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prev;
+      unlockScroll();
     };
   }, [open]);
 

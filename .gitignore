@@ -15,7 +15,6 @@ dist/
 
 # Plan file
 SHOPIFY_STOREFRONT_API_2026-04_REFERENCE.md
-wrangler.jsonc
 
 # OS
 .DS_Store

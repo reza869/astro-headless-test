@@ -9,6 +9,7 @@ import { X, Star, Check } from 'lucide-react';
 import type { Product, ProductOption, ProductVariant } from '~/lib/shopify/types';
 import { formatMoney, isOnSale, discountPercent } from '~/lib/utils';
 import { addItem } from '~/stores/cart';
+import { lockScroll, unlockScroll } from '~/lib/scroll-lock';
 import { useFocusTrap } from './useFocusTrap';
 import Spinner from './Spinner';
 
@@ -88,11 +89,10 @@ export default function QuickViewModal() {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeQuickView();
     document.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    lockScroll();
     return () => {
       document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prev;
+      unlockScroll();
     };
   }, [open]);
 
