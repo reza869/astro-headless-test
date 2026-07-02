@@ -1,29 +1,38 @@
 {
-  // Root Cloudflare config the @astrojs/cloudflare adapter reads at build
-  // (name + compatibility + bindings). The adapter emits the deploy-ready
-  // config at dist/server/wrangler.json with main/assets filled in.
-  //
-  //   Build:   npm run build
-  //   Deploy:  npx wrangler deploy -c ./dist/server/wrangler.json
-  //
-  // The build auto-declares a "SESSION" KV binding (Astro sessions). Create
-  // it once and its id is picked up on deploy:
-  //   npx wrangler kv namespace create SESSION
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "tailored",
-  "compatibility_date": "2025-05-05",
-  // Required: node:crypto (OAuth PKCE) + process.env population for secrets.
-  "compatibility_flags": ["nodejs_compat"],
-  "assets": {
-    "directory": "./dist",
-    "binding": "ASSETS"
-  },
-  "observability": {
-    "enabled": true
-  }
-  // Set secrets/vars in the Cloudflare dashboard or via `wrangler secret put`:
-  //   SHOPIFY_STORE_DOMAIN, SHOPIFY_STOREFRONT_ACCESS_TOKEN,
-  //   CUSTOMER_ACCOUNT_API_CLIENT_ID, SHOPIFY_SHOP_ID,
-  //   CUSTOMER_ACCOUNT_API_VERSION, PUBLIC_JUDGEME_SHOP_DOMAIN, …
-  // For `wrangler dev`/platformProxy, mirror them in a local .dev.vars file.
+	// Root Cloudflare config the @astrojs/cloudflare adapter reads at build
+	// (name + compatibility + bindings). The adapter emits the deploy-ready
+	// config at dist/server/wrangler.json with main/assets filled in.
+	//
+	//   Build:   npm run build
+	//   Deploy:  npx wrangler deploy -c ./dist/server/wrangler.json
+	//
+	// The build auto-declares a "SESSION" KV binding (Astro sessions). Create
+	// it once and its id is picked up on deploy:
+	//   npx wrangler kv namespace create SESSION
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "tailored",
+	"compatibility_date": "2025-05-05",
+	// Required: node:crypto (OAuth PKCE) + process.env population for secrets.
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"assets": {
+		"directory": "./dist",
+		"binding": "ASSETS"
+	},
+	"observability": {
+		"enabled": true
+	},
+	"kv_namespaces": [
+		{
+			"binding": "SESSION",
+			"id": "8a60aeccb4b143ab88c6478bbbab892d",
+			"remote": true
+		}
+	]
+	// Set secrets/vars in the Cloudflare dashboard or via `wrangler secret put`:
+	//   SHOPIFY_STORE_DOMAIN, SHOPIFY_STOREFRONT_ACCESS_TOKEN,
+	//   CUSTOMER_ACCOUNT_API_CLIENT_ID, SHOPIFY_SHOP_ID,
+	//   CUSTOMER_ACCOUNT_API_VERSION, PUBLIC_JUDGEME_SHOP_DOMAIN, …
+	// For `wrangler dev`/platformProxy, mirror them in a local .dev.vars file.
 }
