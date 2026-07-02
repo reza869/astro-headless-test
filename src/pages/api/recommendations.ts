@@ -24,10 +24,13 @@ export const GET: APIRoute = async ({ url }) => {
       products = await getProductRecommendations(productId, limit);
     }
     if (!products.length) {
-      const best = await getProducts({ pageSize: limit, sortKey: 'BEST_SELLING' });
+      // One extra so removing the current product below still yields `limit`.
+      const best = await getProducts({ pageSize: limit + 1, sortKey: 'BEST_SELLING' });
       products = best.items;
     }
-    return json({ products: products.slice(0, limit) });
+    // Never recommend the product the shopper is already viewing.
+    const filtered = productId ? products.filter((p) => p.id !== productId) : products;
+    return json({ products: filtered.slice(0, limit) });
   } catch (err) {
     console.error('[api/recommendations] failed:', (err as Error).message);
     return json({ products: [] }); // never break the drawer

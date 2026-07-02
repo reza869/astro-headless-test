@@ -58,6 +58,10 @@ async function post(url: string, body: unknown): Promise<MutationResponse> {
 
 function applyResult(data: MutationResponse): MutationResponse {
   if (data.cart) $cart.set(data.cart);
+  // A server response with no cart and no transient error means the cart
+  // expired / no longer exists (the server self-heals the cookie). Reflect the
+  // empty state instead of leaving a stale cart — and a dead checkoutUrl — up.
+  else if (!data.error) $cart.set(null);
   const message = data.userErrors?.[0]?.message ?? data.error ?? null;
   $cartError.set(message);
   return data;

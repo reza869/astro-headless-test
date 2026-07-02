@@ -56,22 +56,32 @@ export default function PredictiveSearch() {
       return;
     }
     setLoading(true);
+    // Guard against out-of-order responses: a slower earlier request must never
+    // overwrite the results of a newer query. Abort the in-flight fetch and
+    // ignore its late resolution on every keystroke.
+    let cancelled = false;
+    const ctrl = new AbortController();
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal: ctrl.signal });
         const data = (await res.json()) as Results;
+        if (cancelled) return;
         setResults({
           products: data.products ?? [],
           collections: data.collections ?? [],
           queries: data.queries ?? [],
         });
       } catch {
-        setResults(EMPTY);
+        if (!cancelled) setResults(EMPTY);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }, 220);
-    return () => clearTimeout(t);
+    return () => {
+      cancelled = true;
+      ctrl.abort();
+      clearTimeout(t);
+    };
   }, [query, open]);
 
   // Body scroll lock + Esc + autofocus.

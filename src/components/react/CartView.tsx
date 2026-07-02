@@ -135,7 +135,9 @@ export default function CartView({ initialCart }: Props) {
   const threshold = SITE.freeShippingThreshold;
 
   const shipMethod = SHIP_METHODS.find((m) => m.k === shipSel)!;
-  const shipFree = shipMethod.k === 'pickup' || (shipMethod.k === 'standard' && afterDisc >= threshold);
+  // Gate on the merchandise subtotal so the free-shipping meter/copy (also
+  // subtotal-based) and the actual free-shipping outcome never contradict.
+  const shipFree = shipMethod.k === 'pickup' || (shipMethod.k === 'standard' && subtotal >= threshold);
   const shipCost = shipFree ? 0 : shipMethod.price;
   const tax = afterDisc * TAX_RATE;
   const gift = giftWrap ? GIFT : 0;

@@ -59,6 +59,24 @@ export const COLLECTION_BY_HANDLE_QUERY = /* GraphQL */ `
           cursor
           node {
             ...ProductCard
+            productType
+            createdAt
+            tags
+            collections(first: 12) {
+              nodes {
+                title
+                handle
+              }
+            }
+            options {
+              name
+              optionValues {
+                name
+                swatch {
+                  color
+                }
+              }
+            }
           }
         }
       }

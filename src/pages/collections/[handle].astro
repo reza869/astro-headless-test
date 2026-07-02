@@ -10,48 +10,41 @@
 // ============================================================
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import ShopCatalogue from '~/components/shop/ShopCatalogue.astro';
-import { getShopProducts, getAllCollections } from '~/lib/shopify';
+import { getCollection } from '~/lib/shopify';
 import { toShopItems, catalogueCurrency } from '~/lib/shop-catalogue';
-import type { Collection, ProductCard } from '~/lib/shopify/types';
+import type { CollectionWithProducts } from '~/lib/shopify/types';
 
 const { handle } = Astro.params;
 
-let raw: ProductCard[] = [];
-let collections: Collection[] = [];
+// Fetch THIS collection's own products (scoped + enriched), not a global slice.
+// A missing collection returns null → a real 404; an out-of-range handle no
+// longer has to be inferred from a truncated best-sellers list.
+let collection: CollectionWithProducts | null = null;
 let loadError = false;
 try {
-  [raw, collections] = await Promise.all([getShopProducts({ pageSize: 48 }), getAllCollections()]);
+  collection = await getCollection({ handle: handle!, pageSize: 250 });
 } catch (err) {
   console.error('[collection] load failed:', (err as Error).message);
   loadError = true;
 }
 
-const items = toShopItems(raw);
-const currency = catalogueCurrency(raw);
-
-// Canonical collection (title + description) for the hero.
-const collection = collections.find((c) => c.handle === handle) ?? null;
-// The exact tab title to activate — resolved from the loaded products so it
-// always matches a Browse tab (falls back to the collection's own title).
-const initialCat =
-  raw.flatMap((p) => p.collections ?? []).find((c) => c.handle === handle)?.title ??
-  collection?.title ??
-  null;
-
-// Genuinely unknown handle → 404 (a real, but empty/out-of-range collection
-// still renders via initialCat / the catalogue load error path).
-const notFound = !loadError && !collection && !initialCat;
+const notFound = !loadError && !collection;
 if (loadError) Astro.response.status = 503;
 else if (notFound) Astro.response.status = 404;
 
-const title = collection?.title ?? initialCat ?? (handle ?? '').replace(/-/g, ' ');
-const description = (collection?.description ?? '').trim();
+const raw = collection?.products.items ?? [];
+const items = toShopItems(raw);
+const currency = catalogueCurrency(raw);
 
-// Stats scoped to this collection's products.
-const inCol = initialCat ? items.filter((i) => i.cats.includes(initialCat)) : items;
-const products = inCol.length;
-const designers = new Set(inCol.map((i) => i.vendor).filter(Boolean)).size;
-const categories = new Set(inCol.flatMap((i) => i.cats)).size;
+const title = collection?.title ?? (handle ?? '').replace(/-/g, ' ');
+const description = (collection?.description ?? '').trim();
+// Pre-activate this collection's Browse tab (all loaded items belong to it).
+const initialCat = collection?.title ?? null;
+
+// Stats for this collection's products.
+const products = items.length;
+const designers = new Set(items.map((i) => i.vendor).filter(Boolean)).size;
+const categories = new Set(items.flatMap((i) => i.cats)).size;
 
 const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

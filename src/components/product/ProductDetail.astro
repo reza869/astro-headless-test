@@ -87,7 +87,15 @@ const COLORS: Record<string, string> = {
 const swatchHex = (name: string) => COLORS[name.trim().toLowerCase()] ?? name.toLowerCase();
 
 const colorOption = product.options.find((o) => /colou?r/i.test(o.name));
-const sizeOption = product.options.find((o) => /size/i.test(o.name));
+// Second picker = the Size option, or — for products optioned by Material,
+// Style, Fit, etc. — the first non-colour option, so EVERY two-option product
+// is fully selectable (not just Colour/Size). Products with a 3rd option fall
+// back to their first two dimensions.
+const sizeOption =
+  product.options.find((o) => /size/i.test(o.name)) ??
+  product.options.find((o) => o.name !== colorOption?.name);
+// Only a real size picker gets the "Size guide" affordance.
+const isSizeOption = !!sizeOption && /size/i.test(sizeOption.name);
 
 // Which size values are buyable (some variant with that value is in stock).
 const availableSizes = new Set<string>();
@@ -118,6 +126,7 @@ const variantData = product.variants.map((v) => ({
   color: colorOption ? (v.selectedOptions.find((o) => o.name === colorOption.name)?.value ?? '') : '',
   size: sizeOption ? (v.selectedOptions.find((o) => o.name === sizeOption.name)?.value ?? '') : '',
   amount: v.price.amount,
+  compareAt: v.compareAtPrice?.amount ?? null,
 }));
 
 const config = JSON.stringify({
@@ -203,9 +212,9 @@ const addPriceLabel = formatMoney(
             <span class="pdp-sold"><Icon name="fire" size={15} /> 128 sold this month</span>
           </div>
           <div class="pdp-price">
-            <span class="now">{priceNow}</span>
-            {priceWas && <span class="was">{priceWas}</span>}
-            {off && <span class="off">Save {off}%</span>}
+            <span class="now" data-price-now>{priceNow}</span>
+            <span class="was" data-price-was hidden={!priceWas}>{priceWas}</span>
+            <span class="off" data-price-off hidden={!off}>{off ? `Save ${off}%` : ''}</span>
           </div>
           <p class="pdp-tax">Import duties included · <b>Free shipping</b> over $250</p>
           {intro && <p class="pdp-lead">{intro}</p>}
@@ -234,7 +243,9 @@ const addPriceLabel = formatMoney(
             <div class="opt">
               <div class="opt-head">
                 <h6>{sizeOption?.name ?? 'Size'}</h6>
-                <button type="button" class="guide" data-sg-open><Icon name="ruler" size={14} /> Size guide</button>
+                {isSizeOption && (
+                  <button type="button" class="guide" data-sg-open><Icon name="ruler" size={14} /> Size guide</button>
+                )}
               </div>
               <div class="opt-sizes">
                 {sizes.map((z) => (
@@ -1535,6 +1546,7 @@ const addPriceLabel = formatMoney(
     color: string;
     size: string;
     amount: string;
+    compareAt: string | null;
   }
   interface PdpConfig {
     productId: string;
@@ -1591,8 +1603,28 @@ const addPriceLabel = formatMoney(
     const syncPrice = () => {
       const v = resolve();
       const unit = Number(v?.amount ?? cfg.unitAmount);
+      const cmp = v?.compareAt != null ? Number(v.compareAt) : null;
+      const onSale = cmp != null && Number.isFinite(cmp) && cmp > unit;
+
       const ap = $('[data-add-price]');
       if (ap) ap.textContent = money(unit * state.qty);
+
+      // Headline price + compare-at, synced to the RESOLVED variant so the big
+      // price always matches what's actually added, and the discount badge is
+      // the selected variant's real saving (not a min-vs-min approximation).
+      const nowEl = $('[data-price-now]');
+      if (nowEl) nowEl.textContent = money(unit);
+      const wasEl = $<HTMLElement>('[data-price-was]');
+      if (wasEl) {
+        wasEl.hidden = !onSale;
+        if (onSale) wasEl.textContent = money(cmp as number);
+      }
+      const offEl = $<HTMLElement>('[data-price-off]');
+      if (offEl) {
+        const pct = onSale ? Math.round((((cmp as number) - unit) / (cmp as number)) * 100) : 0;
+        offEl.hidden = pct <= 0;
+        if (pct > 0) offEl.textContent = `Save ${pct}%`;
+      }
     };
 
     // ── Colours ────────────────────────────────────────────

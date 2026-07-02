@@ -15,7 +15,9 @@ import type { ProductCard } from '~/lib/shopify/types';
 let raw: ProductCard[] = [];
 let loadError = false;
 try {
-  raw = await getShopProducts({ pageSize: 48 });
+  // Load the full catalogue (Storefront max 250) so every product is reachable
+  // and filterable — the deck filters/sorts/paginates client-side over this set.
+  raw = await getShopProducts({ pageSize: 250 });
 } catch (err) {
   console.error('[shop] catalogue load failed:', (err as Error).message);
   loadError = true;

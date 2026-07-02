@@ -8,11 +8,14 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   try {
     const body = await request.json();
     const lineId = String(body?.lineId ?? '');
-    const quantity = Number(body?.quantity);
+    const raw = Number(body?.quantity);
 
-    if (!lineId || !Number.isFinite(quantity)) {
+    if (!lineId || !Number.isFinite(raw)) {
       return json({ cart: null, userErrors: [{ message: 'lineId and quantity required' }] }, 400);
     }
+    // 0 (or below) removes the line; otherwise coerce to a whole 1..99 so a
+    // negative or fractional value never reaches Shopify's Int quantity field.
+    const quantity = raw <= 0 ? 0 : Math.min(Math.floor(raw), 99);
 
     const { cart, userErrors } = await updateLine(cookies, { id: lineId, quantity }, clientIp(request));
     return json({ cart, userErrors });
