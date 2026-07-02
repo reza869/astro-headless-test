@@ -36,6 +36,12 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ ok: false, error: 'Invalid request.' }, 400);
   }
 
+  // Honeypot: a hidden field real users never see or fill. If it's populated,
+  // the sender is a bot — return a fake success so it doesn't retry/adapt, and
+  // forward nothing to the store. (Not a replacement for a real rate limit /
+  // CAPTCHA on a public deployment, but stops the common automated spam.)
+  if (String(body.website ?? '').trim()) return json({ ok: true });
+
   const name = String(body.name ?? '').trim();
   const email = String(body.email ?? '').trim();
   const message = String(body.message ?? '').trim();
@@ -47,6 +53,16 @@ export const POST: APIRoute = async ({ request }) => {
   if (!name) return json({ ok: false, error: 'Your name is required.' }, 422);
   if (!EMAIL_RE.test(email)) return json({ ok: false, error: 'A valid email is required.' }, 422);
   if (message.length < 10) return json({ ok: false, error: 'Please add more detail to your message.' }, 422);
+  // Upper bounds — reject oversized payloads outright (abuse / accidental dumps).
+  if (
+    name.length > 100 ||
+    email.length > 150 ||
+    subject.length > 150 ||
+    orderNumber.length > 50 ||
+    message.length > 5000
+  ) {
+    return json({ ok: false, error: 'One or more fields is too long.' }, 422);
+  }
 
   if (!SHOP) {
     return json(

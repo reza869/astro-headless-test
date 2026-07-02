@@ -38,9 +38,10 @@ export const GET: APIRoute = async ({ cookies, url, request, redirect }) => {
   } catch (err) {
     const message = (err as Error).message;
     console.error('[account/authorize] token exchange failed:', message);
-    // Send the real Shopify error to the login page so it can be shown
-    // instead of silently looping back into the OAuth flow.
-    return redirect(`/account/login?error=token&reason=${encodeURIComponent(message)}`, 302);
+    // Log the real Shopify error server-side only; show the user a generic
+    // notice (don't leak backend/config error strings into the page) while
+    // still avoiding a silent loop back into the OAuth flow.
+    return redirect('/account/login?error=token', 302);
   }
 
   const dest = returnTo && returnTo.startsWith('/') ? returnTo : '/account';

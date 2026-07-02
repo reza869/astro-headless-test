@@ -224,6 +224,17 @@ const faqs = [
             }
           </div>
 
+          {/* Honeypot — hidden from real users; bots that fill it are silently rejected server-side. */}
+          <input
+            id="cWebsite"
+            name="website"
+            type="text"
+            tabindex="-1"
+            autocomplete="off"
+            aria-hidden="true"
+            class="pointer-events-none absolute -left-[9999px] h-0 w-0 opacity-0"
+          />
+
           <div class="grid grid-cols-1 gap-[14px] sm:grid-cols-2">
             <div class="mb-4">
               <label for="cName" class="mb-[7px] block text-[11px] font-bold uppercase tracking-[0.5px] text-text-secondary">
@@ -602,6 +613,7 @@ const faqs = [
           orderNumber: value('#cOrder'),
           message,
           consent: (form.querySelector<HTMLInputElement>('[name="consent"]')?.checked ?? false),
+          website: value('#cWebsite'), // honeypot (real users leave it empty)
         };
 
         setLoading(true);
