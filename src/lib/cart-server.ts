@@ -24,6 +24,23 @@ export function json(data: unknown, status = 200): Response {
   });
 }
 
+/**
+ * Best-effort buyer IP for Shopify cart tax/shipping estimation.
+ *
+ * We read it from request headers rather than `Astro.clientAddress`, because
+ * `clientAddress` is unsupported in the `@astrojs/cloudflare` adapter and throws
+ * when accessed. The IP is optional here, so an undefined result is fine.
+ */
+export function clientIp(request: Request): string | undefined {
+  const h = request.headers;
+  return (
+    h.get('cf-connecting-ip') ||
+    h.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    h.get('x-real-ip') ||
+    undefined
+  );
+}
+
 /** Fetch the current cart from the cookie; self-heals stale ids. */
 export async function readCart(cookies: AstroCookies, buyerIp?: string): Promise<CartResult> {
   const id = getCartId(cookies);

@@ -15,6 +15,7 @@ dist/
 
 # Plan file
 SHOPIFY_STOREFRONT_API_2026-04_REFERENCE.md
+wrangler.jsonc
 
 # OS
 .DS_Store
@@ -28,9 +29,11 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+.wrangler/
 
 # Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+yarn.lock

@@ -1,10 +1,10 @@
 // POST /api/cart/add — { merchandiseId, quantity? }
 import type { APIRoute } from 'astro';
-import { addLines, json } from '~/lib/cart-server';
+import { addLines, clientIp, json } from '~/lib/cart-server';
 
 export const prerender = false;
 
-export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
+export const POST: APIRoute = async ({ request, cookies }) => {
   try {
     const body = await request.json();
     const merchandiseId = String(body?.merchandiseId ?? '');
@@ -19,7 +19,7 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
     const { cart, userErrors } = await addLines(
       cookies,
       [{ merchandiseId, quantity }],
-      clientAddress,
+      clientIp(request),
     );
     return json({ cart, userErrors });
   } catch (err) {

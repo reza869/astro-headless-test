@@ -12,7 +12,7 @@ import CartView from '~/components/react/CartView.tsx';
 import ProductCard from '~/components/cards/ProductCard.astro';
 import Cta from '~/components/sections/Cta.astro';
 import Icon from '~/components/ui/Icon.astro';
-import { readCart } from '~/lib/cart-server';
+import { clientIp, readCart } from '~/lib/cart-server';
 import { getProducts } from '~/lib/shopify';
 import type { Cart, ProductCard as TProductCard } from '~/lib/shopify/types';
 
@@ -22,7 +22,7 @@ let cart: Cart | null = null;
 let crossSell: TProductCard[] = [];
 
 try {
-  const res = await readCart(Astro.cookies, Astro.clientAddress);
+  const res = await readCart(Astro.cookies, clientIp(Astro.request));
   cart = res.cart;
 } catch (err) {
   console.error('[cart] read failed:', (err as Error).message);
