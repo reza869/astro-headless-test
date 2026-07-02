@@ -37,3 +37,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 yarn.lock
+
+# Vercel / Netlify build artifacts
+.vercel/
+.netlify/

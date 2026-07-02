@@ -383,28 +383,67 @@ tailored/
 
 ## 🚀 Deployment
 
-This is an **SSR app** (`output: "server"`) deployed to **Cloudflare Workers** via `@astrojs/cloudflare`. The adapter emits a deploy-ready config at `dist/server/wrangler.json` (with `main`/`assets` filled in) that you deploy with `wrangler`.
+This template is fully **platform-agnostic** and can be deployed to Cloudflare, Vercel, Netlify, or a self-hosted Node.js VPS.
 
+### Option 1: Cloudflare Workers
+This is an **SSR app** (`output: "server"`) deployed to **Cloudflare Workers** via `@astrojs/cloudflare`.
 ```bash
-# 1. Authenticate with Cloudflare (once)
-npx wrangler login
-
-# 2. Build — generates dist/ + dist/server/wrangler.json
 npm run build
-
-# 3. Deploy the generated config, uploading .env as encrypted secrets
 npx wrangler deploy -c ./dist/server/wrangler.json --secrets-file .env
 ```
 
-**Notes**
+---
 
-- **`nodejs_compat` is required** — the root [`wrangler.jsonc`](wrangler.jsonc) pins `compatibility_date` + `compatibility_flags: ["nodejs_compat"]` (needed for `node:crypto` in the OAuth PKCE flow and `process.env`). The adapter merges it into the generated config; deploy with **`-c ./dist/server/wrangler.json`** (deploying the bare root config has no `main` and skips the SSR Worker).
-- **`SESSION` KV namespace** — the adapter declares a `SESSION` KV binding. Create it once and pin its `id` in `wrangler.jsonc` so deploys don't try to auto-provision it:
-  ```bash
-  npx wrangler kv namespace create SESSION
-  ```
-- **Secrets** — `--secrets-file .env` uploads every key as an encrypted Worker secret (or set them in the dashboard / via `wrangler secret put`). Note the build also inlines env values at build time, so a fresh build is required after changing them.
-- **Customer Account API** — register your **production HTTPS origin** (the `*.workers.dev` URL or your custom domain) in the Shopify Customer Account API settings (callback/JS-origin/logout URIs), exactly as you did for the tunnel in development.
+### Option 2: VPS (Node.js) / Docker
+To deploy on a VPS (like DigitalOcean, Hetzner, AWS, etc.) using Node.js:
+
+1. **Clone the repository** to your server.
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+3. **Configure environment variables**: Create a `.env` file in the root directory and ensure you set:
+   ```env
+   ASTRO_ADAPTER=node
+   SHOPIFY_SHOP_DOMAIN=your-shop.myshopify.com
+   SHOPIFY_STOREFRONT_PRIVATE_TOKEN=shpat_...
+   ```
+4. **Build the application**:
+   ```bash
+   npm run build:node
+   ```
+5. **Start the standalone Node server**:
+   - For basic testing:
+     ```bash
+     npm run start:node
+     ```
+   - **Using PM2** (Recommended for production process management):
+     ```bash
+     npm install -g pm2
+     pm2 start dist/server/entry.mjs --name "tailored-storefront"
+     pm2 save
+     pm2 startup
+     ```
+6. **Reverse Proxy (Nginx)**: Configure your Nginx block to reverse-proxy port `4321` (or the port set in `PORT` env var) to your domain:
+   ```nginx
+   server {
+       listen 80;
+       server_name yourdomain.com;
+       location / {
+           proxy_pass http://localhost:4321;
+           proxy_http_version 1.1;
+           proxy_set_header Upgrade $http_upgrade;
+           proxy_set_header Connection 'upgrade';
+           proxy_set_header Host $host;
+           proxy_cache_bypass $http_upgrade;
+       }
+   }
+   ```
+
+---
+
+### Option 3: Vercel & Netlify
+Deploy directly through your hosting provider's dashboard by connecting your git repository. The runtime environment is auto-detected, so you do not need to configure the `ASTRO_ADAPTER` variable. Just add the Shopify credentials to your dashboard's environment variables.
 
 ---
 
