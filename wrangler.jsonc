@@ -22,14 +22,7 @@
 	},
 	"observability": {
 		"enabled": true
-	},
-	"kv_namespaces": [
-		{
-			"binding": "SESSION",
-			"id": "8a60aeccb4b143ab88c6478bbbab892d",
-			"remote": true
-		}
-	]
+	}
 	// Set secrets/vars in the Cloudflare dashboard or via `wrangler secret put`:
 	//   SHOPIFY_STORE_DOMAIN, SHOPIFY_STOREFRONT_ACCESS_TOKEN,
 	//   CUSTOMER_ACCOUNT_API_CLIENT_ID, SHOPIFY_SHOP_ID,
