@@ -53,8 +53,8 @@ const SHIP_METHODS = [
 ] as const;
 type ShipKey = (typeof SHIP_METHODS)[number]['k'];
 
-const SAVED_KEY = 'ledition:saved-for-later';
-const NOTES_KEY = 'ledition:cart-notes';
+const SAVED_KEY = 'tailored:saved-for-later';
+const NOTES_KEY = 'tailored:cart-notes';
 
 interface SavedItem {
   merchandiseId: string;
@@ -621,7 +621,7 @@ function CartRow({
       </a>
 
       <div className="flex min-w-0 flex-col gap-1.5">
-        <span className="text-[10.5px] font-extrabold uppercase tracking-[1.6px] text-coral">L'ÉDITION</span>
+        <span className="text-[10.5px] font-extrabold uppercase tracking-[1.6px] text-coral">TAILORED</span>
         <a
           href={`/products/${m.product.handle}`}
           className="font-heading text-[22px] font-bold leading-none transition-fluid hover:text-coral"

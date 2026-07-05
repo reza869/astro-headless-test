@@ -10,6 +10,20 @@ export const SITE = {
   freeShippingThreshold: 150,
   description:
     'Modern everyday apparel — better materials, cleaner cuts, cut for the way you actually live. A headless Shopify storefront built with Astro.',
+  // ─── Business / contact details ───────────────────────────────
+  // Placeholders — a store owner replaces these with their own. They are
+  // the single source of truth for every email/phone/address in the theme.
+  supportEmail: 'care@tailored.com',
+  pressEmail: 'press@tailored.com',
+  wholesaleEmail: 'wholesale@tailored.com',
+  phone: '+1 (212) 555-0100',
+  phoneHref: '+12125550100',
+  /** Physical flagship / HQ shown in the footer and contact page. */
+  flagshipName: 'TAILORED Flagship',
+  address: '120 Lafayette Street, New York, NY 10013',
+  addressCity: 'New York',
+  /** Encoded destination for the "get directions" link. */
+  addressMapsQuery: '120+Lafayette+Street+New+York+NY+10013',
   // Rotating announcement bar (top ticker).
   announcements: [
     'Free carbon-neutral shipping over $150',

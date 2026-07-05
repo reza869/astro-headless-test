@@ -42,7 +42,7 @@ const looks = LOOK_DEFS.map((d, li) => {
       return {
         variantId: p.variantId ?? '',
         title: p.title,
-        cat: p.vendor || "L'ÉDITION",
+        cat: p.vendor || "TAILORED",
         amount,
         price: formatMoney(amount, currency),
         image: p.featuredImage?.url ?? d.image,
@@ -134,7 +134,7 @@ const hasLooks = looks[0]?.products.length > 0;
                   <Icon name="star" size={18} />
                 </span>
                 <div>
-                  <b class="block text-[12.5px] font-bold text-text-primary">Styled by the L'ÉDITION editors</b>
+                  <b class="block text-[12.5px] font-bold text-text-primary">Styled by the TAILORED editors</b>
                   <span class="text-[11.5px] text-coral-hover">
                     {look.products.length} pieces · {look.name}
                   </span>

@@ -71,7 +71,7 @@ async function getJson<T>(url: string): Promise<T | null> {
       headers: {
         accept: 'application/json',
         // Some WAFs reject requests without a browser-like UA (Node sends none).
-        'user-agent': 'Mozilla/5.0 (compatible; LEditionStorefront/1.0)',
+        'user-agent': 'Mozilla/5.0 (compatible; TailoredStorefront/1.0)',
       },
     });
     if (!res.ok) return null;

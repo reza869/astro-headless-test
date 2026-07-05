@@ -6,7 +6,7 @@
 // ============================================================
 import { atom } from 'nanostores';
 
-const KEY = 'ledition:wishlist';
+const KEY = 'tailored:wishlist';
 
 function load(): string[] {
   if (typeof localStorage === 'undefined') return [];

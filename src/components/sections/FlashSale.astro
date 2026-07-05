@@ -37,7 +37,7 @@ const products = pool.slice(0, 6).map((p, i) => {
     variantId: p.variantId ?? '',
     handle: p.handle,
     name: p.title,
-    cat: p.vendor || "L'ÉDITION",
+    cat: p.vendor || "TAILORED",
     now: formatMoney(now, currency),
     was: formatMoney(was, currency),
     img: p.featuredImage?.url ?? '/images/Product Image 1.png',
@@ -196,7 +196,7 @@ const hasProducts = products.length > 0;
 
       // ── Countdown ──────────────────────────────────────────
       const duration = Number(root.dataset.duration) || 0;
-      const KEY = 'ledition:flash-end';
+      const KEY = 'tailored:flash-end';
       let end = Number(localStorage.getItem(KEY));
       if (!end || Number.isNaN(end) || end < Date.now()) {
         // First visit (or a finished sale): start a fresh window.

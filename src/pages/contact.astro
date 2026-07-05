@@ -9,23 +9,24 @@
 // ============================================================
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import Icon from '~/components/ui/Icon.astro';
+import { SITE } from '~/config/site';
 
 const methods = [
   {
     icon: 'arrowUpRight',
     tone: 'coral',
     label: 'Email Us',
-    value: 'care@ledition.com',
+    value: 'care@tailored.com',
     sub: 'Replies within 24 hours',
-    href: 'mailto:care@ledition.com',
+    href: 'mailto:care@tailored.com',
   },
   {
     icon: 'arrowUpRight',
     tone: 'green',
     label: 'Call Us',
-    value: '+33 1 84 80 02 02',
-    sub: 'Mon–Sat, 9am–8pm CET',
-    href: 'tel:+33184800202',
+    value: SITE.phone,
+    sub: 'Mon–Sat, 9am–8pm',
+    href: `tel:${SITE.phoneHref}`,
   },
   {
     icon: 'arrowUpRight',
@@ -52,10 +53,10 @@ const toneClass: Record<string, string> = {
 };
 
 const directLines = [
-  { label: 'Client care', email: 'care@ledition.com' },
-  { label: 'Press & media', email: 'press@ledition.com' },
-  { label: 'Wholesale', email: 'wholesale@ledition.com' },
-  { label: 'Careers', email: 'careers@ledition.com' },
+  { label: 'Client care', email: 'care@tailored.com' },
+  { label: 'Press & media', email: 'press@tailored.com' },
+  { label: 'Wholesale', email: 'wholesale@tailored.com' },
+  { label: 'Careers', email: 'careers@tailored.com' },
 ];
 
 const supportHours = [
@@ -99,7 +100,7 @@ const faqs = [
   },
   {
     q: 'What is your returns policy?',
-    a: 'Enjoy 30 days to return unworn pieces with tags attached. Returns are free and fully refunded to your original payment method. Start a return from your account or by emailing care@ledition.com.',
+    a: 'Enjoy 30 days to return unworn pieces with tags attached. Returns are free and fully refunded to your original payment method. Start a return from your account or by emailing care@tailored.com.',
   },
   {
     q: 'How do I find my size?',
@@ -111,7 +112,7 @@ const faqs = [
   },
   {
     q: 'Can I shop wholesale or collaborate?',
-    a: 'We’d love to hear from you. Email wholesale@ledition.com for stockist enquiries or press@ledition.com for media and collaborations, and our team will be in touch.',
+    a: 'We’d love to hear from you. Email wholesale@tailored.com for stockist enquiries or press@tailored.com for media and collaborations, and our team will be in touch.',
   },
 ];
 ---
@@ -448,11 +449,11 @@ const faqs = [
             class="absolute inset-x-[18px] bottom-[18px] flex items-center justify-between gap-3.5 rounded-md bg-surface px-[18px] py-3.5 shadow-sm"
           >
             <div>
-              <b class="block text-sm font-bold">L'ÉDITION Flagship</b>
-              <span class="text-xs text-text-muted">12 Rue Saint-Honoré, Paris</span>
+              <b class="block text-sm font-bold">{SITE.flagshipName}</b>
+              <span class="text-xs text-text-muted">{SITE.address}</span>
             </div>
             <a
-              href="https://www.google.com/maps/dir/?api=1&destination=12+Rue+Saint-Honor%C3%A9+75001+Paris"
+              href={`https://www.google.com/maps/dir/?api=1&destination=${SITE.addressMapsQuery}`}
               target="_blank"
               rel="noopener"
               class="btn inline-flex h-[42px] flex-none items-center gap-2 rounded-xs bg-coral px-5 text-white transition-fluid hover:bg-coral-hover"
@@ -463,19 +464,19 @@ const faqs = [
         </div>
 
         <div class="rounded-xl bg-bg-light p-[30px] ring-1 ring-inset ring-border" data-reveal>
-          <span class="mag-label mb-3.5">Paris Flagship</span>
-          <h3 class="mb-[18px] mt-2.5 font-heading text-[30px] font-extrabold">Maison L'ÉDITION</h3>
+          <span class="mag-label mb-3.5">{SITE.addressCity} Flagship</span>
+          <h3 class="mb-[18px] mt-2.5 font-heading text-[30px] font-extrabold">{SITE.flagshipName}</h3>
           <div class="mb-3 flex items-start gap-[11px] text-[13.5px] leading-[1.5] text-text-secondary">
             <Icon name="mapPin" size={17} class="mt-px flex-none text-coral" />
-            12 Rue Saint-Honoré, 75001 Paris, France
+            {SITE.address}
           </div>
           <div class="mb-3 flex items-start gap-[11px] text-[13.5px] leading-[1.5] text-text-secondary">
             <Icon name="arrowUpRight" size={17} class="mt-px flex-none text-coral" />
-            +33 1 84 80 02 02
+            {SITE.phone}
           </div>
           <div class="mb-3 flex items-start gap-[11px] text-[13.5px] leading-[1.5] text-text-secondary">
             <Icon name="arrowUpRight" size={17} class="mt-px flex-none text-coral" />
-            paris@ledition.com
+            {SITE.supportEmail}
           </div>
           <h6 class="mb-2.5 mt-5 text-[10.5px] font-extrabold uppercase tracking-[1.6px]">
             Opening Hours
@@ -625,7 +626,7 @@ const faqs = [
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok || !data.ok) {
-            showError(data.error ?? 'Something went wrong. Please try again or email care@ledition.com.');
+            showError(data.error ?? 'Something went wrong. Please try again or email care@tailored.com.');
             return;
           }
           // Success — swap to the done state.

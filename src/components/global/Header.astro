@@ -1,6 +1,6 @@
 ---
 // ============================================================
-//  Header — L'ÉDITION floating frosted pill masthead (.head).
+//  Header — TAILORED floating frosted pill masthead (.head).
 //  Sticky capsule (top-[14px]) that floats over the hero:
 //  blurred translucent surface, rounded, elevated. 3-col grid
 //  mega-nav · wordmark · 43px action row. initHeaderScroll()
@@ -356,7 +356,7 @@ const mobileGroups = (item: NavItem): MobileGroup[] =>
       {/* Center — brand logo */}
       <a
         href="/"
-        aria-label="L'ÉDITION — home"
+        aria-label={`${SITE.name} — home`}
         class="flex items-center justify-self-center text-text-primary"
       >
         <Logo class="h-[30px] w-auto sm:h-[34px]" />
@@ -410,7 +410,7 @@ const mobileGroups = (item: NavItem): MobileGroup[] =>
   aria-hidden="true"
 >
   <div class="flex h-[66px] items-center justify-between border-b border-border px-5">
-    <a href="/" aria-label="L'ÉDITION — home" class="flex items-center text-text-primary">
+    <a href="/" aria-label={`${SITE.name} — home`} class="flex items-center text-text-primary">
       <Logo class="h-[26px] w-auto" />
     </a>
     <button

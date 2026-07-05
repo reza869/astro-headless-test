@@ -27,7 +27,7 @@ const products = pool.slice(0, 6).map((p) => {
     variantId: p.variantId ?? '',
     handle: p.handle,
     name: p.title,
-    cat: p.vendor || "L'ÉDITION",
+    cat: p.vendor || "TAILORED",
     amount,
     price: formatMoney(amount, currency),
     img: p.featuredImage?.url ?? '',

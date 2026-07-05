@@ -66,7 +66,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   if (!SHOP) {
     return json(
-      { ok: false, error: 'Contact is not configured. Please email care@ledition.com.' },
+      { ok: false, error: 'Contact is not configured. Please email care@tailored.com.' },
       500,
     );
   }
@@ -92,7 +92,7 @@ export const POST: APIRoute = async ({ request }) => {
   // password-protected / unpublished store, or a bot challenge). The
   // visible mailto links on the page remain the working escape hatch.
   const UNREACHABLE =
-    'We could not reach our message service right now — please email care@ledition.com and we\'ll reply within 24 hours.';
+    'We could not reach our message service right now — please email care@tailored.com and we\'ll reply within 24 hours.';
 
   try {
     const res = await fetch(`https://${SHOP}/contact`, {

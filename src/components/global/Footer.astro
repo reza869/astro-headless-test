@@ -125,19 +125,19 @@ const legal = [
           <div class="overflow-hidden">
             <div class="pb-3 md:pb-0">
               <a
-                href="mailto:care@ledition.com"
+                href={`mailto:${SITE.supportEmail}`}
                 class="flex items-center gap-[11px] py-1.5 text-[13.5px] text-white/[0.78] transition-colors hover:text-white"
               >
-                <Icon name="mail" size={18} class="shrink-0 text-coral" /> care@ledition.com
+                <Icon name="mail" size={18} class="shrink-0 text-coral" /> {SITE.supportEmail}
               </a>
               <a
-                href="tel:+33184800202"
+                href={`tel:${SITE.phoneHref}`}
                 class="flex items-center gap-[11px] py-1.5 text-[13.5px] text-white/[0.78] transition-colors hover:text-white"
               >
-                <Icon name="phone" size={18} class="shrink-0 text-coral" /> +33 1 84 80 02 02
+                <Icon name="phone" size={18} class="shrink-0 text-coral" /> {SITE.phone}
               </a>
               <p class="flex items-center gap-[11px] py-1.5 text-[13.5px] text-white/[0.78]">
-                <Icon name="mapPin" size={18} class="shrink-0 text-coral" /> 12 Rue Saint-Honoré, Paris
+                <Icon name="mapPin" size={18} class="shrink-0 text-coral" /> {SITE.address}
               </p>
 
               {/* App store buttons — wrap when the contact column is narrow

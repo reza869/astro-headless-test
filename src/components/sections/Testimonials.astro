@@ -6,7 +6,7 @@
 //  slide at a time, left photo (46%) with a floating identity
 //  capsule, right coloured panel with the quote, stars, author and
 //  a nav row (counter · dots · arrows). Auto-rotates every 6s with
-//  a coral progress bar. Followed by the "Why L'ÉDITION" trust bar.
+//  a coral progress bar. Followed by the "Why TAILORED" trust bar.
 // ============================================================
 import Icon from '~/components/ui/Icon.astro';
 
@@ -25,7 +25,7 @@ const testimonials: {
     panel: 'dark',
     source: 'Verified Patron',
     quote:
-      "L'ÉDITION doesn't sell clothes — it offers a way of seeing. Every piece is a considered statement worn by people who understand that true luxury whispers.",
+      "TAILORED doesn't sell clothes — it offers a way of seeing. Every piece is a considered statement worn by people who understand that true luxury whispers.",
     name: 'Sophie Vidal',
     role: 'Creative Director · Paris',
     mono: 'SV',
@@ -35,7 +35,7 @@ const testimonials: {
     panel: 'coral',
     source: 'The Vogue Edit',
     quote:
-      "A masterclass in restraint. L'ÉDITION bridges editorial gravity with the fluidity modern dressing demands — a defining voice in quiet luxury.",
+      "A masterclass in restraint. TAILORED bridges editorial gravity with the fluidity modern dressing demands — a defining voice in quiet luxury.",
     name: 'The Vogue Edit',
     role: 'Fashion Press · Spring Issue',
     mono: 'VE',
@@ -142,9 +142,9 @@ const pad = (n: number) => String(n).padStart(2, '0');
     <div class="tsl-progress-fill" data-prog></div>
   </div>
 
-  <!-- Trust bar — "Why L'ÉDITION" -->
+  <!-- Trust bar — "Why TAILORED" -->
   <div class="tsl-extra" data-reveal data-stagger>
-    <div class="te-label">Why L'ÉDITION</div>
+    <div class="te-label">Why TAILORED</div>
     <div class="trust">
       {
         [
