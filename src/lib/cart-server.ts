@@ -39,6 +39,40 @@ export function jsonError(err: unknown, status = 500, where = 'cart'): Response 
   return json({ cart: null, error: 'Something went wrong. Please try again.' }, status);
 }
 
+/** 429 response with a Retry-After header. */
+export function tooMany(retryAfter: number): Response {
+  return new Response(JSON.stringify({ cart: null, error: 'Too many requests. Please slow down.' }), {
+    status: 429,
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': 'private, no-store',
+      'retry-after': String(retryAfter),
+    },
+  });
+}
+
+/**
+ * CSRF guard for state-changing requests: when the browser sends an `Origin`
+ * header it must match this site's host. Tunnel/proxy-aware — it compares
+ * against `X-Forwarded-Host` (then `Host`), which equal the public origin the
+ * browser used, so legitimate cross-tunnel requests still pass. A missing
+ * Origin (some privacy tools / same-origin navigations) is allowed; the cart
+ * cookie's `SameSite=Lax` is the backstop there.
+ */
+export function isSameOrigin(request: Request): boolean {
+  const origin = request.headers.get('origin');
+  if (!origin) return true;
+  try {
+    const host =
+      request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() ||
+      request.headers.get('host') ||
+      '';
+    return new URL(origin).host === host;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Best-effort buyer IP for Shopify cart tax/shipping estimation.
  *

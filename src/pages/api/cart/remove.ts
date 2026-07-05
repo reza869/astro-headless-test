@@ -1,10 +1,11 @@
 // POST /api/cart/remove — { lineId }  or  { lineIds: [...] }
 import type { APIRoute } from 'astro';
-import { clientIp, json, jsonError, removeLines } from '~/lib/cart-server';
+import { clientIp, isSameOrigin, json, jsonError, removeLines } from '~/lib/cart-server';
 
 export const prerender = false;
 
 export const POST: APIRoute = async ({ request, cookies }) => {
+  if (!isSameOrigin(request)) return json({ cart: null, error: 'Invalid origin' }, 403);
   try {
     const body = await request.json();
     const raw: unknown[] = Array.isArray(body?.lineIds)

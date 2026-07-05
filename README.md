@@ -308,6 +308,19 @@ them; create the `custom.*` ones as needed.
   admin (Discounts) and `percent` must match it, or the saving won't apply at
   checkout. Default `BUNDLE15` / 15%.
 
+### Security
+
+- **Private tokens** (`SHOPIFY_STOREFRONT_PRIVATE_TOKEN`, `JUDGEME_PRIVATE_TOKEN`)
+  are read server-side only — never prefix them with `PUBLIC_`.
+- **CSRF**: state-changing routes (`/api/cart/*`, `/api/contact`) verify the
+  request `Origin` against the site host, and the cart cookie is `httpOnly` +
+  `SameSite=Lax`.
+- **Rate limiting**: `/api/cart/add`, `/api/search` and `/api/contact` include a
+  lightweight in-process limiter (`src/lib/rate-limit.ts`). On Cloudflare Workers
+  that state is **per-isolate** (best-effort), so for production **also enable
+  [Cloudflare Rate Limiting Rules / WAF](https://developers.cloudflare.com/waf/rate-limiting-rules/)**
+  at the edge, and add Turnstile to the contact form if you expect abuse.
+
 ---
 
 ## 🧑‍💻 Development Workflow

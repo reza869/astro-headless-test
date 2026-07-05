@@ -1,10 +1,14 @@
 // POST /api/cart/add — { merchandiseId, quantity? }
 import type { APIRoute } from 'astro';
-import { addLines, clientIp, json, jsonError } from '~/lib/cart-server';
+import { addLines, clientIp, isSameOrigin, json, jsonError, tooMany } from '~/lib/cart-server';
+import { rateLimit } from '~/lib/rate-limit';
 
 export const prerender = false;
 
 export const POST: APIRoute = async ({ request, cookies }) => {
+  if (!isSameOrigin(request)) return json({ cart: null, error: 'Invalid origin' }, 403);
+  const rl = rateLimit(`cart-add:${clientIp(request) ?? 'anon'}`, 40, 60_000);
+  if (!rl.ok) return tooMany(rl.retryAfter);
   try {
     const body = await request.json();
     const merchandiseId = String(body?.merchandiseId ?? '');

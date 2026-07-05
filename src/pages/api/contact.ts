@@ -8,6 +8,8 @@
 // keeps the shop domain logic in one place and lets us validate +
 // shape the message (subject + order number folded into the body).
 import type { APIRoute } from 'astro';
+import { clientIp, isSameOrigin } from '~/lib/cart-server';
+import { rateLimit } from '~/lib/rate-limit';
 
 export const prerender = false;
 
@@ -29,6 +31,12 @@ const json = (data: unknown, status = 200): Response =>
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 export const POST: APIRoute = async ({ request }) => {
+  // CSRF: reject cross-origin submissions (tunnel/proxy-aware).
+  if (!isSameOrigin(request)) return json({ ok: false, error: 'Invalid origin.' }, 403);
+  // Throttle: the contact form forwards to the store — cap it hard per IP.
+  const rl = rateLimit(`contact:${clientIp(request) ?? 'anon'}`, 5, 60_000);
+  if (!rl.ok) return json({ ok: false, error: 'Too many messages. Please try again shortly.' }, 429);
+
   let body: Record<string, unknown>;
   try {
     body = await request.json();

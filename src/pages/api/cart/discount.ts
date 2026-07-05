@@ -1,10 +1,11 @@
 // POST /api/cart/discount — { codes: string[] }  (pass [] to clear)
 import type { APIRoute } from 'astro';
-import { applyDiscount, clientIp, json, jsonError } from '~/lib/cart-server';
+import { applyDiscount, clientIp, isSameOrigin, json, jsonError } from '~/lib/cart-server';
 
 export const prerender = false;
 
 export const POST: APIRoute = async ({ request, cookies }) => {
+  if (!isSameOrigin(request)) return json({ cart: null, error: 'Invalid origin' }, 403);
   try {
     const body = await request.json();
     // Cap count + per-code length; discount codes are short identifiers.

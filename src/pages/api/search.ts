@@ -7,6 +7,8 @@
 // still called for collection/query suggestions in parallel (best-effort).
 import type { APIRoute } from 'astro';
 import { searchProducts, predictiveSearch } from '~/lib/shopify';
+import { clientIp } from '~/lib/cart-server';
+import { rateLimit } from '~/lib/rate-limit';
 
 export const prerender = false;
 
@@ -26,7 +28,10 @@ function prefixQuery(q: string): string {
     .join(' ');
 }
 
-export const GET: APIRoute = async ({ url }) => {
+export const GET: APIRoute = async ({ url, request }) => {
+  const rl = rateLimit(`search:${clientIp(request) ?? 'anon'}`, 120, 60_000);
+  if (!rl.ok) return json({ products: [], collections: [], queries: [] }, 429);
+
   // Cap length — a search term is short; never forward a megabyte query.
   const q = (url.searchParams.get('q')?.trim() ?? '').slice(0, 100);
   if (q.length < 1) {
