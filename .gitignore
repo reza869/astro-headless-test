@@ -1,5 +1,8 @@
 # Dependencies
 node_modules/
+# Lockfile omitted so CI installs platform-correct native binaries
+# (avoids npm optional-dep bug: @rollup/rollup-linux-x64-gnu on Linux)
+package-lock.json
 
 # Build output
 dist/
