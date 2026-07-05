@@ -20,8 +20,23 @@ import { clearCartId, getCartId, setCartId } from './cart-cookie';
 export function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'content-type': 'application/json; charset=utf-8' },
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      // Cart/customer payloads are per-shopper (they carry the cart contents
+      // and the one-time checkoutUrl). Never let a shared cache/CDN or proxy
+      // store or reuse them across users.
+      'cache-control': 'private, no-store',
+    },
   });
+}
+
+/**
+ * Error response for a cart/API route: log the real error server-side and
+ * return a generic message so backend/config details never reach the client.
+ */
+export function jsonError(err: unknown, status = 500, where = 'cart'): Response {
+  console.error(`[api/${where}] ${(err as Error)?.message ?? err}`);
+  return json({ cart: null, error: 'Something went wrong. Please try again.' }, status);
 }
 
 /**

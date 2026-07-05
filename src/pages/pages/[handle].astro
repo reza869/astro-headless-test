@@ -11,11 +11,19 @@ import { SITE } from '~/config/site';
 const { handle } = Astro.params;
 
 let page: ShopifyPage | null = null;
+let loadFailed = false;
 try {
   page = await getPage(handle!);
 } catch (err) {
   console.error('[page] load failed:', (err as Error).message);
+  loadFailed = true;
 }
+
+// Set an honest status so crawlers don't index a placeholder as real content:
+// 503 when Shopify errored (transient), 404 when the page genuinely doesn't
+// exist. A found page stays 200.
+if (loadFailed) Astro.response.status = 503;
+else if (!page) Astro.response.status = 404;
 
 const prettyTitle = (handle ?? '')
   .split('-')

@@ -1,6 +1,6 @@
 // GET /api/cart — current cart from the httpOnly cart-id cookie.
 import type { APIRoute } from 'astro';
-import { clientIp, json, readCart } from '~/lib/cart-server';
+import { clientIp, json, jsonError, readCart } from '~/lib/cart-server';
 
 export const prerender = false;
 
@@ -9,6 +9,6 @@ export const GET: APIRoute = async ({ request, cookies }) => {
     const { cart } = await readCart(cookies, clientIp(request));
     return json({ cart });
   } catch (err) {
-    return json({ cart: null, error: (err as Error).message }, 500);
+    return jsonError(err, 500, 'cart');
   }
 };

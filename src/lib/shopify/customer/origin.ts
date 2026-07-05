@@ -15,3 +15,18 @@ export function getPublicOrigin(request: Request, url: URL): string {
   const proto = fwdProto || (isLocal ? 'http' : 'https');
   return `${proto}://${host}`;
 }
+
+/**
+ * True only for a genuine same-origin, single-slash relative path
+ * (e.g. `/account/orders`). Rejects protocol-relative (`//evil.com`),
+ * backslash-normalised (`/\evil.com`), and absolute-URL targets so a
+ * `return_to` value can never redirect off-origin (open redirect).
+ */
+export function isSafeReturnPath(path: string | null | undefined): path is string {
+  return (
+    typeof path === 'string' &&
+    path.startsWith('/') &&
+    !path.startsWith('//') &&
+    !path.startsWith('/\\')
+  );
+}

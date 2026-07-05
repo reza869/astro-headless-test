@@ -1,6 +1,6 @@
 // POST /api/cart/discount — { codes: string[] }  (pass [] to clear)
 import type { APIRoute } from 'astro';
-import { applyDiscount, clientIp, json } from '~/lib/cart-server';
+import { applyDiscount, clientIp, json, jsonError } from '~/lib/cart-server';
 
 export const prerender = false;
 
@@ -13,6 +13,6 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     const { cart, userErrors } = await applyDiscount(cookies, codes, clientIp(request));
     return json({ cart, userErrors });
   } catch (err) {
-    return json({ cart: null, error: (err as Error).message }, 500);
+    return jsonError(err, 500, 'cart/discount');
   }
 };

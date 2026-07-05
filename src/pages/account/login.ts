@@ -9,6 +9,7 @@ import {
   generateCodeVerifier,
   generateRandom,
   getPublicOrigin,
+  isSafeReturnPath,
   setAuthState,
 } from '~/lib/shopify/customer';
 
@@ -53,8 +54,11 @@ often the <strong>JavaScript origin</strong> not being registered as
   const nonce = generateRandom();
 
   // Only honour same-site relative return paths (avoid open-redirects).
+  // `startsWith('/')` alone is not enough: `//evil.com` and `/\evil.com`
+  // (browsers normalise the backslash) are protocol-relative and would leave
+  // the origin. Require a single leading slash.
   const rawReturn = url.searchParams.get('return_to') ?? '/account';
-  const returnTo = rawReturn.startsWith('/') ? rawReturn : '/account';
+  const returnTo = isSafeReturnPath(rawReturn) ? rawReturn : '/account';
 
   setAuthState(cookies, { verifier, state, returnTo });
 

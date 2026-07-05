@@ -127,7 +127,7 @@ const description = 'Your saved edit — the pieces you are keeping an eye on at
       return String(n).padStart(2, '0');
     }
 
-    function renderWishlist(ids: string[]): void {
+    function renderWishlist(ids: readonly string[]): void {
       const grid = document.getElementById('wishlistGrid');
       const empty = document.getElementById('wishlistEmpty');
       if (!grid || !empty) return;

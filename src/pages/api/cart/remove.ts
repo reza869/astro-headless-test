@@ -1,6 +1,6 @@
 // POST /api/cart/remove — { lineId }  or  { lineIds: [...] }
 import type { APIRoute } from 'astro';
-import { clientIp, json, removeLines } from '~/lib/cart-server';
+import { clientIp, json, jsonError, removeLines } from '~/lib/cart-server';
 
 export const prerender = false;
 
@@ -16,6 +16,6 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     const { cart, userErrors } = await removeLines(cookies, lineIds, clientIp(request));
     return json({ cart, userErrors });
   } catch (err) {
-    return json({ cart: null, error: (err as Error).message }, 500);
+    return jsonError(err, 500, 'cart/remove');
   }
 };

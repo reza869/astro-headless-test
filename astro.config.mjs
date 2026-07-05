@@ -1,5 +1,5 @@
 // @ts-check
-import { defineConfig, sessionDrivers } from "astro/config";
+import { defineConfig } from "astro/config";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@astrojs/react";
 import cloudflare from "@astrojs/cloudflare";
@@ -37,9 +37,12 @@ function getAdapter() {
 export default defineConfig({
   output: "server",
   adapter: getAdapter(),
-  session: {
-    driver: sessionDrivers.lruCache(),
-  },
+  // NOTE: sessions are intentionally left on the adapter default. On
+  // Cloudflare that is the KV-backed store bound to the `SESSION` namespace
+  // (auto-declared by @astrojs/cloudflare and emitted into
+  // dist/server/wrangler.json). Do NOT set an in-memory driver here
+  // (e.g. lruCache): on Workers it is per-isolate and ephemeral, so any
+  // Astro.session data would be silently lost between requests on the edge.
   integrations: [react()],
   vite: {
     plugins: [tailwindcss()],

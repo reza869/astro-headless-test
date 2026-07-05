@@ -23,9 +23,10 @@
 	"observability": {
 		"enabled": true
 	}
-	// Set secrets/vars in the Cloudflare dashboard or via `wrangler secret put`:
-	//   SHOPIFY_STORE_DOMAIN, SHOPIFY_STOREFRONT_ACCESS_TOKEN,
-	//   CUSTOMER_ACCOUNT_API_CLIENT_ID, SHOPIFY_SHOP_ID,
-	//   CUSTOMER_ACCOUNT_API_VERSION, PUBLIC_JUDGEME_SHOP_DOMAIN, …
+	// Set secrets/vars in the Cloudflare dashboard or via `wrangler secret put`.
+	// These names must match exactly what the code reads (see .env.example):
+	//   SHOPIFY_SHOP_DOMAIN, SHOPIFY_STOREFRONT_PRIVATE_TOKEN, SHOPIFY_API_VERSION,
+	//   CUSTOMER_ACCOUNT_API_CLIENT_ID, SHOPIFY_SHOP_ID, CUSTOMER_ACCOUNT_API_VERSION,
+	//   PUBLIC_JUDGEME_SHOP_DOMAIN, JUDGEME_PRIVATE_TOKEN
 	// For `wrangler dev`/platformProxy, mirror them in a local .dev.vars file.
 }

@@ -8,6 +8,7 @@ import {
   exchangeCodeForTokens,
   getAuthState,
   getPublicOrigin,
+  isSafeReturnPath,
   setTokens,
 } from '~/lib/shopify/customer';
 
@@ -44,6 +45,6 @@ export const GET: APIRoute = async ({ cookies, url, request, redirect }) => {
     return redirect('/account/login?error=token', 302);
   }
 
-  const dest = returnTo && returnTo.startsWith('/') ? returnTo : '/account';
+  const dest = isSafeReturnPath(returnTo) ? returnTo : '/account';
   return redirect(dest, 302);
 };
