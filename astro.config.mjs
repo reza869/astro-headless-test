@@ -36,6 +36,10 @@ function getAdapter() {
 // https://astro.build/config
 export default defineConfig({
   output: "server",
+  // Public production URL. Canonical/OG/sitemap all derive from the live
+  // request origin at runtime, so this is optional — set SITE_URL only if you
+  // want Astro.site populated for absolute-URL helpers. No wrong default.
+  site: process.env.SITE_URL || undefined,
   adapter: getAdapter(),
   // NOTE: sessions are intentionally left on the adapter default. On
   // Cloudflare that is the KV-backed store bound to the `SESSION` namespace

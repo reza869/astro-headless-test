@@ -18,13 +18,41 @@ interface Props {
   description?: string;
   image?: string;
   noFooter?: boolean;
+  /** Emit <meta name="robots" content="noindex,follow"> (thin/utility pages). */
+  noindex?: boolean;
 }
 
-const { title, description = SITE.description, image, noFooter = false } = Astro.props;
+const { title, description = SITE.description, image, noFooter = false, noindex = false } = Astro.props;
 
 const pageTitle = title ? `${title} · ${SITE.name}` : `${SITE.name} — ${SITE.tagline}`;
 const canonical = new URL(Astro.url.pathname, Astro.url.origin).href;
 const pathname = Astro.url.pathname;
+// Absolute share image (OG requires absolute); fall back to the site-wide
+// default so every page gets a social preview card.
+const ogImage = new URL(image ?? SITE.ogImage, Astro.url.origin).href;
+
+// Site-wide structured data emitted once here on every page:
+// Organization (name/logo/contact/socials) + WebSite (storefront search action).
+const orgJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: SITE.name,
+  url: Astro.url.origin,
+  logo: new URL('/favicon.svg', Astro.url.origin).href,
+  email: SITE.supportEmail,
+  sameAs: SITE.social.map((s) => s.href),
+};
+const websiteJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: SITE.name,
+  url: Astro.url.origin,
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: `${Astro.url.origin}/search?q={search_term_string}`,
+    'query-input': 'required name=search_term_string',
+  },
+};
 ---
 
 <!doctype html>
@@ -48,6 +76,7 @@ const pathname = Astro.url.pathname;
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
     <meta name="theme-color" content="#151719" />
+    {noindex && <meta name="robots" content="noindex,follow" />}
 
     {/* Open Graph / Twitter */}
     <meta property="og:type" content="website" />
@@ -55,8 +84,16 @@ const pathname = Astro.url.pathname;
     <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
-    {image && <meta property="og:image" content={image} />}
-    <meta name="twitter:card" content={image ? 'summary_large_image' : 'summary'} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:alt" content={`${SITE.name} — ${SITE.tagline}`} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content={ogImage} />
+
+    {/* Site-wide structured data */}
+    <script type="application/ld+json" set:html={JSON.stringify(orgJsonLd)} />
+    <script type="application/ld+json" set:html={JSON.stringify(websiteJsonLd)} />
   </head>
 
   <body class="flex min-h-dvh flex-col bg-bg-light font-body text-text-primary">

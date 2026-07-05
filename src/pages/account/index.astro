@@ -65,7 +65,7 @@ const quickLinks = [
 
 {
   !loggedIn ? (
-    <BaseLayout title="Sign in" description="Sign in to your TAILORED account to track orders, save addresses and shop faster.">
+    <BaseLayout title="Sign in" description="Sign in to your TAILORED account to track orders, save addresses and shop faster." noindex>
       <section class="container-mag py-hero">
         <div
           class="grid items-stretch overflow-hidden rounded-2xl ring-1 ring-inset ring-border md:grid-cols-2"
@@ -124,7 +124,7 @@ const quickLinks = [
       </section>
     </BaseLayout>
   ) : (
-    <BaseLayout title="Account">
+    <BaseLayout title="Account" noindex>
       <AccountShell active="overview" name={fullName} email={email}>
         {error && (
           <p class="mb-6 rounded-md bg-coral-soft px-4 py-3 text-[13px] font-medium text-coral" role="alert">

@@ -32,34 +32,63 @@ const fullStars = rv ? Math.round(rv.average) : 0;
 const starRow = (n: number) => '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0, 5 - n);
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-// Structured data (rich snippets) — only with at least one review.
-const reviewJsonLd = rv
-  ? {
-      '@context': 'https://schema.org',
-      '@type': 'Product',
-      name: product.title,
-      image: product.featuredImage?.url,
-      aggregateRating: {
-        '@type': 'AggregateRating',
-        ratingValue: rv.average,
-        reviewCount: rv.count,
-      },
-      review: rv.reviews.slice(0, 20).map((r) => ({
-        '@type': 'Review',
-        reviewRating: { '@type': 'Rating', ratingValue: r.rating, bestRating: 5 },
-        author: { '@type': 'Person', name: r.name },
-        datePublished: r.createdAt,
-        name: r.title,
-        reviewBody: r.body,
-      })),
-    }
-  : null;
-
 const currency = product.priceRange.minVariantPrice.currencyCode;
 const priceNow = formatMoney(product.priceRange.minVariantPrice.amount, currency);
 const compareAt = product.compareAtPriceRange?.minVariantPrice ?? null;
 const off = discountPercent(product.priceRange.minVariantPrice, compareAt);
 const priceWas = compareAt ? formatMoney(compareAt.amount, currency) : null;
+
+// ── Structured data ─────────────────────────────────────────
+// Always emit a Product node with an `offers` object (price + availability +
+// currency) so the PDP produces a valid product rich result even with zero
+// reviews; merge aggregateRating/review only when real Judge.me reviews exist.
+const productUrl = new URL(`/products/${product.handle}`, Astro.url.origin).href;
+const productJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: product.title,
+  description: product.description || undefined,
+  image: (images.length ? images : product.featuredImage ? [product.featuredImage] : [])
+    .map((i) => i.url)
+    .slice(0, 8),
+  brand: product.vendor ? { '@type': 'Brand', name: product.vendor } : undefined,
+  url: productUrl,
+  offers: {
+    '@type': 'Offer',
+    price: product.priceRange.minVariantPrice.amount,
+    priceCurrency: currency,
+    availability: product.availableForSale
+      ? 'https://schema.org/InStock'
+      : 'https://schema.org/OutOfStock',
+    url: productUrl,
+  },
+  ...(rv
+    ? {
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: rv.average,
+          reviewCount: rv.count,
+        },
+        review: rv.reviews.slice(0, 20).map((r) => ({
+          '@type': 'Review',
+          reviewRating: { '@type': 'Rating', ratingValue: r.rating, bestRating: 5 },
+          author: { '@type': 'Person', name: r.name },
+          datePublished: r.createdAt,
+          name: r.title,
+          reviewBody: r.body,
+        })),
+      }
+    : {}),
+};
+const breadcrumbJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: Astro.url.origin },
+    { '@type': 'ListItem', position: 2, name: 'Shop', item: new URL('/collections/all', Astro.url.origin).href },
+    { '@type': 'ListItem', position: 3, name: product.title, item: productUrl },
+  ],
+};
 
 // Title → "lead <em>last.</em>" for the editorial hero.
 const words = product.title.trim().split(/\s+/);
@@ -426,9 +455,9 @@ const addPriceLabel = formatMoney(
     </div>
   </section>
 
-  {reviewJsonLd && (
-    <script type="application/ld+json" is:inline set:html={JSON.stringify(reviewJsonLd)} />
-  )}
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(productJsonLd)} />
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbJsonLd)} />
+
 
   {/* ===================== YOU MAY ALSO LIKE ===================== */}
   {recommendations.length > 0 && (

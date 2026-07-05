@@ -24,6 +24,8 @@ export const SITE = {
   addressCity: 'New York',
   /** Encoded destination for the "get directions" link. */
   addressMapsQuery: '120+Lafayette+Street+New+York+NY+10013',
+  /** Default social-share image (public/, ~1200x630). Buyers replace it. */
+  ogImage: '/og-image.png',
   // Rotating announcement bar (top ticker).
   announcements: [
     'Free carbon-neutral shipping over $150',
