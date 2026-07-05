@@ -184,7 +184,7 @@ const img = product.featuredImage;
   import { $wishlist, toggleWishlist } from '~/stores/wishlist';
 
   // Paint the active heart on every card for the given saved ids.
-  function paintWishlist(ids: string[]): void {
+  function paintWishlist(ids: readonly string[]): void {
     const set = new Set(ids);
     document.querySelectorAll<HTMLElement>('.wishlist-btn').forEach((b) => {
       const id = b.dataset.wishlist;

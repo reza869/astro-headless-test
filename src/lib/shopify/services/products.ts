@@ -74,7 +74,7 @@ export async function getAllShopProducts(
   const all: ProductCard[] = [];
   let after: string | null = null;
   while (all.length < cap) {
-    const data = await shopifyFetch<{ products: any }>(
+    const data: { products: any } = await shopifyFetch<{ products: any }>(
       SHOP_PRODUCTS_QUERY,
       {
         first: Math.min(MAX_PAGE, cap - all.length),

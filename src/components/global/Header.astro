@@ -588,7 +588,9 @@ const mobileGroups = (item: NavItem): MobileGroup[] =>
     const head = document.getElementById('siteHead');
     if (!head || head.dataset.scrollBound) return;
     head.dataset.scrollBound = 'true';
-    const onScroll = (): void => head.classList.toggle('scrolled', window.scrollY > 20);
+    const onScroll = (): void => {
+      head.classList.toggle('scrolled', window.scrollY > 20);
+    };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
   }

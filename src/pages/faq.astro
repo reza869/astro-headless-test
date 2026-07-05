@@ -8,6 +8,7 @@
 // ============================================================
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import Icon from '~/components/ui/Icon.astro';
+import type { IconName } from '~/components/ui/Icon.astro';
 import { SITE } from '~/config/site';
 
 const SUPPORT_EMAIL = SITE.supportEmail;
@@ -201,7 +202,7 @@ const description =
                   data-faq-nav={c.id}
                   class="faq-nav-link flex flex-none items-center gap-2.5 rounded-sm px-4 py-2.5 text-sm font-semibold text-text-secondary transition-fluid hover:bg-surface-cool hover:text-coral lg:flex-auto"
                 >
-                  <Icon name={c.icon} size={16} class="flex-none" />
+                  <Icon name={c.icon as IconName} size={16} class="flex-none" />
                   <span class="whitespace-nowrap">{c.label}</span>
                 </a>
               ))
@@ -235,7 +236,7 @@ const description =
               >
                 <div class="mb-5 flex items-center gap-3">
                   <span class="grid h-11 w-11 flex-none place-items-center rounded-pill bg-coral-soft text-coral">
-                    <Icon name={c.icon} size={20} />
+                    <Icon name={c.icon as IconName} size={20} />
                   </span>
                   <h2 class="h4">{c.label}</h2>
                 </div>

@@ -412,10 +412,10 @@ tailored/
    │  └─ wishlist.ts         # nanostore wishlist
    ├─ components/
    │  ├─ react/              # Interactive islands (.tsx): CartDrawer, PredictiveSearch,
-   │  │                      #   ProductGallery, VariantSelector, QuickViewModal, BottomNav…
-   │  ├─ ui/ layout/ global/ # Reusable .astro chrome (Header, Footer, Logo, SizeGuide…)
+   │  │                      #   CartView, QuickViewModal, BottomNav, QuantityStepper…
+   │  ├─ ui/ global/         # Reusable .astro chrome (Header, Footer, Logo, Icon, SizeGuide…)
    │  ├─ product/ collection/ shop/ cards/   # Catalogue &amp; PDP building blocks
-   │  └─ home/ sections/     # Home-page sections
+   │  └─ sections/           # Home-page sections
    ├─ styles/
    │  ├─ global.css          # Design tokens (@theme), base styles, .rte content styles
    │  └─ shop-clone.css      # Scoped styles for the full-catalogue experience

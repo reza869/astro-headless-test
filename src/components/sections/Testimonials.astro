@@ -9,6 +9,7 @@
 //  a coral progress bar. Followed by the "Why TAILORED" trust bar.
 // ============================================================
 import Icon from '~/components/ui/Icon.astro';
+import type { IconName } from '~/components/ui/Icon.astro';
 
 type Panel = 'dark' | 'coral' | 'blue' | 'green';
 
@@ -155,7 +156,7 @@ const pad = (n: number) => String(n).padStart(2, '0');
         ].map((item) => (
           <div class="trust-item">
             <span class="ti-ic">
-              <Icon name={item.icon} size={24} />
+              <Icon name={item.icon as IconName} size={24} />
             </span>
             <div>
               <b>{item.title}</b>
