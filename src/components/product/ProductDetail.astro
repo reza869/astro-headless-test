@@ -12,6 +12,7 @@
 import Icon from '~/components/ui/Icon.astro';
 import ProductCard from '~/components/cards/ProductCard.astro';
 import SizeGuide from '~/components/global/SizeGuide.astro';
+import { SITE } from '~/config/site';
 import { formatMoney, discountPercent } from '~/lib/utils';
 import type { Product, ProductCard as TProductCard } from '~/lib/shopify/types';
 import type { JudgeMeData } from '~/lib/judgeme';
@@ -103,6 +104,28 @@ const titleLead = words.length > 1 ? words.slice(0, -1).join(' ') : '';
 const category = product.productType || 'The Edit';
 const intro = product.description || '';
 
+// ── Editorial facts from metafields (all optional — the PDP hides the
+// element when unset; no fabricated defaults). See README "Product metafields".
+const mf = product.metafields ?? {};
+const sku = product.variants.find((v) => v.sku)?.sku ?? null;
+const soldCount = mf.unitsSold && Number.isFinite(Number(mf.unitsSold)) ? Number(mf.unitsSold) : null;
+const isNew = mf.newBadge === 'true' || mf.newBadge === '1';
+const fitBullets = [
+  ...(mf.fitNotes ? mf.fitNotes.split('\n').map((s) => s.trim()).filter(Boolean) : []),
+  ...(mf.modelNote ? [mf.modelNote] : []),
+];
+// Any materials/care fact present? Controls the whole accordion item.
+const specRows = [
+  ['Outer', mf.material],
+  ['Lining', mf.lining],
+  ['Weight', mf.weight],
+  ['Origin', mf.origin],
+  ['Care', mf.care],
+  ['SKU', sku],
+].filter(([, v]) => Boolean(v)) as [string, string][];
+// Free-shipping threshold — single source of truth (SITE), shown in shop currency.
+const freeShip = formatMoney(SITE.freeShippingThreshold, currency);
+
 // Gallery images (fall back to the featured image).
 const images =
   product.images.length > 0
@@ -191,9 +214,9 @@ const addPriceLabel = formatMoney(
         {intro && <p class="sh-intro">{intro}</p>}
       </div>
       <div class="sh-stats">
-        <div class="st"><b>4.8★</b><span>42 Reviews</span></div>
-        <div class="st"><b>Italy</b><span>Tailored In</span></div>
-        <div class="st"><b>48h</b><span>Ships Within</span></div>
+        {rv && <div class="st"><b>{rvAvg}★</b><span>{rvCount} {rvCount === 1 ? 'Review' : 'Reviews'}</span></div>}
+        {mf.origin && <div class="st"><b>{mf.origin}</b><span>Made In</span></div>}
+        {mf.dispatch && <div class="st"><b>{mf.dispatch}</b><span>Ships Within</span></div>}
         <div class="st"><b>30-Day</b><span>Free Returns</span></div>
       </div>
     </div>
@@ -214,7 +237,7 @@ const addPriceLabel = formatMoney(
           </div>
           <div class="pg-main">
             <div class="pg-badges">
-              <span class="tagb coral">New Season</span>
+              {isNew && <span class="tagb coral">New</span>}
               {off && <span class="tagb dark">-{off}%</span>}
             </div>
             <button class="pg-fav" data-pdp-fav aria-label="Add to wishlist">
@@ -243,14 +266,16 @@ const addPriceLabel = formatMoney(
                 <span class="s">{starRow(0)}</span> <a href="#reviews">No reviews yet</a>
               </span>
             )}
-            <span class="pdp-sold"><Icon name="fire" size={15} /> 128 sold this month</span>
+            {soldCount && (
+              <span class="pdp-sold"><Icon name="fire" size={15} /> {soldCount} sold this month</span>
+            )}
           </div>
           <div class="pdp-price">
             <span class="now" data-price-now>{priceNow}</span>
             <span class="was" data-price-was hidden={!priceWas}>{priceWas}</span>
             <span class="off" data-price-off hidden={!off}>{off ? `Save ${off}%` : ''}</span>
           </div>
-          <p class="pdp-tax">Import duties included · <b>Free shipping</b> over $250</p>
+          <p class="pdp-tax">Import duties included · <b>Free shipping</b> over {freeShip}</p>
           {intro && <p class="pdp-lead">{intro}</p>}
           <div class="pdp-divider"></div>
 
@@ -310,7 +335,7 @@ const addPriceLabel = formatMoney(
 
           <div class="pdp-trust">
             <div class="trust-i">
-              <Icon name="truck" size={22} /><b>Free Delivery</b><span>2–4 days, orders over $250</span>
+              <Icon name="truck" size={22} /><b>Free Delivery</b><span>2–4 days, orders over {freeShip}</span>
             </div>
             <div class="trust-i">
               <Icon name="rotate" size={22} /><b>30-Day Returns</b><span>Free &amp; easy returns</span>
@@ -321,41 +346,45 @@ const addPriceLabel = formatMoney(
           </div>
 
           <div class="acc" data-acc>
-            <div class="acc-item open">
-              <button class="acc-head">Details &amp; Fit <Icon name="plus" size={20} /></button>
-              <div class="acc-body">
-                <div class="inner">
-                  <ul>
-                    <li><Icon name="check" size={15} /> Relaxed, straight silhouette — falls below the knee</li>
-                    <li><Icon name="check" size={15} /> Notched lapel, two-button front, welt pockets</li>
-                    <li><Icon name="check" size={15} /> Fully lined in cupro; model is 5'10" wearing size S</li>
-                    <li><Icon name="check" size={15} /> Designed in Paris, tailored in Italy</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-            <div class="acc-item">
-              <button class="acc-head">Materials &amp; Care <Icon name="plus" size={20} /></button>
-              <div class="acc-body">
-                <div class="inner">
-                  <div class="specs">
-                    <div><span>Outer</span><b>80% Wool, 20% Cashmere</b></div>
-                    <div><span>Lining</span><b>100% Cupro</b></div>
-                    <div><span>Weight</span><b>Mid-heavy</b></div>
-                    <div><span>Origin</span><b>Made in Italy</b></div>
-                    <div><span>Care</span><b>Dry clean only</b></div>
-                    <div><span>SKU</span><b>LE-WC-0021</b></div>
+            {(fitBullets.length > 0 || intro) && (
+              <div class="acc-item open">
+                <button class="acc-head">Details &amp; Fit <Icon name="plus" size={20} /></button>
+                <div class="acc-body">
+                  <div class="inner">
+                    {fitBullets.length > 0 ? (
+                      <ul>
+                        {fitBullets.map((b) => (
+                          <li><Icon name="check" size={15} /> {b}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>{intro}</p>
+                    )}
                   </div>
                 </div>
               </div>
-            </div>
+            )}
+            {specRows.length > 0 && (
+              <div class="acc-item">
+                <button class="acc-head">Materials &amp; Care <Icon name="plus" size={20} /></button>
+                <div class="acc-body">
+                  <div class="inner">
+                    <div class="specs">
+                      {specRows.map(([label, value]) => (
+                        <div><span>{label}</span><b>{value}</b></div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             <div class="acc-item">
               <button class="acc-head">Shipping &amp; Returns <Icon name="plus" size={20} /></button>
               <div class="acc-body">
                 <div class="inner">
-                  Complimentary express shipping on all orders over $250, delivered in 2–4 business
+                  Complimentary express shipping on all orders over {freeShip}, delivered in 2–4 business
                   days. Enjoy 30 days to return unworn pieces with tags attached — returns are free
-                  and fully refunded. Same-day click &amp; collect available at our Paris flagship.
+                  and fully refunded. Same-day click &amp; collect available at our {SITE.flagshipName}.
                 </div>
               </div>
             </div>

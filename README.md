@@ -267,6 +267,35 @@ The header can read the Shopify **`main-menu`** (Online Store → Navigation) wh
 
 ---
 
+## 🏷️ Product metafields (optional PDP facts)
+
+The product page shows editorial facts (materials, origin, dispatch time, "new"
+badge, etc.) driven by **Shopify product metafields**. Every field is optional —
+when a metafield is empty the PDP simply **hides that element**, so there are no
+fabricated or placeholder values in production. Set them per product under
+**Products → (a product) → Metafields**, or in bulk via the Admin API.
+
+| Metafield (namespace.key) | Type | Drives |
+| --- | --- | --- |
+| `reviews.rating` | Decimal | Optional rating fallback (real reviews come from Judge.me) |
+| `meta.product_new_badge` | Boolean | The "New" badge on the gallery |
+| `meta.product_countdown` | Date | Per-product flash-sale countdown |
+| `custom.material` | Single-line text | "Outer" composition row |
+| `custom.lining` | Single-line text | "Lining" row |
+| `custom.weight` | Single-line text | "Weight" row |
+| `custom.origin` | Single-line text | "Made In" hero stat + "Origin" row |
+| `custom.care` | Single-line text | "Care" row |
+| `custom.model_note` | Single-line text | Fit note (e.g. "Model is 5'10" wearing size S") |
+| `custom.dispatch` | Single-line text | "Ships Within" hero stat (e.g. "48h") |
+| `custom.units_sold` | Integer | "N sold this month" badge |
+| `custom.fit_notes` | Multi-line text | "Details & Fit" bullet list (one bullet per line) |
+
+The SKU shown in **Materials & Care** is the real variant SKU (Shopify), not a
+metafield. Reuse the `reviews.*` / `meta.*` namespaces if your store already has
+them; create the `custom.*` ones as needed.
+
+---
+
 ## 🧑‍💻 Development Workflow
 
 ```bash

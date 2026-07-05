@@ -25,12 +25,34 @@ export interface SelectedOption {
 export interface ProductVariant {
   id: string;
   title: string;
+  sku?: string | null;
   availableForSale: boolean;
   quantityAvailable?: number | null;
   selectedOptions: SelectedOption[];
   price: Money;
   compareAtPrice?: Money | null;
   image?: Image | null;
+}
+
+/**
+ * Optional editorial facts read from Shopify product metafields. Every field
+ * is optional — the PDP hides the corresponding element when the merchant
+ * hasn't set it (no fabricated defaults). Namespaces:
+ *   reviews.rating, meta.product_new_badge, custom.* (the rest).
+ */
+export interface ProductMetafields {
+  rating?: string;
+  newBadge?: string;
+  material?: string;
+  lining?: string;
+  weight?: string;
+  origin?: string;
+  care?: string;
+  modelNote?: string;
+  dispatch?: string;
+  unitsSold?: string;
+  /** Newline-separated "Details & Fit" bullet points. */
+  fitNotes?: string;
 }
 
 export interface ProductOptionValue {
@@ -71,6 +93,8 @@ export interface Product {
   options: ProductOption[];
   variants: ProductVariant[];
   seo?: Seo;
+  /** Editorial facts from product metafields (all optional; hidden when unset). */
+  metafields?: ProductMetafields;
 }
 
 /** Lightweight product shape used in grids/cards. */

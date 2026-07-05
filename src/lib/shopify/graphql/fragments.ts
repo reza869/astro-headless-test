@@ -25,6 +25,7 @@ export const VARIANT_FRAGMENT = /* GraphQL */ `
   fragment VariantFields on ProductVariant {
     id
     title
+    sku
     availableForSale
     selectedOptions {
       name

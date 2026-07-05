@@ -87,6 +87,7 @@ export function mapVariant(v: Raw): ProductVariant {
   return {
     id: v.id,
     title: v.title,
+    sku: v.sku ?? null,
     availableForSale: v.availableForSale ?? false,
     quantityAvailable: v.quantityAvailable ?? null,
     selectedOptions: v.selectedOptions ?? [],
@@ -114,6 +115,36 @@ export function mapProduct(p: Raw): Product {
     options: p.options ?? [],
     variants: nodes(p.variants).map(mapVariant),
     seo: p.seo ?? {},
+    metafields: mapMetafields(p.metafields),
+  };
+}
+
+/**
+ * Fold the ordered `metafields(identifiers: [...])` array (nullable entries)
+ * into a friendly, camelCased object. Only non-empty values survive, so a
+ * consumer can treat "absent" and "blank" identically and hide the element.
+ */
+function mapMetafields(raw: unknown): Product['metafields'] {
+  const byKey: Record<string, string> = {};
+  if (Array.isArray(raw)) {
+    for (const m of raw) {
+      if (m?.key && typeof m.value === 'string' && m.value.trim()) {
+        byKey[`${m.namespace}.${m.key}`] = m.value.trim();
+      }
+    }
+  }
+  return {
+    rating: byKey['reviews.rating'],
+    newBadge: byKey['meta.product_new_badge'],
+    material: byKey['custom.material'],
+    lining: byKey['custom.lining'],
+    weight: byKey['custom.weight'],
+    origin: byKey['custom.origin'],
+    care: byKey['custom.care'],
+    modelNote: byKey['custom.model_note'],
+    dispatch: byKey['custom.dispatch'],
+    unitsSold: byKey['custom.units_sold'],
+    fitNotes: byKey['custom.fit_notes'],
   };
 }
 

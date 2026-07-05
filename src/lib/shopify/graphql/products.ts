@@ -149,6 +149,23 @@ export const PRODUCT_BY_HANDLE_QUERY = /* GraphQL */ `
         title
         description
       }
+      metafields(identifiers: [
+        { namespace: "reviews", key: "rating" }
+        { namespace: "meta", key: "product_new_badge" }
+        { namespace: "custom", key: "material" }
+        { namespace: "custom", key: "lining" }
+        { namespace: "custom", key: "weight" }
+        { namespace: "custom", key: "origin" }
+        { namespace: "custom", key: "care" }
+        { namespace: "custom", key: "model_note" }
+        { namespace: "custom", key: "dispatch" }
+        { namespace: "custom", key: "units_sold" }
+        { namespace: "custom", key: "fit_notes" }
+      ]) {
+        namespace
+        key
+        value
+      }
     }
   }
 `;
