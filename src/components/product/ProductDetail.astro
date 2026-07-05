@@ -48,7 +48,12 @@ const productJsonLd = {
   '@type': 'Product',
   name: product.title,
   description: product.description || undefined,
-  image: (images.length ? images : product.featuredImage ? [product.featuredImage] : [])
+  image: (product.images?.length
+    ? product.images
+    : product.featuredImage
+      ? [product.featuredImage]
+      : []
+  )
     .map((i) => i.url)
     .slice(0, 8),
   brand: product.vendor ? { '@type': 'Brand', name: product.vendor } : undefined,

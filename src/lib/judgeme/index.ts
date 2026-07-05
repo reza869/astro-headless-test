@@ -73,6 +73,8 @@ async function getJson<T>(url: string): Promise<T | null> {
         // Some WAFs reject requests without a browser-like UA (Node sends none).
         'user-agent': 'Mozilla/5.0 (compatible; TailoredStorefront/1.0)',
       },
+      // Never let a slow Judge.me endpoint pin the SSR request / Worker.
+      signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) return null;
     return (await res.json()) as T;

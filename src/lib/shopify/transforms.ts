@@ -24,8 +24,10 @@ interface Connection<T> {
   pageInfo?: PageInfo;
 }
 
-/** Pull the node list out of a Relay-style connection. */
-export function nodes<T>(connection?: Connection<T> | null): T[] {
+/** Pull the node list out of a Relay-style connection. Defaults to `any`
+ *  nodes so callers mapping raw GraphQL shapes (mapProductCard, etc.) type
+ *  cleanly; pass an explicit T for stronger typing. */
+export function nodes<T = any>(connection?: Connection<T> | null): T[] {
   return connection?.edges?.map((e) => e.node) ?? [];
 }
 

@@ -8,16 +8,17 @@
 // ============================================================
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import ShopCatalogue from '~/components/shop/ShopCatalogue.astro';
-import { getShopProducts } from '~/lib/shopify';
+import { getAllShopProducts } from '~/lib/shopify';
 import { toShopItems, catalogueCurrency } from '~/lib/shop-catalogue';
 import type { ProductCard } from '~/lib/shopify/types';
 
 let raw: ProductCard[] = [];
 let loadError = false;
 try {
-  // Load the full catalogue (Storefront max 250) so every product is reachable
-  // and filterable — the deck filters/sorts/paginates client-side over this set.
-  raw = await getShopProducts({ pageSize: 250 });
+  // Load the full catalogue (paged past the Storefront 250-per-query limit) so
+  // every product is reachable and filterable — the deck filters/sorts/paginates
+  // client-side over this set.
+  raw = await getAllShopProducts();
 } catch (err) {
   console.error('[shop] catalogue load failed:', (err as Error).message);
   loadError = true;

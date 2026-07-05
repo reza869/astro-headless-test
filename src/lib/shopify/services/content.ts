@@ -2,6 +2,12 @@
 //  Content services — menus + shop (2026-04)
 // ============================================================
 import { shopifyFetch } from '../client';
+
+// Edge-cache TTLs (s). Near-static config (menu/shop/policies/localization) is
+// cached longer; editorial/catalogue content shorter. All safe: no @inContext,
+// so responses are identical for every visitor.
+const TTL_STATIC = { cacheTtl: 300, cacheSwr: 3600 } as const;
+const TTL_CONTENT = { cacheTtl: 120, cacheSwr: 600 } as const;
 import {
   MENU_QUERY,
   SHOP_QUERY,
@@ -50,7 +56,7 @@ interface RawLocalization {
 
 /** Active + available currencies and languages from the Storefront API. */
 export async function getLocalization(): Promise<Localization> {
-  const { localization: l } = await shopifyFetch<RawLocalization>(LOCALIZATION_QUERY);
+  const { localization: l } = await shopifyFetch<RawLocalization>(LOCALIZATION_QUERY, {}, TTL_STATIC);
 
   // Many countries share a currency — dedupe by ISO, keep first.
   const seen = new Set<string>();
@@ -86,7 +92,7 @@ export interface ShopifyPage {
 
 /** A CMS page by handle, or null if it doesn't exist. */
 export async function getPage(handle: string): Promise<ShopifyPage | null> {
-  const data = await shopifyFetch<{ page: ShopifyPage | null }>(PAGE_QUERY, { handle });
+  const data = await shopifyFetch<{ page: ShopifyPage | null }>(PAGE_QUERY, { handle }, TTL_CONTENT);
   return data.page ?? null;
 }
 
@@ -111,6 +117,8 @@ export async function getShopPolicy(key: ShopPolicyKey): Promise<ShopPolicy | nu
   try {
     const data = await shopifyFetch<{ shop: Record<ShopPolicyKey, ShopPolicy | null> }>(
       SHOP_POLICIES_QUERY,
+      {},
+      TTL_STATIC,
     );
     return data.shop?.[key] ?? null;
   } catch (err) {
@@ -121,13 +129,13 @@ export async function getShopPolicy(key: ShopPolicyKey): Promise<ShopPolicy | nu
 
 /** Navigation menu by handle (e.g. "main-menu", "footer"). Null if missing. */
 export async function getMenu(handle: string): Promise<Menu | null> {
-  const data = await shopifyFetch<{ menu: Menu | null }>(MENU_QUERY, { handle });
+  const data = await shopifyFetch<{ menu: Menu | null }>(MENU_QUERY, { handle }, TTL_STATIC);
   return data.menu ?? null;
 }
 
 /** Shop name + primary domain. */
 export async function getShop(): Promise<Shop> {
-  const data = await shopifyFetch<{ shop: Shop }>(SHOP_QUERY);
+  const data = await shopifyFetch<{ shop: Shop }>(SHOP_QUERY, {}, TTL_STATIC);
   return data.shop;
 }
 
@@ -144,11 +152,15 @@ export interface ArticleListParams {
 export async function getArticles(
   params: ArticleListParams = {},
 ): Promise<Paginated<ArticleCard>> {
-  const data = await shopifyFetch<{ articles: any }>(ARTICLES_QUERY, {
-    first: params.first ?? 12,
-    after: params.after ?? null,
-    query: params.query ?? null,
-  });
+  const data = await shopifyFetch<{ articles: any }>(
+    ARTICLES_QUERY,
+    {
+      first: params.first ?? 12,
+      after: params.after ?? null,
+      query: params.query ?? null,
+    },
+    TTL_CONTENT,
+  );
   return {
     items: nodes(data.articles).map(mapArticleCard),
     pageInfo: data.articles?.pageInfo ?? {

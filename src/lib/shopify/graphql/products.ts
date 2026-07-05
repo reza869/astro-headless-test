@@ -54,11 +54,12 @@ export const SHOP_PRODUCTS_QUERY = /* GraphQL */ `
   ${CARD_FRAGMENTS}
   query ShopProductList(
     $first: Int = 48
+    $after: String
     $sortKey: ProductSortKeys = BEST_SELLING
     $reverse: Boolean = false
     $query: String
   ) {
-    products(first: $first, sortKey: $sortKey, reverse: $reverse, query: $query) {
+    products(first: $first, after: $after, sortKey: $sortKey, reverse: $reverse, query: $query) {
       edges {
         node {
           ...ProductCard
@@ -81,6 +82,10 @@ export const SHOP_PRODUCTS_QUERY = /* GraphQL */ `
             }
           }
         }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
       }
     }
   }
