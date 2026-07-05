@@ -14,6 +14,7 @@
 //  wired to a backend later.
 // ============================================================
 import Icon from '~/components/ui/Icon.astro';
+import { SITE } from '~/config/site';
 
 const avatars = [
   '/images/Product Image 8.png',
@@ -43,15 +44,17 @@ const avatars = [
           <Icon name="star" size={13} class="text-coral-soft" /> The Weekly Edit
         </span>
 
-        {/* Pull-quote */}
-        <div class="absolute bottom-[30px] left-[30px] z-[2] max-w-[280px]">
-          <p class="font-heading text-[23px] font-bold leading-[1.04] text-white">
-            “The only newsletter I actually open.”
-          </p>
-          <p class="mt-[9px] text-[10.5px] uppercase tracking-[1px] text-white/70">
-            — Vogue Readers’ Choice
-          </p>
-        </div>
+        {/* Pull-quote — illustrative editorial endorsement (demo only) */}
+        {SITE.demoContent && (
+          <div class="absolute bottom-[30px] left-[30px] z-[2] max-w-[280px]">
+            <p class="font-heading text-[23px] font-bold leading-[1.04] text-white">
+              “The only newsletter I actually open.”
+            </p>
+            <p class="mt-[9px] text-[10.5px] uppercase tracking-[1px] text-white/70">
+              — Vogue Readers’ Choice
+            </p>
+          </div>
+        )}
       </div>
 
       {/* ---------------- Content ---------------- */}

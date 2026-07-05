@@ -7,6 +7,7 @@
 //  to this project (--radius-md / --ease-out-soft / --color-*).
 // ============================================================
 import Icon from '~/components/ui/Icon.astro';
+import { SITE } from '~/config/site';
 
 const categories = [
   { name: 'Ready-to-Wear', handle: 'ready-to-wear', count: 248, image: '/images/Look 01.png' },
@@ -36,7 +37,7 @@ const categories = [
               <span class="cv-no">N°0{i + 1}</span>
             </div>
             <div class="cv-bot">
-              <div class="cv-count">{c.count} Pieces</div>
+              {SITE.demoContent && <div class="cv-count">{c.count} Pieces</div>}
               <div class="cv-name">{c.name}</div>
               <span class="cv-enter">
                 Enter

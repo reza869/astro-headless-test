@@ -17,6 +17,7 @@ import Testimonials from '~/components/sections/Testimonials.astro';
 import Cta from '~/components/sections/Cta.astro';
 import { getProducts } from '~/lib/shopify';
 import type { ProductCard } from '~/lib/shopify/types';
+import { SITE } from '~/config/site';
 
 let newArrivals: ProductCard[] = [];
 let bestSellers: ProductCard[] = [];
@@ -40,9 +41,11 @@ try {
   <BestSellers products={bestSellers} />
   <ShopTheLook />
   <Campaign />
-  <FlashSale />
+  {/* Editorial/marketing sections with illustrative figures — shown in the
+      demo, hidden for production stores via SITE.demoContent. */}
+  {SITE.demoContent && <FlashSale />}
   <Bundle />
-  <Compare />
-  <Testimonials />
+  {SITE.demoContent && <Compare />}
+  {SITE.demoContent && <Testimonials />}
   <Cta />
 </BaseLayout>

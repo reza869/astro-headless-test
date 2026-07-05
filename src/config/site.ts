@@ -26,6 +26,19 @@ export const SITE = {
   addressMapsQuery: '120+Lafayette+Street+New+York+NY+10013',
   /** Default social-share image (public/, ~1200x630). Buyers replace it. */
   ogImage: '/og-image.png',
+  /**
+   * Demo/marketing figures on the homepage (flash-sale "sold/left" counters,
+   * category counts, editorial testimonials, "readers" stat, etc.) are
+   * illustrative template content. Leave `true` for the full demo look; set
+   * `false` for a production store so no fabricated numbers/claims render.
+   */
+  demoContent: true,
+  /**
+   * Homepage bundle builder. `code` MUST exist as a real fixed-percentage
+   * discount in Shopify admin (Discounts) for the saving to apply at checkout;
+   * `percent` must match it. `giftThreshold` unlocks the free-gift progress bar.
+   */
+  bundle: { code: 'BUNDLE15', percent: 15, giftThreshold: 600 },
   // Rotating announcement bar (top ticker).
   announcements: [
     'Free carbon-neutral shipping over $150',

@@ -294,6 +294,20 @@ The SKU shown in **Materials & Care** is the real variant SKU (Shopify), not a
 metafield. Reuse the `reviews.*` / `meta.*` namespaces if your store already has
 them; create the `custom.*` ones as needed.
 
+### Demo content & bundle discount
+
+`src/config/site.ts` exposes two switches for the illustrative homepage content:
+
+- **`demoContent`** (default `true`) — shows template marketing figures: the
+  Flash Sale panel, Compare table, editorial Testimonials, "Shop by Category"
+  counts, and the Cta pull-quote. Set it to **`false`** for a production store
+  and every fabricated number/claim disappears (the real catalogue sections —
+  New Arrivals, Best Sellers, Bundle, etc. — stay).
+- **`bundle`** — `{ code, percent, giftThreshold }` for the "Style the Set"
+  builder. **`code` must exist as a real fixed-percentage discount** in Shopify
+  admin (Discounts) and `percent` must match it, or the saving won't apply at
+  checkout. Default `BUNDLE15` / 15%.
+
 ---
 
 ## 🧑‍💻 Development Workflow
