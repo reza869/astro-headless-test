@@ -18,11 +18,17 @@ import {
 } from './config';
 import type { CustomerTokens } from './session';
 
-/** Build the URL we redirect the buyer to in order to log in. */
+/**
+ * Build the URL we redirect the buyer to in order to log in. CSRF is covered by
+ * the single-use `state` (generated + stored server-side, checked at the
+ * callback). We deliberately omit an OIDC `nonce`: validating it requires
+ * verifying the id_token signature against Shopify's JWKS, which this client
+ * does not do — so a nonce here would be non-functional. `state` is the
+ * protection in effect.
+ */
 export function buildAuthorizeUrl(params: {
   redirectUri: string;
   state: string;
-  nonce: string;
   codeChallenge: string;
 }): string {
   const url = new URL(AUTHORIZE_ENDPOINT);
@@ -31,7 +37,6 @@ export function buildAuthorizeUrl(params: {
   url.searchParams.set('redirect_uri', params.redirectUri);
   url.searchParams.set('scope', SCOPES);
   url.searchParams.set('state', params.state);
-  url.searchParams.set('nonce', params.nonce);
   url.searchParams.set('code_challenge', params.codeChallenge);
   url.searchParams.set('code_challenge_method', 'S256');
   return url.toString();

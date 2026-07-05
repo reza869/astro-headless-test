@@ -27,7 +27,8 @@ function prefixQuery(q: string): string {
 }
 
 export const GET: APIRoute = async ({ url }) => {
-  const q = url.searchParams.get('q')?.trim() ?? '';
+  // Cap length — a search term is short; never forward a megabyte query.
+  const q = (url.searchParams.get('q')?.trim() ?? '').slice(0, 100);
   if (q.length < 1) {
     return json({ products: [], collections: [], queries: [] });
   }
@@ -54,6 +55,7 @@ export const GET: APIRoute = async ({ url }) => {
       queries: predictive.queries ?? [],
     });
   } catch (err) {
-    return json({ error: (err as Error).message }, 500);
+    console.error('[api/search]', (err as Error)?.message);
+    return json({ products: [], collections: [], queries: [], error: 'Search is unavailable.' }, 500);
   }
 };

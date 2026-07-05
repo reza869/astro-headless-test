@@ -48,12 +48,23 @@ interface MutationResponse {
 }
 
 async function post(url: string, body: unknown): Promise<MutationResponse> {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  return (await res.json()) as MutationResponse;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    return { cart: null, error: 'Network error. Please try again.' };
+  }
+  // A non-2xx response may not be JSON (proxy 502, HTML error page) — read it
+  // defensively so a SyntaxError can't masquerade as a network drop.
+  const data = (await res.json().catch(() => null)) as MutationResponse | null;
+  if (!res.ok) {
+    return { cart: null, error: data?.error ?? 'Something went wrong. Please try again.' };
+  }
+  return data ?? { cart: null, error: 'Invalid response from server.' };
 }
 
 function applyResult(data: MutationResponse): MutationResponse {

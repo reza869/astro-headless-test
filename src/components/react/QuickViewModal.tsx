@@ -59,11 +59,18 @@ export default function QuickViewModal() {
   useEffect(() => {
     if (!handle) return;
     let active = true;
+    const ctrl = new AbortController();
     setProduct(null);
     setError(null);
     setLoading(true);
-    fetch(`/api/products/${encodeURIComponent(handle)}`, { headers: { accept: 'application/json' } })
-      .then((r) => r.json())
+    fetch(`/api/products/${encodeURIComponent(handle)}`, {
+      headers: { accept: 'application/json' },
+      signal: ctrl.signal,
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((data) => {
         if (!active) return;
         if (data.product) {
@@ -77,10 +84,15 @@ export default function QuickViewModal() {
           setError(data.error ?? 'Product unavailable');
         }
       })
-      .catch(() => active && setError('Could not load product'))
-      .finally(() => active && setLoading(false));
+      .catch((e: unknown) => {
+        if (active && (e as Error)?.name !== 'AbortError') setError('Could not load product');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
     return () => {
       active = false;
+      ctrl.abort();
     };
   }, [handle]);
 

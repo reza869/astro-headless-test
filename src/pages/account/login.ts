@@ -51,7 +51,6 @@ often the <strong>JavaScript origin</strong> not being registered as
   const verifier = generateCodeVerifier();
   const challenge = generateCodeChallenge(verifier);
   const state = generateRandom();
-  const nonce = generateRandom();
 
   // Only honour same-site relative return paths (avoid open-redirects).
   // `startsWith('/')` alone is not enough: `//evil.com` and `/\evil.com`
@@ -66,7 +65,6 @@ often the <strong>JavaScript origin</strong> not being registered as
   const authorizeUrl = buildAuthorizeUrl({
     redirectUri,
     state,
-    nonce,
     codeChallenge: challenge,
   });
 

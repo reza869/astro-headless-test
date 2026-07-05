@@ -230,7 +230,13 @@ const addPriceLabel = formatMoney(
         <div class="pdp-gallery">
           <div class="pg-thumbs">
             {images.map((img, i) => (
-              <div class:list={['pg-thumb', i === 0 && 'on']} data-src={img.url}>
+              <div
+                class:list={['pg-thumb', i === 0 && 'on']}
+                data-src={img.url}
+                role="button"
+                tabindex="0"
+                aria-label={`View image ${i + 1}`}
+              >
                 <img src={img.url} alt={img.altText ?? `View ${i + 1}`} loading="lazy" />
               </div>
             ))}
@@ -291,6 +297,10 @@ const addPriceLabel = formatMoney(
                     class:list={['opt-color', i === 0 && 'on']}
                     data-color={c.label}
                     title={c.label}
+                    role="button"
+                    tabindex="0"
+                    aria-label={`Colour: ${c.label}`}
+                    aria-pressed={i === 0 ? 'true' : 'false'}
                     style={`background:${c.hex}`}
                   />
                 ))}
@@ -348,7 +358,7 @@ const addPriceLabel = formatMoney(
           <div class="acc" data-acc>
             {(fitBullets.length > 0 || intro) && (
               <div class="acc-item open">
-                <button class="acc-head">Details &amp; Fit <Icon name="plus" size={20} /></button>
+                <button class="acc-head" aria-expanded="true">Details &amp; Fit <Icon name="plus" size={20} /></button>
                 <div class="acc-body">
                   <div class="inner">
                     {fitBullets.length > 0 ? (
@@ -366,7 +376,7 @@ const addPriceLabel = formatMoney(
             )}
             {specRows.length > 0 && (
               <div class="acc-item">
-                <button class="acc-head">Materials &amp; Care <Icon name="plus" size={20} /></button>
+                <button class="acc-head" aria-expanded="false">Materials &amp; Care <Icon name="plus" size={20} /></button>
                 <div class="acc-body">
                   <div class="inner">
                     <div class="specs">
@@ -379,7 +389,7 @@ const addPriceLabel = formatMoney(
               </div>
             )}
             <div class="acc-item">
-              <button class="acc-head">Shipping &amp; Returns <Icon name="plus" size={20} /></button>
+              <button class="acc-head" aria-expanded="false">Shipping &amp; Returns <Icon name="plus" size={20} /></button>
               <div class="acc-body">
                 <div class="inner">
                   Complimentary express shipping on all orders over {freeShip}, delivered in 2–4 business
@@ -1021,6 +1031,12 @@ const addPriceLabel = formatMoney(
   .opt-color.on::after {
     border-color: var(--color-text-primary);
   }
+  /* Keyboard focus ring for the now-focusable swatches + thumbnails (H17). */
+  .opt-color:focus-visible,
+  .pg-thumb:focus-visible {
+    outline: 2px solid var(--color-coral);
+    outline-offset: 2px;
+  }
   .opt-color:hover {
     transform: scale(1.07);
   }
@@ -1649,10 +1665,17 @@ const addPriceLabel = formatMoney(
     // ── Gallery ────────────────────────────────────────────
     const main = $<HTMLImageElement>('#pgMain');
     root.querySelectorAll<HTMLElement>('.pg-thumb').forEach((t) => {
-      t.addEventListener('click', () => {
+      const activate = () => {
         root.querySelectorAll('.pg-thumb').forEach((x) => x.classList.remove('on'));
         t.classList.add('on');
         if (main && t.dataset.src) main.src = t.dataset.src;
+      };
+      t.addEventListener('click', activate);
+      t.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          activate();
+        }
       });
     });
 
@@ -1692,13 +1715,24 @@ const addPriceLabel = formatMoney(
 
     // ── Colours ────────────────────────────────────────────
     root.querySelectorAll<HTMLElement>('.opt-color').forEach((o) => {
-      o.addEventListener('click', () => {
-        root.querySelectorAll('.opt-color').forEach((x) => x.classList.remove('on'));
+      const activate = () => {
+        root.querySelectorAll('.opt-color').forEach((x) => {
+          x.classList.remove('on');
+          x.setAttribute('aria-pressed', 'false');
+        });
         o.classList.add('on');
+        o.setAttribute('aria-pressed', 'true');
         state.color = o.dataset.color || '';
         const lbl = $('[data-color-label]');
         if (lbl) lbl.textContent = state.color;
         syncPrice();
+      };
+      o.addEventListener('click', activate);
+      o.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          activate();
+        }
       });
     });
 
@@ -1761,6 +1795,7 @@ const addPriceLabel = formatMoney(
         const body = item.querySelector<HTMLElement>('.acc-body')!;
         const open = item.classList.toggle('open');
         body.style.maxHeight = open ? body.scrollHeight + 'px' : '0';
+        h.setAttribute('aria-expanded', String(open));
       });
     });
     const openBody = root.querySelector<HTMLElement>('[data-acc] .acc-item.open .acc-body');

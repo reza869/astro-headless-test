@@ -7,7 +7,15 @@ export const prerender = false;
 export const POST: APIRoute = async ({ request, cookies }) => {
   try {
     const body = await request.json();
-    const lineIds: string[] = body?.lineIds ?? (body?.lineId ? [body.lineId] : []);
+    const raw: unknown[] = Array.isArray(body?.lineIds)
+      ? body.lineIds
+      : body?.lineId
+        ? [body.lineId]
+        : [];
+    // Only accept real cart-line gids, and cap the count to avoid amplification.
+    const lineIds = raw
+      .filter((x): x is string => typeof x === 'string' && x.startsWith('gid://shopify/CartLine/'))
+      .slice(0, 50);
 
     if (!lineIds.length) {
       return json({ cart: null, userErrors: [{ message: 'lineId(s) required' }] }, 400);

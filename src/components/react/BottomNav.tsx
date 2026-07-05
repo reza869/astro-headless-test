@@ -48,7 +48,7 @@ export default function BottomNav({ pathname }: Props) {
         aria-current={isActive('/collections') ? 'page' : undefined}
       >
         <LayoutGrid size={20} strokeWidth={1.6} />
-        Shop
+        Collections
       </a>
       <button
         type="button"

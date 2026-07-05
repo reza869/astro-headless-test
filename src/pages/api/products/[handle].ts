@@ -19,6 +19,7 @@ export const GET: APIRoute = async ({ params }) => {
     if (!product) return json({ error: 'Not found' }, 404);
     return json({ product });
   } catch (err) {
-    return json({ error: (err as Error).message }, 500);
+    console.error('[api/products/:handle]', (err as Error)?.message);
+    return json({ error: 'Product is unavailable.' }, 500);
   }
 };
