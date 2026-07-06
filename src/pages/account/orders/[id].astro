@@ -1,0 +1,92 @@
+---
+// ============================================================
+//  /account/orders/[id] — single order detail. Signed-in only.
+//  The Customer Account API has no `customer.order(id:)`, so we
+//  fetch the customer's own orders (already scoped to them) with
+//  full detail and match the requested id from the route. The
+//  presentation lives in <OrderDetail />.
+// ============================================================
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import AccountShell from '~/components/account/AccountShell.astro';
+import OrderDetail from '~/components/account/OrderDetail.astro';
+import Icon from '~/components/ui/Icon.astro';
+import {
+  createCustomerClient,
+  CUSTOMER_ORDER_DETAIL_QUERY,
+  getPublicOrigin,
+  NotAuthenticatedError,
+} from '~/lib/shopify/customer';
+import type { CustomerOrderDetailResult, CustomerOrderDetail } from '~/lib/shopify/customer';
+
+export const prerender = false;
+
+const { id } = Astro.params;
+const loginRedirect = '/account/login?return_to=' + encodeURIComponent('/account/orders/' + id);
+
+const client = createCustomerClient(Astro.cookies, getPublicOrigin(Astro.request, Astro.url));
+if (!client.isLoggedIn()) {
+  return Astro.redirect(loginRedirect);
+}
+
+let name = '';
+let email = '';
+let order: CustomerOrderDetail | null = null;
+let error: string | null = null;
+
+try {
+  const data = await client.query<CustomerOrderDetailResult>(CUSTOMER_ORDER_DETAIL_QUERY, {
+    first: 60,
+  });
+  name = [data.customer?.firstName, data.customer?.lastName].filter(Boolean).join(' ');
+  email = data.customer?.emailAddress?.emailAddress ?? '';
+  // Match by the numeric id suffix so route ids stay clean (no GID slashes).
+  order = data.customer?.orders?.nodes.find((o) => o.id.split('/').pop() === id) ?? null;
+} catch (err) {
+  if (err instanceof NotAuthenticatedError) {
+    return Astro.redirect(loginRedirect);
+  }
+  console.error('[account/orders/[id]] load failed:', (err as Error).message);
+  error = (err as Error).message;
+}
+---
+
+<BaseLayout title={order ? `Order ${order.name}` : 'Order'} noindex>
+  <AccountShell active="orders" name={name} email={email}>
+    <a
+      href="/account/orders"
+      class="mb-6 inline-flex items-center gap-1.5 text-[13px] font-semibold text-text-secondary transition-fluid hover:text-coral"
+    >
+      <Icon name="chevronLeft" size={16} /> Back to orders
+    </a>
+
+    {
+      error ? (
+        <p
+          class="rounded-md bg-coral-soft px-4 py-3 text-[13px] font-medium text-coral"
+          role="alert"
+        >
+          We couldn't load this order right now: {error}
+        </p>
+      ) : !order ? (
+        <div class="flex flex-col items-center rounded-xl bg-surface px-6 py-16 text-center ring-1 ring-inset ring-border">
+          <span class="mb-4 grid h-16 w-16 place-items-center rounded-full bg-surface-cool text-text-muted">
+            <Icon name="package" size={26} />
+          </span>
+          <p class="font-heading text-[22px] font-bold text-text-primary">Order not found</p>
+          <p class="mt-1 max-w-[360px] text-[13.5px] text-text-secondary">
+            We couldn't find this order on your account. It may belong to a different account, or the
+            link is out of date.
+          </p>
+          <a
+            href="/account/orders"
+            class="btn mt-6 inline-flex h-12 items-center gap-2 rounded-sm bg-dark px-6 text-white transition-fluid hover:bg-dark-hover"
+          >
+            View all orders <Icon name="arrowRight" size={16} />
+          </a>
+        </div>
+      ) : (
+        <OrderDetail order={order} />
+      )
+    }
+  </AccountShell>
+</BaseLayout>

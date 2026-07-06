@@ -1,0 +1,282 @@
+---
+// ============================================================
+//  OrderDetail — one order's full detail: status pills, shipment
+//  tracking, line items, price summary, shipping address and note.
+//  Pure presentation (takes an already-loaded order) so the route
+//  stays thin and the layout is previewable in isolation.
+// ============================================================
+import Icon from '~/components/ui/Icon.astro';
+import { formatMoney } from '~/lib/utils';
+import type { CustomerOrderDetail } from '~/lib/shopify/customer';
+
+interface Props {
+  order: CustomerOrderDetail;
+}
+const { order } = Astro.props;
+
+const fmtDate = (iso: string) =>
+  new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long', day: 'numeric' }).format(
+    new Date(iso),
+  );
+
+/** SHOUTY_ENUM → "Shouty enum". */
+const prettify = (v: string | null | undefined) =>
+  v ? v.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : '';
+
+/** Map a status enum to an on-brand pill tone. */
+const tone = (kind: 'good' | 'progress' | 'muted') =>
+  kind === 'good'
+    ? 'bg-green-soft text-green ring-green/20'
+    : kind === 'progress'
+      ? 'bg-blue-soft text-blue ring-blue/20'
+      : 'bg-surface-cool text-text-muted ring-border';
+
+const financialTone = (s: string | null): 'good' | 'progress' | 'muted' => {
+  if (s === 'PAID') return 'good';
+  if (s === 'AUTHORIZED' || s === 'PARTIALLY_PAID' || s === 'PENDING') return 'progress';
+  return 'muted';
+};
+const shipmentTone = (s: string | null): 'good' | 'progress' | 'muted' => {
+  if (s === 'DELIVERED') return 'good';
+  if (s === 'IN_TRANSIT' || s === 'OUT_FOR_DELIVERY' || s === 'CONFIRMED' || s === 'READY_FOR_PICKUP')
+    return 'progress';
+  return 'muted';
+};
+
+// Lighten Shopify CDN thumbnails; leave other hosts untouched.
+const thumb = (url: string) =>
+  /cdn\.shopify\.com/.test(url) ? `${url}${url.includes('?') ? '&' : '?'}width=160` : url;
+
+const items = order.lineItems?.nodes ?? [];
+const fulfillments = order.fulfillments?.nodes ?? [];
+const cancelled = Boolean(order.cancelledAt);
+const unitCount = items.reduce((n, li) => n + (li.quantity || 0), 0);
+---
+
+<div class="flex flex-col gap-5">
+  {/* Header — id, date, status pills, status-page link */}
+  <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+    <div>
+      <h2 class="h3 flex items-center gap-3">
+        {order.name}
+        {cancelled && (
+          <span class="inline-flex items-center gap-1 rounded-full bg-surface-cool px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.8px] text-text-muted ring-1 ring-inset ring-border">
+            <Icon name="close" size={11} /> Cancelled
+          </span>
+        )}
+      </h2>
+      <p class="mt-1.5 flex items-center gap-1.5 text-[13px] text-text-muted">
+        <Icon name="calendar" size={14} /> Placed {fmtDate(order.processedAt)}
+        {unitCount > 0 && <span class="text-border">·</span>}
+        {unitCount > 0 && (
+          <span>
+            {unitCount} item{unitCount === 1 ? '' : 's'}
+          </span>
+        )}
+      </p>
+      {order.financialStatus && (
+        <span
+          class:list={[
+            'mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11.5px] font-bold uppercase tracking-[0.6px] ring-1 ring-inset',
+            tone(financialTone(order.financialStatus)),
+          ]}
+        >
+          <Icon name="tag" size={12} /> {prettify(order.financialStatus)}
+        </span>
+      )}
+    </div>
+    <a
+      href={order.statusPageUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      class="inline-flex h-11 items-center gap-2 rounded-sm border border-border px-4 text-[12px] font-bold uppercase tracking-[1.2px] text-text-secondary transition-fluid hover:border-coral hover:text-coral"
+    >
+      Order status page <Icon name="arrowUpRight" size={15} />
+    </a>
+  </div>
+
+  {/* Fulfillment / tracking */}
+  {fulfillments.length > 0 && (
+    <section class="overflow-hidden rounded-xl bg-surface ring-1 ring-inset ring-border">
+      <header class="flex items-center gap-2.5 border-b border-border px-5 py-4">
+        <span class="grid h-9 w-9 flex-none place-items-center rounded-full bg-coral-soft text-coral">
+          <Icon name="truck" size={17} />
+        </span>
+        <p class="font-heading text-[16px] font-bold text-text-primary">
+          Shipment{fulfillments.length > 1 ? 's' : ''}
+        </p>
+      </header>
+      <ul class="divide-y divide-border">
+        {fulfillments.map((f) => {
+          const headline = f.latestShipmentStatus ?? f.status;
+          const t = f.status === 'CANCELLED' ? 'muted' : shipmentTone(f.latestShipmentStatus);
+          return (
+            <li class="flex flex-col gap-3 px-5 py-4">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <span
+                  class:list={[
+                    'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11.5px] font-bold uppercase tracking-[0.6px] ring-1 ring-inset',
+                    tone(t),
+                  ]}
+                >
+                  <Icon name="truck" size={12} /> {prettify(headline) || 'Processing'}
+                </span>
+                {f.estimatedDeliveryAt && (
+                  <span class="text-[12.5px] text-text-muted">
+                    Est. delivery {fmtDate(f.estimatedDeliveryAt)}
+                  </span>
+                )}
+              </div>
+              {f.trackingInformation.length > 0 && (
+                <div class="flex flex-wrap gap-2">
+                  {f.trackingInformation.map((tr) => {
+                    const label = [tr.company, tr.number].filter(Boolean).join(' · ');
+                    return tr.url ? (
+                      <a
+                        href={tr.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-flex items-center gap-1.5 rounded-sm bg-surface-cool px-3 py-1.5 text-[12.5px] font-semibold text-text-primary transition-fluid hover:text-coral"
+                      >
+                        <Icon name="link" size={13} /> Track {label || 'shipment'}
+                        <Icon name="arrowUpRight" size={13} />
+                      </a>
+                    ) : (
+                      label && (
+                        <span class="inline-flex items-center gap-1.5 rounded-sm bg-surface-cool px-3 py-1.5 text-[12.5px] font-medium text-text-secondary">
+                          <Icon name="link" size={13} /> {label}
+                        </span>
+                      )
+                    );
+                  })}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  )}
+
+  {/* Items + summary/address grid */}
+  <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+    {/* Line items */}
+    <section class="overflow-hidden rounded-xl bg-surface ring-1 ring-inset ring-border">
+      <header class="border-b border-border px-5 py-4">
+        <p class="font-heading text-[16px] font-bold text-text-primary">Items</p>
+      </header>
+      {items.length > 0 ? (
+        <ul class:list={['divide-y divide-border', cancelled && 'opacity-60']}>
+          {items.map((li) => (
+            <li class="flex items-center gap-3.5 px-5 py-4">
+              <span class="relative grid h-16 w-16 flex-none place-items-center overflow-hidden rounded-lg bg-surface-cool ring-1 ring-inset ring-border">
+                {li.image?.url ? (
+                  <img
+                    src={thumb(li.image.url)}
+                    alt={li.image.altText ?? li.title}
+                    width="64"
+                    height="64"
+                    loading="lazy"
+                    decoding="async"
+                    class="h-full w-full object-cover"
+                  />
+                ) : (
+                  <Icon name="package" size={22} class="text-text-muted" />
+                )}
+                {li.quantity > 1 && (
+                  <span class="absolute -right-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-dark px-1 text-[11px] font-bold leading-none text-white ring-2 ring-surface">
+                    {li.quantity}
+                  </span>
+                )}
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="text-[14.5px] font-semibold leading-snug text-text-primary">{li.title}</p>
+                {li.variantTitle && li.variantTitle !== 'Default Title' && (
+                  <p class="mt-0.5 text-[12.5px] text-text-muted">{li.variantTitle}</p>
+                )}
+                <p class="mt-0.5 text-[12px] text-text-muted">Qty {li.quantity}</p>
+              </div>
+              {li.totalPrice && (
+                <p class="shrink-0 text-[14px] font-semibold tabular text-text-secondary">
+                  {formatMoney(li.totalPrice.amount, li.totalPrice.currencyCode)}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p class="px-5 py-6 text-[13px] text-text-muted">
+          Item details are unavailable for this order.
+        </p>
+      )}
+    </section>
+
+    {/* Summary + shipping address + note */}
+    <aside class="flex flex-col gap-5">
+      <section class="rounded-xl bg-surface p-5 ring-1 ring-inset ring-border">
+        <p class="mb-3 font-heading text-[16px] font-bold text-text-primary">Summary</p>
+        <dl class="flex flex-col gap-2 text-[13.5px]">
+          {order.subtotal && (
+            <div class="flex justify-between">
+              <dt class="text-text-secondary">Subtotal</dt>
+              <dd class="tabular font-medium text-text-primary">
+                {formatMoney(order.subtotal.amount, order.subtotal.currencyCode)}
+              </dd>
+            </div>
+          )}
+          {order.totalShipping && (
+            <div class="flex justify-between">
+              <dt class="text-text-secondary">Shipping</dt>
+              <dd class="tabular font-medium text-text-primary">
+                {Number(order.totalShipping.amount) === 0
+                  ? 'Free'
+                  : formatMoney(order.totalShipping.amount, order.totalShipping.currencyCode)}
+              </dd>
+            </div>
+          )}
+          {order.totalTax && (
+            <div class="flex justify-between">
+              <dt class="text-text-secondary">Tax</dt>
+              <dd class="tabular font-medium text-text-primary">
+                {formatMoney(order.totalTax.amount, order.totalTax.currencyCode)}
+              </dd>
+            </div>
+          )}
+          {order.totalPrice && (
+            <div class="mt-1 flex items-baseline justify-between border-t border-border pt-3">
+              <dt class="font-heading text-[14px] font-bold text-text-primary">Total</dt>
+              <dd
+                class:list={[
+                  'font-heading text-[18px] font-extrabold tabular',
+                  cancelled ? 'text-text-muted line-through' : 'text-text-primary',
+                ]}
+              >
+                {formatMoney(order.totalPrice.amount, order.totalPrice.currencyCode)}
+              </dd>
+            </div>
+          )}
+        </dl>
+      </section>
+
+      {order.shippingAddress?.formatted?.length ? (
+        <section class="rounded-xl bg-surface p-5 ring-1 ring-inset ring-border">
+          <p class="mb-3 flex items-center gap-2 font-heading text-[16px] font-bold text-text-primary">
+            <Icon name="mapPin" size={16} class="text-coral" /> Shipping address
+          </p>
+          <address class="text-[13.5px] not-italic leading-relaxed text-text-secondary">
+            {order.shippingAddress.formatted.map((line) => (
+              <span class="block">{line}</span>
+            ))}
+          </address>
+        </section>
+      ) : null}
+
+      {order.note && (
+        <section class="rounded-xl bg-surface p-5 ring-1 ring-inset ring-border">
+          <p class="mb-2 font-heading text-[16px] font-bold text-text-primary">Note</p>
+          <p class="text-[13.5px] leading-relaxed text-text-secondary">{order.note}</p>
+        </section>
+      )}
+    </aside>
+  </div>
+</div>

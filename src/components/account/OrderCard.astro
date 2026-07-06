@@ -29,6 +29,9 @@ const extra = items.length - shown.length;
 const unitCount = items.reduce((n, li) => n + (li.quantity || 0), 0);
 const cancelled = Boolean(order.cancelledAt);
 
+// Detail route keyed by the numeric id suffix (keeps GID slashes out of URLs).
+const detailHref = `/account/orders/${order.id.split('/').pop()}`;
+
 // Lighten Shopify CDN thumbnails; leave other hosts untouched.
 const thumb = (url: string) =>
   /cdn\.shopify\.com/.test(url) ? `${url}${url.includes('?') ? '&' : '?'}width=160` : url;
@@ -116,4 +119,13 @@ const thumb = (url: string) =>
   ) : (
     <p class="px-5 py-4 text-[12.5px] text-text-muted">Item details unavailable for this order.</p>
   )}
+
+  {/* Footer — link to the full order detail */}
+  <a
+    href={detailHref}
+    class="flex items-center justify-between gap-2 border-t border-border px-5 py-3 text-[12.5px] font-bold uppercase tracking-[1px] text-text-secondary transition-fluid hover:bg-surface-cool hover:text-coral"
+  >
+    View order details
+    <Icon name="arrowRight" size={15} />
+  </a>
 </article>
