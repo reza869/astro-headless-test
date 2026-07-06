@@ -104,7 +104,10 @@ This is a Shopify **Markets** configuration issue, not a theme bug. Review your 
 The Customer Account API requires an **HTTPS** origin — it rejects `http://localhost`. Use a tunnel (e.g. Cloudflare Tunnel) and register that HTTPS host in the Headless channel's Customer Account API settings. See `.env.example` for the exact callback/origin/logout URIs.
 
 **Reviews don't appear**
-Judge.me is optional. When `JUDGEME_PRIVATE_TOKEN` is unset the PDP simply shows no reviews — nothing breaks.
+Judge.me is optional. When `JUDGEME_PRIVATE_TOKEN` is unset the PDP simply shows no reviews, and the "Write a review" form is hidden — nothing breaks. With the token set, submitted reviews land in Judge.me as *pending* and appear after you approve them in the moderation queue.
+
+**Back-in-stock notifications**
+Not bundled by design. Out-of-stock variants show a disabled "Out of stock" state. A notify-me backend needs a provider (email/marketing service) and persistent storage, which would tie the theme to one host — against its deploy-anywhere goal. Add it with a Shopify "Back in Stock" app, or wire your own provider to a small API route.
 
 ## License
 

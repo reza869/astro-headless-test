@@ -13,9 +13,10 @@ import Icon from '~/components/ui/Icon.astro';
 import ProductCard from '~/components/cards/ProductCard.astro';
 import SizeGuide from '~/components/global/SizeGuide.astro';
 import { SITE } from '~/config/site';
-import { formatMoney, discountPercent } from '~/lib/utils';
+import { formatMoney, discountPercent, parseGid } from '~/lib/utils';
 import type { Product, ProductCard as TProductCard } from '~/lib/shopify/types';
 import type { JudgeMeData } from '~/lib/judgeme';
+import { JUDGEME_CONFIGURED } from '~/lib/judgeme';
 
 interface Props {
   product: Product;
@@ -35,6 +36,11 @@ const fullStars = rv ? Math.round(rv.average) : 0;
 const starRow = (n: number) => '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0, 5 - n);
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+// Numeric Shopify id Judge.me needs to attach a submitted review (MP-26).
+const reviewProductId = parseGid(product.id);
+// Only surface the write-a-review UI when Judge.me is actually configured
+// (marketplace buyers without a token must not see a form that always fails).
+const canWriteReview = JUDGEME_CONFIGURED && Boolean(reviewProductId);
 const currency = product.priceRange.minVariantPrice.currencyCode;
 const priceNow = formatMoney(product.priceRange.minVariantPrice.amount, currency);
 const compareAt = product.compareAtPriceRange?.minVariantPrice ?? null;
@@ -666,15 +672,22 @@ const addPriceLabel = formatMoney(
           <span class="mag-label">Customer Reviews</span>
           <h2>What the <em>editors &amp; buyers</em> say.</h2>
         </div>
-        {rv && (
-          <div class="rv-filters" data-rv-filters>
-            <span class="fl">Filter</span>
-            <button class="rv-fp on" data-f="all">All</button>
-            <button class="rv-fp" data-f="5">5 ★</button>
-            <button class="rv-fp" data-f="4">4 ★</button>
-            <button class="rv-fp" data-f="photos">With photos</button>
-          </div>
-        )}
+        <div class="rv-actions">
+          {rv && (
+            <div class="rv-filters" data-rv-filters>
+              <span class="fl">Filter</span>
+              <button class="rv-fp on" data-f="all">All</button>
+              <button class="rv-fp" data-f="5">5 ★</button>
+              <button class="rv-fp" data-f="4">4 ★</button>
+              <button class="rv-fp" data-f="photos">With photos</button>
+            </div>
+          )}
+          {canWriteReview && (
+            <button type="button" class="rv-write-trigger" data-rv-write-open aria-expanded="false" aria-controls="review-form">
+              <Icon name="pencil" size={15} /> Write a review
+            </button>
+          )}
+        </div>
       </div>
 
       {rv ? (
@@ -749,6 +762,75 @@ const addPriceLabel = formatMoney(
           <p class="rv-empty-title">No reviews yet</p>
           <p class="rv-empty-sub">Be the first to share your thoughts on the {product.title}.</p>
         </div>
+      )}
+
+      {/* ---- Write a review (MP-26 — submits to Judge.me, awaits moderation) ---- */}
+      {canWriteReview && (
+      <div class="rv-write" id="review-form" data-rv-write hidden>
+        <form class="rv-form" data-rv-form data-product-id={reviewProductId} novalidate>
+          <div class="rv-form-head">
+            <h3>Write a review</h3>
+            <button type="button" class="rv-form-close" data-rv-write-close aria-label="Close review form">
+              <Icon name="close" size={18} />
+            </button>
+          </div>
+
+          <div class="rv-field">
+            <span class="rv-label">Your rating <i>*</i></span>
+            <div class="rv-stars" data-rv-stars role="radiogroup" aria-label="Rating out of 5">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  type="button"
+                  class="rv-star"
+                  data-val={n}
+                  role="radio"
+                  aria-checked="false"
+                  aria-label={`${n} star${n === 1 ? '' : 's'}`}
+                >
+                  <Icon name="star" size={26} />
+                </button>
+              ))}
+            </div>
+            <input type="hidden" name="rating" value="" data-rv-rating />
+          </div>
+
+          <div class="rv-row">
+            <label class="rv-field">
+              <span class="rv-label">Name <i>*</i></span>
+              <input type="text" name="name" autocomplete="name" maxlength="100" required />
+            </label>
+            <label class="rv-field">
+              <span class="rv-label">Email <i>*</i></span>
+              <input type="email" name="email" autocomplete="email" maxlength="150" required />
+            </label>
+          </div>
+
+          <label class="rv-field">
+            <span class="rv-label">Review title</span>
+            <input type="text" name="title" maxlength="150" placeholder="Sum it up in a few words" />
+          </label>
+
+          <label class="rv-field">
+            <span class="rv-label">Your review <i>*</i></span>
+            <textarea name="body" rows="4" maxlength="5000" required placeholder="What did you like or dislike? How was the fit, quality and feel?"></textarea>
+          </label>
+
+          {/* Honeypot — hidden from real users; bots that fill it are silently dropped. */}
+          <div class="rv-hp" aria-hidden="true">
+            <label>Leave this field empty<input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
+          </div>
+
+          <p class="rv-note">Your email is never published. Reviews appear after moderation.</p>
+
+          <div class="rv-form-foot">
+            <button type="submit" class="rv-submit" data-rv-submit>
+              <span class="rv-submit-label"><Icon name="send" size={15} /> Submit review</span>
+              <span class="rv-submit-spin" hidden><span class="rv-spinner" /></span>
+            </button>
+            <p class="rv-status" data-rv-status role="status" aria-live="polite" hidden></p>
+          </div>
+        </form>
+      </div>
       )}
     </div>
   </section>
@@ -1975,6 +2057,234 @@ const addPriceLabel = formatMoney(
   }
   .pdp-stars--empty a {
     color: var(--color-text-muted);
+  }
+
+  /* ---- Write a review (MP-26) ---- */
+  .rv-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .rv-write-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 20px;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    box-shadow: inset 0 0 0 1.5px var(--color-dark);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition:
+      background 0.25s,
+      color 0.25s;
+  }
+  .rv-write-trigger:hover {
+    background: var(--color-dark);
+    color: #fff;
+  }
+  .rv-write {
+    margin-top: 30px;
+  }
+  .rv-form {
+    background: var(--color-surface);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-sm);
+    padding: clamp(24px, 4vw, 40px);
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  .rv-form-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 22px;
+  }
+  .rv-form-head h3 {
+    font-family: var(--font-heading);
+    font-size: clamp(22px, 3vw, 28px);
+    font-weight: 800;
+    letter-spacing: -0.3px;
+  }
+  .rv-form-close {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius-pill);
+    color: var(--color-text-muted);
+    background: var(--color-surface-cool);
+    cursor: pointer;
+    transition:
+      color 0.2s,
+      background 0.2s;
+  }
+  .rv-form-close:hover {
+    color: var(--color-text-primary);
+    background: var(--color-border);
+  }
+  .rv-field {
+    display: block;
+    margin-bottom: 18px;
+  }
+  .rv-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  .rv-label {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+    margin-bottom: 9px;
+  }
+  .rv-label i {
+    color: var(--color-coral);
+    font-style: normal;
+  }
+  .rv-form input[type='text'],
+  .rv-form input[type='email'],
+  .rv-form textarea {
+    width: 100%;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--color-text-primary);
+    background: var(--color-surface-cool);
+    border-radius: var(--radius-sm);
+    box-shadow: inset 0 0 0 1px var(--color-border);
+    padding: 13px 15px;
+    transition:
+      box-shadow 0.2s,
+      background 0.2s;
+  }
+  .rv-form textarea {
+    resize: vertical;
+    min-height: 108px;
+    line-height: 1.6;
+  }
+  .rv-form input::placeholder,
+  .rv-form textarea::placeholder {
+    color: var(--color-text-muted);
+  }
+  .rv-form input:focus,
+  .rv-form textarea:focus {
+    outline: none;
+    background: var(--color-surface);
+    box-shadow: inset 0 0 0 1.5px var(--color-coral);
+  }
+  .rv-form :where(input, textarea).is-invalid {
+    box-shadow: inset 0 0 0 1.5px var(--color-coral);
+  }
+  .rv-stars {
+    display: inline-flex;
+    gap: 4px;
+  }
+  .rv-star {
+    color: var(--color-border);
+    cursor: pointer;
+    line-height: 0;
+    transition:
+      color 0.15s,
+      transform 0.15s;
+  }
+  .rv-star:hover {
+    transform: scale(1.12);
+  }
+  .rv-star.is-on {
+    color: var(--color-coral);
+  }
+  .rv-hp {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+  .rv-note {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin: 2px 0 20px;
+  }
+  .rv-form-foot {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+  .rv-submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    min-width: 180px;
+    height: 52px;
+    padding: 0 28px;
+    border-radius: var(--radius-sm);
+    background: var(--color-coral);
+    color: #fff;
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+  .rv-submit:hover {
+    background: var(--color-coral-hover);
+  }
+  .rv-submit:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+  .rv-spinner {
+    display: block;
+    width: 17px;
+    height: 17px;
+    border-radius: var(--radius-pill);
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    animation: rv-spin 0.7s linear infinite;
+  }
+  @keyframes rv-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .rv-status {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0;
+  }
+  .rv-status.is-ok {
+    color: var(--color-green);
+  }
+  .rv-status.is-err {
+    color: var(--color-coral);
+  }
+  @media (max-width: 560px) {
+    .rv-row {
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+    .rv-submit {
+      width: 100%;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .rv-star,
+    .rv-spinner {
+      transition: none;
+      animation: none;
+    }
   }
 
   /* ---- Related ---- */
@@ -3573,6 +3883,147 @@ const addPriceLabel = formatMoney(
         apply();
       });
       apply();
+    }
+
+    // ── Write a review (MP-26 → Judge.me, awaits moderation) ───
+    const form = $<HTMLFormElement>('[data-rv-form]');
+    if (form) {
+      const wrap = $<HTMLElement>('[data-rv-write]');
+      const openBtn = $<HTMLButtonElement>('[data-rv-write-open]');
+      const closeBtn = $<HTMLButtonElement>('[data-rv-write-close]');
+      const stars = Array.from(form.querySelectorAll<HTMLButtonElement>('.rv-star'));
+      const ratingInput = form.querySelector<HTMLInputElement>('[data-rv-rating]');
+      const submitBtn = form.querySelector<HTMLButtonElement>('[data-rv-submit]');
+      const submitLabel = form.querySelector<HTMLElement>('.rv-submit-label');
+      const submitSpin = form.querySelector<HTMLElement>('.rv-submit-spin');
+      const statusEl = form.querySelector<HTMLElement>('[data-rv-status]');
+      let rating = 0;
+      let sending = false;
+      let done = false;
+
+      const paint = (n: number) =>
+        stars.forEach((s, i) => s.classList.toggle('is-on', i < n));
+
+      const openForm = () => {
+        if (!wrap) return;
+        wrap.hidden = false;
+        openBtn?.setAttribute('aria-expanded', 'true');
+        wrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        form.querySelector<HTMLInputElement>('input[name="name"]')?.focus({ preventScroll: true });
+      };
+      const closeForm = () => {
+        if (!wrap) return;
+        wrap.hidden = true;
+        openBtn?.setAttribute('aria-expanded', 'false');
+      };
+
+      openBtn?.addEventListener('click', () => (wrap?.hidden ? openForm() : closeForm()));
+      closeBtn?.addEventListener('click', closeForm);
+
+      stars.forEach((star, i) => {
+        const val = Number(star.dataset.val) || i + 1;
+        star.addEventListener('mouseenter', () => paint(val));
+        star.addEventListener('focus', () => paint(val));
+        star.addEventListener('click', () => {
+          rating = val;
+          if (ratingInput) ratingInput.value = String(val);
+          stars.forEach((s, si) => s.setAttribute('aria-checked', si < val ? 'true' : 'false'));
+          paint(val);
+        });
+      });
+      form.querySelector('[data-rv-stars]')?.addEventListener('mouseleave', () => paint(rating));
+
+      const setStatus = (msg: string, ok: boolean) => {
+        if (!statusEl) return;
+        statusEl.textContent = msg;
+        statusEl.hidden = false;
+        statusEl.classList.toggle('is-ok', ok);
+        statusEl.classList.toggle('is-err', !ok);
+      };
+
+      const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (sending || done) return;
+
+        const data = new FormData(form);
+        const name = String(data.get('name') ?? '').trim();
+        const email = String(data.get('email') ?? '').trim();
+        const bodyText = String(data.get('body') ?? '').trim();
+
+        // Mirror the server rules so the shopper sees the failing field instantly.
+        form.querySelectorAll('.is-invalid').forEach((el) => el.classList.remove('is-invalid'));
+        if (!rating) {
+          setStatus('Please choose a star rating.', false);
+          form.querySelector('.rv-stars')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return;
+        }
+        if (!name) {
+          form.querySelector('input[name="name"]')?.classList.add('is-invalid');
+          setStatus('Please enter your name.', false);
+          return;
+        }
+        if (!EMAIL.test(email)) {
+          form.querySelector('input[name="email"]')?.classList.add('is-invalid');
+          setStatus('Please enter a valid email.', false);
+          return;
+        }
+        if (bodyText.length < 10) {
+          form.querySelector('textarea[name="body"]')?.classList.add('is-invalid');
+          setStatus('Please add a little more detail to your review.', false);
+          return;
+        }
+
+        sending = true;
+        submitBtn?.setAttribute('disabled', '');
+        if (submitLabel) submitLabel.hidden = true;
+        if (submitSpin) submitSpin.hidden = false;
+        if (statusEl) statusEl.hidden = true;
+
+        try {
+          const res = await fetch('/api/reviews/create', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              productId: form.dataset.productId,
+              rating,
+              name,
+              email,
+              title: String(data.get('title') ?? '').trim(),
+              body: bodyText,
+              website: String(data.get('website') ?? ''),
+            }),
+          });
+          const payload = (await res.json().catch(() => ({}))) as {
+            ok?: boolean;
+            message?: string;
+            error?: string;
+          };
+          if (res.ok && payload.ok) {
+            done = true; // one submission per page view — Judge.me has no idempotency key
+            form.querySelectorAll<HTMLElement>('input, textarea, .rv-star').forEach((el) =>
+              el.setAttribute('disabled', ''),
+            );
+            setStatus(
+              payload.message ?? 'Thank you! Your review will appear once approved.',
+              true,
+            );
+            if (submitBtn) submitBtn.style.display = 'none';
+          } else {
+            setStatus(payload.error ?? 'Something went wrong. Please try again.', false);
+          }
+        } catch {
+          setStatus('We could not reach the review service. Please try again shortly.', false);
+        } finally {
+          sending = false;
+          if (!done) {
+            submitBtn?.removeAttribute('disabled');
+            if (submitLabel) submitLabel.hidden = false;
+            if (submitSpin) submitSpin.hidden = true;
+          }
+        }
+      });
     }
   }
 

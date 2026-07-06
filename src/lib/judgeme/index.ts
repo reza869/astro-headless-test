@@ -144,3 +144,91 @@ export async function getProductReviews(externalId: string): Promise<JudgeMeData
     reviews,
   };
 }
+
+// ============================================================
+//  Write a review (MP-26) — server-side create via REST API.
+// ============================================================
+// Called only from the /api/reviews/create route (never the browser),
+// so the private token stays server-side. Judge.me queues the review
+// as UNPUBLISHED pending merchant moderation; API-created reviews can
+// never be "verified" (that flag is reserved for confirmed orders).
+
+export interface CreateReviewInput {
+  /** Numeric Shopify product id (external id Judge.me maps internally). */
+  externalId: string;
+  name: string;
+  email: string;
+  /** 1–5; callers should pre-clamp but we clamp again defensively. */
+  rating: number;
+  body: string;
+  title?: string;
+  /** Reviewer IP — improves Judge.me's location/spam signals. */
+  ip?: string;
+}
+
+export type CreateReviewResult =
+  | { ok: true }
+  | { ok: false; error: string; status: number };
+
+/**
+ * Submit a review to Judge.me. Returns a discriminated result so the API
+ * route can map failures to HTTP status codes without throwing. Reviews
+ * are created unpublished (await moderation) — a success here means
+ * "accepted", not "live on the PDP".
+ */
+export async function createReview(input: CreateReviewInput): Promise<CreateReviewResult> {
+  if (!JUDGEME_CONFIGURED) {
+    return { ok: false, error: 'Reviews are not configured.', status: 503 };
+  }
+
+  const rating = Math.max(1, Math.min(5, Math.round(input.rating)));
+  const params = new URLSearchParams({
+    // Auth / target — the private token authenticates the shop-owned submission.
+    api_token: TOKEN!,
+    shop_domain: SHOP!,
+    platform: 'shopify',
+    // Reviewer + content.
+    name: input.name,
+    email: input.email,
+    rating: String(rating),
+    body: input.body,
+  });
+  if (input.externalId) params.set('id', input.externalId);
+  if (input.title) params.set('title', input.title);
+  if (input.ip) params.set('ip_addr', input.ip);
+
+  try {
+    const res = await fetch(`${BASE}/reviews`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded',
+        accept: 'application/json',
+        'user-agent': 'Mozilla/5.0 (compatible; TailoredStorefront/1.0)',
+      },
+      body: params.toString(),
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (res.ok) return { ok: true };
+
+    // 4xx = our payload; 5xx = Judge.me. Log the body for diagnostics but
+    // never surface Judge.me's raw response to the shopper.
+    const detail = await res.text().catch(() => '');
+    console.error('[judgeme] create review failed —', res.status, detail.slice(0, 300));
+    return {
+      ok: false,
+      error:
+        res.status >= 500
+          ? 'The review service is temporarily unavailable. Please try again shortly.'
+          : 'We could not submit your review. Please check your details and try again.',
+      status: res.status >= 500 ? 502 : 422,
+    };
+  } catch (err) {
+    console.error('[judgeme] create review error:', (err as Error).message);
+    return {
+      ok: false,
+      error: 'We could not reach the review service. Please try again shortly.',
+      status: 502,
+    };
+  }
+}
