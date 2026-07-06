@@ -4,6 +4,7 @@
 // ============================================================
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import AccountShell from '~/components/account/AccountShell.astro';
+import OrderCard from '~/components/account/OrderCard.astro';
 import Icon from '~/components/ui/Icon.astro';
 import {
   createCustomerClient,
@@ -13,7 +14,6 @@ import {
   NotAuthenticatedError,
 } from '~/lib/shopify/customer';
 import type { CustomerOverview, CustomerOrdersResult, CustomerOrder } from '~/lib/shopify/customer';
-import { formatMoney } from '~/lib/utils';
 
 export const prerender = false;
 
@@ -43,11 +43,6 @@ try {
   console.error('[account/orders] load failed:', (err as Error).message);
   error = (err as Error).message;
 }
-
-const fmtDate = (iso: string) =>
-  new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric' }).format(
-    new Date(iso),
-  );
 ---
 
 <BaseLayout title="Orders" noindex>
@@ -85,30 +80,10 @@ const fmtDate = (iso: string) =>
           </a>
         </div>
       ) : (
-        <ul class="flex flex-col gap-3">
+        <ul class="flex flex-col gap-3.5">
           {orders.map((order) => (
-            <li class="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-surface p-5 ring-1 ring-inset ring-border transition-fluid hover:shadow-xs">
-              <div class="flex items-center gap-4">
-                <span class="grid h-11 w-11 flex-none place-items-center rounded-full bg-coral-soft text-coral">
-                  <Icon name="package" size={20} />
-                </span>
-                <div>
-                  <p class="font-heading text-[18px] font-bold leading-tight text-text-primary">
-                    {order.name}
-                  </p>
-                  <p class="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-text-muted">
-                    <Icon name="clock" size={13} /> {fmtDate(order.processedAt)}
-                  </p>
-                </div>
-              </div>
-              <div class="ml-auto text-right">
-                <p class="text-[10.5px] font-bold uppercase tracking-[1.4px] text-text-muted">Total</p>
-                <p class="font-heading text-[20px] font-extrabold tabular text-text-primary">
-                  {order.totalPrice
-                    ? formatMoney(order.totalPrice.amount, order.totalPrice.currencyCode)
-                    : '—'}
-                </p>
-              </div>
+            <li>
+              <OrderCard order={order} maxItems={6} />
             </li>
           ))}
         </ul>

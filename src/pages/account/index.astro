@@ -8,6 +8,7 @@
 // ============================================================
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import AccountShell from '~/components/account/AccountShell.astro';
+import OrderCard from '~/components/account/OrderCard.astro';
 import Icon from '~/components/ui/Icon.astro';
 import {
   createCustomerClient,
@@ -16,7 +17,6 @@ import {
   NotAuthenticatedError,
 } from '~/lib/shopify/customer';
 import type { CustomerOverview } from '~/lib/shopify/customer';
-import { formatMoney } from '~/lib/utils';
 
 export const prerender = false;
 
@@ -42,11 +42,6 @@ if (loggedIn) {
 const fullName = [customer?.firstName, customer?.lastName].filter(Boolean).join(' ');
 const email = customer?.emailAddress?.emailAddress ?? '';
 const orders = customer?.orders?.nodes ?? [];
-
-const fmtDate = (iso: string) =>
-  new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric' }).format(
-    new Date(iso),
-  );
 
 const perks = [
   { icon: 'package', title: 'Track your orders', copy: 'Follow every order from dispatch to doorstep.' },
@@ -183,21 +178,11 @@ const quickLinks = [
               </a>
             </div>
           ) : (
-            <ul class="divide-y divide-border overflow-hidden rounded-xl bg-surface ring-1 ring-inset ring-border">
+            <div class="flex flex-col gap-3">
               {orders.map((order) => (
-                <li class="flex items-center justify-between gap-4 px-5 py-4">
-                  <div class="min-w-0">
-                    <p class="font-heading text-[17px] font-bold text-text-primary">{order.name}</p>
-                    <p class="mt-0.5 text-[12.5px] text-text-muted">{fmtDate(order.processedAt)}</p>
-                  </div>
-                  <p class="shrink-0 font-bold tabular text-text-primary">
-                    {order.totalPrice
-                      ? formatMoney(order.totalPrice.amount, order.totalPrice.currencyCode)
-                      : '—'}
-                  </p>
-                </li>
+                <OrderCard order={order} maxItems={3} />
               ))}
-            </ul>
+            </div>
           )}
         </div>
       </AccountShell>
