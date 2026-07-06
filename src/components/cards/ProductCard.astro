@@ -26,10 +26,46 @@ const revealCls = actionsVisible
   ? ''
   : 'translate-x-3 opacity-0 group-hover:translate-x-0 group-hover:opacity-100';
 const price = product.priceRange.minVariantPrice;
+const maxPrice = product.priceRange.maxVariantPrice;
 const compareAt = product.compareAtPriceRange?.minVariantPrice;
 const off = discountPercent(price, compareAt);
 const href = `/products/${product.handle}`;
 const img = product.featuredImage;
+// PC-1 — second image to cross-fade to on hover (mapped null when absent).
+const hoverImg = product.secondImage;
+// PC-7 — tiny low-quality placeholder (blur-up) behind the real image.
+const lqip = img ? `${img.url}${img.url.includes('?') ? '&' : '?'}width=32` : null;
+// PC-3 — aggregate rating (only when the merchant synced a rating metafield).
+const rating = typeof product.rating === 'number' ? product.rating : null;
+const ratingCount = product.ratingCount ?? null;
+const ratingStars = rating ? Math.round(rating) : 0;
+// PC-4 — show a "From" price when variants span a range and it isn't on sale
+// (a strike-through compare-at already communicates the markdown otherwise).
+const hasRange = !off && maxPrice && maxPrice.amount !== price.amount;
+// PC-5 — merchant-flagged "New" arrival.
+const isNew = product.isNew === true;
+
+// PC-2 — colour swatches on the card face. Resolve each option value's colour
+// from the real Shopify swatch, falling back to a small keyword map, then to
+// the raw name (many Shopify colours are valid CSS keywords).
+const CARD_COLORS: Record<string, string> = {
+  dark: '#2b2e31', black: '#1b1d1f', tan: '#c8b89a', cream: '#f1e7d6', ivory: '#f1e7d6',
+  coral: '#d95846', green: '#5a9761', blue: '#4576e7', sand: '#cbb68f', gold: '#c9a227',
+  slate: '#3a4250', charcoal: '#3a3d40', camel: '#c2a878', grey: '#8d969c', gray: '#8d969c',
+  navy: '#22304a', white: '#f5f5f0', brown: '#6e5641', olive: '#6b6a44', stone: '#d8ccbb',
+  beige: '#d8c4a5', burgundy: '#7b1e3b', pink: '#e6a4b4', red: '#c0392b', yellow: '#e8c468',
+};
+const resolveHex = (c: { name: string; hex: string | null }) =>
+  c.hex ?? CARD_COLORS[c.name.trim().toLowerCase()] ?? c.name.trim().toLowerCase();
+const allColors = (product.colors ?? []).filter((c) => c?.name);
+// Only worth showing when there's an actual choice of colourways.
+const swatches = allColors.length > 1 ? allColors.slice(0, 4).map((c) => ({ name: c.name, hex: resolveHex(c) })) : [];
+const extraColors = allColors.length > 4 ? allColors.length - 4 : 0;
+
+// PC-6 — when a variant choice matters, the compact "Add" opens Quick View so
+// the shopper picks colour/size instead of silently adding the first variant.
+const quickAdd = product.variantId && product.availableForSale && !product.requiresChoice;
+const chooseAdd = product.availableForSale && product.requiresChoice;
 ---
 
 <article class="pcard group relative overflow-hidden rounded-lg bg-surface shadow-xs transition-fluid hover:-translate-y-[5px] hover:shadow-md">
@@ -42,6 +78,11 @@ const img = product.featuredImage;
         </span>
       ) : (
         <div class="absolute left-3 top-3 z-[2] flex flex-col gap-1.5">
+          {isNew && (
+            <span class="rounded-pill bg-green px-2.5 py-1.5 text-[9.5px] font-bold uppercase tracking-[0.8px] text-white">
+              New
+            </span>
+          )}
           {off && (
             <span class="rounded-pill bg-coral px-2.5 py-1.5 text-[9.5px] font-bold uppercase tracking-[0.8px] text-white">
               -{off}%
@@ -86,13 +127,35 @@ const img = product.featuredImage;
     <a href={href} class="block h-full w-full">
       {
         img ? (
-          <img
-            src={img.url}
-            alt={img.altText ?? product.title}
-            loading={eager ? 'eager' : 'lazy'}
-            decoding="async"
-            class="h-full w-full object-cover transition-transform duration-[1000ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.05]"
-          />
+          <>
+            {/* PC-7 — blurred LQIP sits behind the real image (SEO-safe: the
+                real <img> is always visible, this only shows while it loads). */}
+            {lqip && (
+              <img
+                src={lqip}
+                alt=""
+                aria-hidden="true"
+                class="absolute inset-0 h-full w-full scale-110 object-cover blur-xl"
+              />
+            )}
+            <img
+              src={img.url}
+              alt={img.altText ?? product.title}
+              loading={eager ? 'eager' : 'lazy'}
+              decoding="async"
+              class="relative z-[1] h-full w-full object-cover transition-transform duration-[1000ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.05]"
+            />
+            {hoverImg && (
+              <img
+                src={hoverImg.url}
+                alt=""
+                aria-hidden="true"
+                loading="lazy"
+                decoding="async"
+                class="absolute inset-0 z-[2] h-full w-full object-cover opacity-0 transition-opacity duration-[600ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:opacity-100"
+              />
+            )}
+          </>
         ) : (
           <span class="grid h-full place-items-center text-text-muted">No image</span>
         )
@@ -115,8 +178,41 @@ const img = product.featuredImage;
         {product.title}
       </h3>
     </a>
+    {/* Star rating (PC-3) — only when a rating metafield is present. */}
+    {
+      rating && (
+        <div class="pcard-rating">
+          <span class="stars" aria-hidden="true">
+            <b>{'★'.repeat(ratingStars)}</b>
+            {'★'.repeat(5 - ratingStars)}
+          </span>
+          <span class="rlabel">
+            {rating.toFixed(1)}
+            {ratingCount ? ` (${ratingCount})` : ''}
+          </span>
+        </div>
+      )
+    }
+    {/* Colour swatches (PC-2) — a quick colourway preview at browse level. */}
+    {
+      swatches.length > 0 && (
+        <a href={href} class="mb-2.5 mt-1 flex items-center gap-1.5" aria-label={`${allColors.length} colours available`}>
+          {swatches.map((c) => (
+            <span
+              class="h-3.5 w-3.5 rounded-pill shadow-[inset_0_0_0_1px_rgba(0,0,0,0.12)]"
+              style={`background:${c.hex}`}
+              title={c.name}
+            />
+          ))}
+          {extraColors > 0 && (
+            <span class="text-[10.5px] font-semibold text-text-muted">+{extraColors}</span>
+          )}
+        </a>
+      )
+    }
     <div class="flex items-center justify-between border-t border-border pt-3">
       <span class="text-[16px] font-bold tabular">
+        {hasRange && <span class="mr-1 text-[10.5px] font-semibold uppercase tracking-[0.5px] text-text-muted">From</span>}
         {formatMoney(price.amount, price.currencyCode)}
         {
           compareAt && off && (
@@ -126,9 +222,10 @@ const img = product.featuredImage;
           )
         }
       </span>
-      {/* Compact add — price-row aligned, right. Live add when buyable, else → PDP */}
+      {/* Compact add — price-row aligned, right. Live add for single-variant
+          products; multi-variant opens Quick View (PC-6); sold out → PDP. */}
       {
-        product.variantId && product.availableForSale ? (
+        quickAdd ? (
           <button
             type="button"
             data-variant-id={product.variantId}
@@ -142,6 +239,15 @@ const img = product.featuredImage;
               <span class="h-3.5 w-3.5 animate-spin rounded-pill border-2 border-current border-t-transparent" />
               Add
             </span>
+          </button>
+        ) : chooseAdd ? (
+          <button
+            type="button"
+            data-quick-view={product.handle}
+            aria-label={`Choose options for ${product.title}`}
+            class="quick-view-btn inline-flex flex-none items-center gap-1.5 rounded-md bg-dark px-3 py-2 text-[11px] font-bold uppercase tracking-[0.5px] text-white transition-fluid hover:bg-coral"
+          >
+            <Icon name="plus" size={14} /> Add
           </button>
         ) : (
           <a
@@ -171,6 +277,29 @@ const img = product.featuredImage;
   .wishlist-btn.is-active {
     background: var(--color-coral);
     color: #fff;
+  }
+
+  /* Card star rating (PC-3) — coral filled + muted remainder. */
+  .pcard-rating {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 2px 0 4px;
+  }
+  .pcard-rating .stars {
+    font-size: 12px;
+    letter-spacing: 1px;
+    line-height: 1;
+    color: var(--color-border);
+  }
+  .pcard-rating .stars b {
+    color: var(--color-coral);
+    font-weight: 400;
+  }
+  .pcard-rating .rlabel {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-muted);
   }
 </style>
 

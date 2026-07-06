@@ -629,6 +629,15 @@ function CartRow({
           {m.product.title}
         </a>
         {meta && <div className="text-[12.5px] text-text-muted">{meta}</div>}
+        {line.attributes && line.attributes.length > 0 && (
+          <ul className="space-y-0.5">
+            {line.attributes.map((a) => (
+              <li key={a.key} className="text-[12px] text-text-muted">
+                <span className="font-semibold">{a.key}:</span> {a.value}
+              </li>
+            ))}
+          </ul>
+        )}
         <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-green">
           <CheckCircle2 size={14} strokeWidth={1.9} /> {m.availableForSale ? 'In stock' : 'Made to order'}
         </div>

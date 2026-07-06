@@ -20,9 +20,25 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       return json({ cart: null, userErrors: [{ message: 'Invalid variant id' }] }, 400);
     }
 
+    // Optional line-item personalization (MP-24). Sanitise to a small, bounded
+    // set of non-empty string key/value pairs; never trust raw client input.
+    const attributes = Array.isArray(body?.attributes)
+      ? body.attributes
+          .filter((a: unknown): a is { key: string; value: string } => {
+            const o = a as { key?: unknown; value?: unknown };
+            return typeof o?.key === 'string' && typeof o?.value === 'string';
+          })
+          .map((a: { key: string; value: string }) => ({
+            key: a.key.trim().slice(0, 80),
+            value: a.value.trim().slice(0, 500),
+          }))
+          .filter((a: { key: string; value: string }) => a.key && a.value)
+          .slice(0, 10)
+      : undefined;
+
     const { cart, userErrors } = await addLines(
       cookies,
-      [{ merchandiseId, quantity }],
+      [{ merchandiseId, quantity, ...(attributes?.length ? { attributes } : {}) }],
       clientIp(request),
     );
     return json({ cart, userErrors });

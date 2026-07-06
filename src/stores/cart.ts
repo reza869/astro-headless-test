@@ -78,17 +78,25 @@ function applyResult(data: MutationResponse): MutationResponse {
   return data;
 }
 
-/** Add a variant to the cart; opens the drawer on success by default. */
+export interface LineAttribute {
+  key: string;
+  value: string;
+}
+
+/** Add a variant to the cart; opens the drawer on success by default.
+ *  `attributes` carries optional line-item personalization (MP-24). */
 export async function addItem(
   merchandiseId: string,
   quantity = 1,
-  options: { open?: boolean } = {},
+  options: { open?: boolean; attributes?: LineAttribute[] } = {},
 ): Promise<MutationResponse> {
-  const { open = true } = options;
+  const { open = true, attributes } = options;
   $cartBusy.set(true);
   $cartError.set(null);
   try {
-    const data = applyResult(await post('/api/cart/add', { merchandiseId, quantity }));
+    const data = applyResult(
+      await post('/api/cart/add', { merchandiseId, quantity, attributes }),
+    );
     if (open && data.cart) openCart();
     return data;
   } catch {
@@ -122,11 +130,15 @@ export async function applyDiscountCode(
 }
 
 /** Add then redirect straight to Shopify's hosted checkout. */
-export async function buyNow(merchandiseId: string, quantity = 1): Promise<void> {
+export async function buyNow(
+  merchandiseId: string,
+  quantity = 1,
+  attributes?: LineAttribute[],
+): Promise<void> {
   $cartBusy.set(true);
   $cartError.set(null);
   try {
-    const data = applyResult(await post('/api/cart/add', { merchandiseId, quantity }));
+    const data = applyResult(await post('/api/cart/add', { merchandiseId, quantity, attributes }));
     const url = data.cart?.checkoutUrl;
     if (url) {
       window.location.href = url;

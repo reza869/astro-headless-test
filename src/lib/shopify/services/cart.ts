@@ -23,9 +23,16 @@ export interface CartResult {
   userErrors: UserError[];
 }
 
+export interface CartLineAttribute {
+  key: string;
+  value: string;
+}
+
 export interface CartLineInput {
   merchandiseId: string;
   quantity: number;
+  /** Line-item properties — personalization / gift notes (MP-24). */
+  attributes?: CartLineAttribute[];
 }
 
 export interface CartLineUpdateInput {

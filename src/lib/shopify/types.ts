@@ -22,16 +22,42 @@ export interface SelectedOption {
   value: string;
 }
 
+/** Purchase quantity rules for a variant (min / max / step) — MP-8. */
+export interface QuantityRule {
+  minimum: number;
+  maximum?: number | null;
+  increment: number;
+}
+
 export interface ProductVariant {
   id: string;
   title: string;
   sku?: string | null;
+  barcode?: string | null;
   availableForSale: boolean;
   quantityAvailable?: number | null;
+  /** True when the variant is out of stock but sells on a "continue" policy. */
+  currentlyNotInStock?: boolean;
+  /** Min/max/increment purchase rules, when the merchant sets them. */
+  quantityRule?: QuantityRule | null;
   selectedOptions: SelectedOption[];
   price: Money;
   compareAtPrice?: Money | null;
   image?: Image | null;
+}
+
+/** A product media node — image, hosted video, external video, or 3D model. */
+export interface ProductMedia {
+  type: 'image' | 'video' | 'external_video' | 'model_3d';
+  alt?: string | null;
+  previewImage?: Image | null;
+  /** For image media. */
+  image?: Image | null;
+  /** For Video / Model3d — playable source files. */
+  sources?: { url: string; mimeType?: string | null }[];
+  /** For ExternalVideo (YouTube / Vimeo). */
+  embeddedUrl?: string | null;
+  host?: string | null;
 }
 
 /**
@@ -42,6 +68,7 @@ export interface ProductVariant {
  */
 export interface ProductMetafields {
   rating?: string;
+  ratingCount?: string;
   newBadge?: string;
   material?: string;
   lining?: string;
@@ -53,11 +80,30 @@ export interface ProductMetafields {
   unitsSold?: string;
   /** Newline-separated "Details & Fit" bullet points. */
   fitNotes?: string;
+  /** ISO datetime the sale/drop countdown ends (MP-22). */
+  countdown?: string;
+  /** Discount code surfaced in a copy-to-clipboard block (MP-23). */
+  promoCode?: string;
+  /** Per-product size-guide HTML sourced from a metafield (MP-29). */
+  sizeGuide?: string;
+  /** "Label: value" lines (one per row) for the spec table (MP-18). */
+  specification?: string;
+  /** Newline-separated personalization field labels (MP-24). */
+  personalization?: string;
+}
+
+export interface OptionSwatch {
+  /** Merchant-defined hex/CSS colour, when set on the option value. */
+  color?: string | null;
+  /** Preview image URL for image-based swatches (patterns/textures). */
+  image?: string | null;
 }
 
 export interface ProductOptionValue {
   id: string;
   name: string;
+  /** Real Shopify swatch (colour or image) — preferred over the name→hex map. */
+  swatch?: OptionSwatch | null;
 }
 
 export interface ProductOption {
@@ -83,6 +129,8 @@ export interface Product {
   availableForSale: boolean;
   featuredImage?: Image | null;
   images: Image[];
+  /** Ordered media (images + videos + 3D) — drives video slides on the PDP. */
+  media?: ProductMedia[];
   priceRange: {
     minVariantPrice: Money;
     maxVariantPrice: Money;
@@ -107,6 +155,9 @@ export interface ProductCard {
   /** First variant id — enables quick add-to-cart straight from the grid. */
   variantId?: string | null;
   featuredImage?: Image | null;
+  /** Second gallery image — powers the card hover-swap (PC-1). Null when the
+   *  product has only one image (or the 2nd equals the featured image). */
+  secondImage?: Image | null;
   priceRange: {
     minVariantPrice: Money;
     maxVariantPrice: Money;
@@ -114,8 +165,16 @@ export interface ProductCard {
   compareAtPriceRange?: {
     minVariantPrice: Money;
   };
-  /** Optional facets — only populated by the enriched shop catalogue query
-   *  (getShopProducts); the lean card grids leave these undefined. */
+  /** True when a variant choice actually matters (some option has >1 value) —
+   *  the card routes "Add" to Quick View rather than blindly adding variant 1. */
+  requiresChoice?: boolean;
+  /** Date-gated "New" flag from the meta.product_new_badge metafield (PC-5). */
+  isNew?: boolean;
+  /** Aggregate rating from the reviews.rating / rating_count metafields (PC-3);
+   *  null when the merchant hasn't synced a rating metafield. */
+  rating?: number | null;
+  ratingCount?: number | null;
+  /** Product type / category label (PC-9). */
   productType?: string;
   tags?: string[];
   createdAt?: string;
@@ -193,6 +252,8 @@ export interface CartLine {
     amountPerQuantity: Money;
   };
   merchandise: CartLineMerchandise;
+  /** Line-item properties (personalization / gift notes) — MP-24. */
+  attributes?: { key: string; value: string }[];
 }
 
 export interface Cart {

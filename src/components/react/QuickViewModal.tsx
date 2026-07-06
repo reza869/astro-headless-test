@@ -26,6 +26,15 @@ const COLOR_HEX: Record<string, string> = {
 const swatchColor = (name: string) => COLOR_HEX[name.toLowerCase()] ?? name.toLowerCase();
 const isColorOption = (name: string) => /colou?r/i.test(name);
 
+/** Background style for a swatch — prefer the real Shopify swatch (image or
+ *  colour), falling back to the keyword map / raw name (MP-2). */
+function swatchStyle(ov: { name: string; swatch?: { color?: string | null; image?: string | null } | null }) {
+  if (ov.swatch?.image) {
+    return { backgroundImage: `url(${ov.swatch.image})`, backgroundSize: 'cover', backgroundPosition: 'center' };
+  }
+  return { backgroundColor: ov.swatch?.color ?? swatchColor(ov.name) };
+}
+
 function findVariant(variants: ProductVariant[], selected: Record<string, string>) {
   return variants.find((v) => v.selectedOptions.every((o) => selected[o.name] === o.value));
 }
@@ -269,7 +278,7 @@ export default function QuickViewModal() {
                               className={`relative grid h-8 w-8 place-items-center rounded-full ring-1 ring-inset ring-black/10 transition-fluid ${
                                 active ? 'ring-2 ring-dark ring-offset-2' : ''
                               } ${!possible && !active ? 'opacity-40' : ''}`}
-                              style={{ backgroundColor: swatchColor(ov.name) }}
+                              style={swatchStyle(ov)}
                             >
                               {active && (
                                 <Check

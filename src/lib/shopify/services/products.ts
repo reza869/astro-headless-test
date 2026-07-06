@@ -104,14 +104,16 @@ export async function getProduct(handle: string): Promise<Product | null> {
   return data.product ? mapProduct(data.product) : null;
 }
 
-/** Related products for a PDP. */
+/** Related products for a PDP. `intent` picks Shopify's RELATED ("you may also
+ *  like") or COMPLEMENTARY ("goes well with") recommendation set (MP-20). */
 export async function getProductRecommendations(
   productId: string,
   limit = 4,
+  intent: 'RELATED' | 'COMPLEMENTARY' = 'RELATED',
 ): Promise<ProductCard[]> {
   const data = await shopifyFetch<{ productRecommendations: any[] | null }>(
     PRODUCT_RECOMMENDATIONS_QUERY,
-    { productId },
+    { productId, intent },
     TTL_LIST,
   );
   return (data.productRecommendations ?? []).slice(0, limit).map(mapProductCard);

@@ -5,6 +5,8 @@ import {
   MONEY_FRAGMENT,
   IMAGE_FRAGMENT,
   VARIANT_FRAGMENT,
+  OPTION_SWATCH_FRAGMENT,
+  MEDIA_FRAGMENT,
   CARD_FRAGMENTS,
 } from './fragments';
 
@@ -62,22 +64,12 @@ export const SHOP_PRODUCTS_QUERY = /* GraphQL */ `
       edges {
         node {
           ...ProductCard
-          productType
           createdAt
           tags
           collections(first: 12) {
             nodes {
               title
               handle
-            }
-          }
-          options {
-            name
-            optionValues {
-              name
-              swatch {
-                color
-              }
             }
           }
         }
@@ -95,6 +87,8 @@ export const PRODUCT_BY_HANDLE_QUERY = /* GraphQL */ `
   ${MONEY_FRAGMENT}
   ${IMAGE_FRAGMENT}
   ${VARIANT_FRAGMENT}
+  ${OPTION_SWATCH_FRAGMENT}
+  ${MEDIA_FRAGMENT}
   query ProductByHandle($handle: String!) {
     product(handle: $handle) {
       id
@@ -116,6 +110,13 @@ export const PRODUCT_BY_HANDLE_QUERY = /* GraphQL */ `
           }
         }
       }
+      media(first: 20) {
+        edges {
+          node {
+            ...MediaFields
+          }
+        }
+      }
       priceRange {
         minVariantPrice {
           ...Money
@@ -130,12 +131,7 @@ export const PRODUCT_BY_HANDLE_QUERY = /* GraphQL */ `
         }
       }
       options {
-        id
-        name
-        optionValues {
-          id
-          name
-        }
+        ...OptionSwatch
       }
       variants(first: 100) {
         edges {
@@ -150,6 +146,7 @@ export const PRODUCT_BY_HANDLE_QUERY = /* GraphQL */ `
       }
       metafields(identifiers: [
         { namespace: "reviews", key: "rating" }
+        { namespace: "reviews", key: "rating_count" }
         { namespace: "meta", key: "product_new_badge" }
         { namespace: "custom", key: "material" }
         { namespace: "custom", key: "lining" }
@@ -160,6 +157,11 @@ export const PRODUCT_BY_HANDLE_QUERY = /* GraphQL */ `
         { namespace: "custom", key: "dispatch" }
         { namespace: "custom", key: "units_sold" }
         { namespace: "custom", key: "fit_notes" }
+        { namespace: "meta", key: "product_countdown" }
+        { namespace: "custom", key: "promo_code" }
+        { namespace: "meta", key: "product_size_guide" }
+        { namespace: "custom", key: "product_specification" }
+        { namespace: "custom", key: "personalization" }
       ]) {
         namespace
         key
@@ -169,11 +171,12 @@ export const PRODUCT_BY_HANDLE_QUERY = /* GraphQL */ `
   }
 `;
 
-/** Related products for the PDP. */
+/** Related products for the PDP. `intent` selects RELATED (default, "you may
+ *  also like") or COMPLEMENTARY ("goes well with") for cross-sell (MP-20). */
 export const PRODUCT_RECOMMENDATIONS_QUERY = /* GraphQL */ `
   ${CARD_FRAGMENTS}
-  query ProductRecommendations($productId: ID!) {
-    productRecommendations(productId: $productId) {
+  query ProductRecommendations($productId: ID!, $intent: ProductRecommendationIntent = RELATED) {
+    productRecommendations(productId: $productId, intent: $intent) {
       ...ProductCard
     }
   }

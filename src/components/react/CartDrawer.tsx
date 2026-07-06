@@ -302,6 +302,15 @@ function CartLineRow({ line, currency }: { line: CartLine; currency: string }) {
             {optionText && (
               <p className="mt-1 text-[12.5px] text-text-muted">{optionText}</p>
             )}
+            {line.attributes && line.attributes.length > 0 && (
+              <ul className="mt-1 space-y-0.5">
+                {line.attributes.map((a) => (
+                  <li key={a.key} className="truncate text-[11.5px] text-text-muted">
+                    <span className="font-semibold">{a.key}:</span> {a.value}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <span className="shrink-0 text-[15px] font-bold tabular text-text-primary">
             {formatMoney(line.cost.totalAmount.amount, currency)}
