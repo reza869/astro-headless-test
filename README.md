@@ -2,7 +2,16 @@
 
 A modern, headless Shopify storefront theme built with [Astro](https://astro.build), React islands, and Tailwind CSS. It talks to your store through the Shopify Storefront API, so your content stays in Shopify while the front end stays fast and fully custom.
 
-![Tailored preview](./public/og-image.png)
+![Tailored preview](./public/banner.png)
+
+## Why Astro?
+
+Astro ships **zero JavaScript by default** and hydrates only the interactive pieces (cart, search, account) as isolated islands. The result is a storefront that loads fast and scores well where it matters:
+
+- **Server-rendered HTML** streamed from the edge — minimal client-side JS.
+- **Excellent Core Web Vitals** (LCP, CLS, INP) and high PageSpeed / Lighthouse scores out of the box.
+- **Islands architecture** — React only where you need it, static HTML everywhere else.
+- **SEO-ready** — clean markup, JSON-LD structured data, and dynamic sitemap/robots.
 
 ## Prerequisites
 
@@ -54,6 +63,48 @@ Build for production and preview the output locally:
 npm run build
 npm run preview
 ```
+
+## Command Reference
+
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start the local dev server at `http://localhost:4321`. |
+| `npm run build` | Build the production site to `dist/`. |
+| `npm run preview` | Serve the production build locally to test before deploying. |
+| `npm run check` | Run `astro check` for type and diagnostic errors. |
+| `npm run astro` | Run any Astro CLI command directly (e.g. `npm run astro -- add`). |
+
+## Project Structure
+
+```
+src/
+├── assets/       # Images and static assets processed by Astro
+├── components/   # UI components (cards, product, sections, global, ui, react islands)
+├── config/       # Site config (brand, nav, contact, feature flags)
+├── layouts/      # Base and page layout shells
+├── lib/          # Shopify Storefront client, Judge.me, cart, and helpers
+├── pages/        # Routes, including /api endpoints (cart, search, contact)
+├── stores/       # Nanostores state (cart, wishlist)
+└── styles/       # Global Tailwind CSS and design tokens
+public/           # Static files served as-is (images, favicon, banner)
+```
+
+## Troubleshooting
+
+**401 / 403 "Access denied" from the Storefront API**
+Your token or scopes are wrong. Confirm `SHOPIFY_STOREFRONT_PRIVATE_TOKEN` comes from the **Headless** app's storefront, and that Storefront API access is enabled. Also check `SHOPIFY_SHOP_DOMAIN` is the `*.myshopify.com` domain (not a custom domain).
+
+**No products show up**
+Make sure your products are **published to the Headless sales channel** in Shopify, and that at least one product is active with a price.
+
+**Prices all show as $1 (or the wrong currency)**
+This is a Shopify **Markets** configuration issue, not a theme bug. Review your Markets settings and test in a fresh session.
+
+**Customer login redirects fail**
+The Customer Account API requires an **HTTPS** origin — it rejects `http://localhost`. Use a tunnel (e.g. Cloudflare Tunnel) and register that HTTPS host in the Headless channel's Customer Account API settings. See `.env.example` for the exact callback/origin/logout URIs.
+
+**Reviews don't appear**
+Judge.me is optional. When `JUDGEME_PRIVATE_TOKEN` is unset the PDP simply shows no reviews — nothing breaks.
 
 ## License
 
