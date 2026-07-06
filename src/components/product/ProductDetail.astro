@@ -203,14 +203,26 @@ const COLORS: Record<string, string> = {
 };
 const swatchHex = (name: string) => COLORS[name.trim().toLowerCase()] ?? name.toLowerCase();
 
-const colorOption = product.options.find((o) => /colou?r/i.test(o.name));
+// Ignore Shopify's reserved single-variant placeholder option ("Title" with a
+// lone "Default Title" value) — it isn't a real choice, so it must not render
+// as a picker.
+const realOptions = product.options.filter(
+  (o) =>
+    !(
+      o.name === 'Title' &&
+      o.optionValues.length === 1 &&
+      /^default title$/i.test(o.optionValues[0]?.name ?? '')
+    ),
+);
+
+const colorOption = realOptions.find((o) => /colou?r/i.test(o.name));
 // Second picker = the Size option, or — for products optioned by Material,
 // Style, Fit, etc. — the first non-colour option, so EVERY two-option product
 // is fully selectable (not just Colour/Size). Products with a 3rd option fall
 // back to their first two dimensions.
 const sizeOption =
-  product.options.find((o) => /size/i.test(o.name)) ??
-  product.options.find((o) => o.name !== colorOption?.name);
+  realOptions.find((o) => /size/i.test(o.name)) ??
+  realOptions.find((o) => o.name !== colorOption?.name);
 // Only a real size picker gets the "Size guide" affordance.
 const isSizeOption = !!sizeOption && /size/i.test(sizeOption.name);
 
@@ -284,13 +296,23 @@ const config = JSON.stringify({
   // Low-stock threshold below which we surface "Only N left" (MP-7).
   lowStockThreshold: 10,
   variants: variantData,
-  // MP-19 — minimal snapshot recorded to localStorage for the recently-viewed rail.
+  // MP-19 — snapshot recorded to localStorage so the recently-viewed rail can
+  // render full ProductCard-parity cards (image, badges, actions, price).
   snapshot: {
+    id: product.id,
     handle: product.handle,
     title: product.title,
     image: product.featuredImage?.url ?? images[0]?.url ?? '',
     price: product.priceRange.minVariantPrice.amount,
+    compareAt: product.compareAtPriceRange?.minVariantPrice?.amount ?? null,
+    vendor: product.vendor ?? '',
     currency,
+    variantId: product.variants[0]?.id ?? null,
+    available: product.availableForSale,
+    requiresChoice: product.options
+      .filter((o) => o.name !== 'Title')
+      .some((o) => o.optionValues.length > 1),
+    isNew,
   },
 });
 
@@ -782,8 +804,17 @@ const addPriceLabel = formatMoney(
           <span class="mag-label">Pick Up Where You Left Off</span>
           <h2>Recently <em>viewed.</em></h2>
         </div>
+        <div class="recent-nav" data-recent-nav hidden>
+          <button type="button" class="rc-arrow" data-recent-prev aria-label="Scroll back">
+            <Icon name="chevronLeft" size={18} />
+          </button>
+          <button type="button" class="rc-arrow" data-recent-next aria-label="Scroll forward">
+            <Icon name="chevronRight" size={18} />
+          </button>
+        </div>
       </div>
-      <div class="recent-grid" data-recent-grid></div>
+      {/* Layout class (grid ≤4 / rail >4) + cards are set by the client. */}
+      <div class="recent-track" data-recent-grid></div>
     </div>
   </section>
 
@@ -1183,6 +1214,12 @@ const addPriceLabel = formatMoney(
     color: var(--color-text-secondary);
     margin-bottom: 8px;
     max-width: 48ch;
+    /* Cap at three lines with a graceful ellipsis. */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
   }
   .pdp-divider {
     height: 1px;
@@ -1435,15 +1472,15 @@ const addPriceLabel = formatMoney(
     box-shadow: inset 0 0 0 2px var(--color-coral);
   }
 
-  /* ---- Low-stock signal (MP-7) ---- */
+  /* ---- Stock availability signal (MP-7) ---- */
   .pdp-stock {
     display: flex;
     align-items: center;
     gap: 8px;
     font-size: 12.5px;
     font-weight: 700;
-    color: var(--color-coral);
     margin-bottom: 14px;
+    color: var(--color-green);
   }
   .pdp-stock[hidden] {
     display: none;
@@ -1453,7 +1490,21 @@ const addPriceLabel = formatMoney(
     width: 7px;
     height: 7px;
     border-radius: var(--radius-pill);
-    background: var(--color-coral);
+    background: currentColor;
+  }
+  .pdp-stock.is-in {
+    color: var(--color-green);
+  }
+  .pdp-stock.is-low,
+  .pdp-stock.is-order {
+    color: var(--color-coral);
+  }
+  .pdp-stock.is-out {
+    color: var(--color-text-muted);
+  }
+  /* Pulse the dot only for the urgency states. */
+  .pdp-stock.is-low::before,
+  .pdp-stock.is-order::before {
     animation: pdp-pulse 1.8s ease-in-out infinite;
   }
   @keyframes pdp-pulse {
@@ -2457,61 +2508,68 @@ const addPriceLabel = formatMoney(
     display: none;
   }
 
-  /* ---- Recently viewed (MP-19) ---- */
+  /* ---- Recently viewed (MP-19): grid ≤4, slider >4 ---- */
   .recent {
     padding: 0 0 90px;
   }
-  .recent-grid {
+  .recent-nav {
+    display: flex;
+    gap: 8px;
+  }
+  .recent-nav[hidden] {
+    display: none;
+  }
+  .rc-arrow {
+    width: 42px;
+    height: 42px;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    place-items: center;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    box-shadow: inset 0 0 0 1px var(--color-border);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  }
+  .rc-arrow:hover {
+    background: var(--color-dark);
+    color: #fff;
+    box-shadow: none;
+  }
+  .rc-arrow:focus-visible {
+    outline: 2px solid var(--color-coral);
+    outline-offset: 2px;
+  }
+  /* Grid mode (1–4 items): same 4/2/2 track as the "You may also like" grid,
+     so a couple of cards keep their own columns instead of stretching wide. */
+  .recent-track.is-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 24px;
   }
-  .rc-card {
-    display: block;
-    background: var(--color-surface);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-    box-shadow: var(--shadow-xs);
-    transition: transform 0.3s, box-shadow 0.3s;
+  /* Slider mode (>4 items): horizontal scroll-snap rail. Card widths are set
+     with utility classes on each card so they apply to the injected markup. */
+  .recent-track.is-rail {
+    display: flex;
+    gap: 24px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    padding-bottom: 4px;
   }
-  .rc-card:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-md);
+  .recent-track.is-rail::-webkit-scrollbar {
+    display: none;
   }
-  .rc-img {
-    aspect-ratio: 3/4;
-    background: var(--color-surface-cool);
-    overflow: hidden;
+  @media (max-width: 1080px) {
+    .recent-track.is-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
-  .rc-img img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 0.7s var(--ease-out-soft);
-  }
-  .rc-card:hover .rc-img img {
-    transform: scale(1.05);
-  }
-  .rc-meta {
-    padding: 13px 15px 16px;
-  }
-  .rc-name {
-    font-family: var(--font-heading);
-    font-size: 17px;
-    font-weight: 700;
-    line-height: 1;
-    color: var(--color-text-primary);
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    overflow: hidden;
-  }
-  .rc-price {
-    font-size: 13px;
-    font-weight: 700;
-    margin-top: 7px;
-    color: var(--color-text-primary);
+  @media (max-width: 680px) {
+    .recent-track.is-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
   }
 
   /* ---- Sticky add-to-cart bar (MP-16) ---- */
@@ -2658,6 +2716,22 @@ const addPriceLabel = formatMoney(
   }
 </style>
 
+{/* Recently-viewed cards are injected as HTML (not Astro-scoped), so the two
+    interaction styles ProductCard defines in scoped CSS are provided globally
+    here — bounded to `.recent` so nothing else is affected. */}
+<style is:global>
+  .recent .wishlist-btn.is-active {
+    background: var(--color-coral);
+    color: #fff;
+  }
+  .recent .add-to-bag-btn[data-loading] .btn-default {
+    display: none;
+  }
+  .recent .add-to-bag-btn[data-loading] .btn-loading {
+    display: inline-flex;
+  }
+</style>
+
 <script>
   import { addItem, buyNow } from '~/stores/cart';
   import { $wishlist, toggleWishlist } from '~/stores/wishlist';
@@ -2686,11 +2760,18 @@ const addPriceLabel = formatMoney(
     lowStockThreshold: number;
     variants: VariantInfo[];
     snapshot?: {
+      id: string;
       handle: string;
       title: string;
       image: string;
       price: string;
+      compareAt: string | null;
+      vendor: string;
       currency: string;
+      variantId: string | null;
+      available: boolean;
+      requiresChoice: boolean;
+      isNew: boolean;
     };
   }
 
@@ -2901,22 +2982,28 @@ const addPriceLabel = formatMoney(
     const syncStock = () => {
       const v = resolve();
       const q = v?.qty ?? null;
+      const buyable = !!v && v.available;
 
-      // Low-stock / made-to-order line.
+      // Availability line — always shows a status for the resolved variant.
       if (stockEl) {
+        stockEl.classList.remove('is-in', 'is-low', 'is-order', 'is-out');
         if (v && v.available && typeof q === 'number' && q > 0 && q <= cfg.lowStockThreshold) {
           stockEl.textContent = q === 1 ? 'Only 1 left in stock' : `Only ${q} left — selling fast`;
-          stockEl.hidden = false;
+          stockEl.classList.add('is-low');
         } else if (v && v.continueSelling) {
           stockEl.textContent = 'Made to order · ships when restocked';
-          stockEl.hidden = false;
+          stockEl.classList.add('is-order');
+        } else if (buyable) {
+          stockEl.textContent = 'In stock';
+          stockEl.classList.add('is-in');
         } else {
-          stockEl.hidden = true;
+          stockEl.textContent = 'Out of stock';
+          stockEl.classList.add('is-out');
         }
+        stockEl.hidden = false;
       }
 
       // Add button: pre-order on continue-selling, sold out when unbuyable.
-      const buyable = !!v && v.available;
       if (addLabelEl) {
         addLabelEl.textContent = v?.continueSelling
           ? 'Pre-order'
@@ -3292,16 +3379,84 @@ const addPriceLabel = formatMoney(
     }
 
     // ── Recently viewed (MP-19) ────────────────────────────
-    // Pure client + localStorage: store a tiny snapshot per PDP view and render
-    // the previous ones as a rail. No network round-trip.
+    // Pure client + localStorage: store a snapshot per PDP view and render the
+    // previous ones as ProductCard-parity cards — a 4/2/2 grid for 1–4 items,
+    // a scroll-snap slider (with arrows) beyond that. No network round-trip.
     try {
       const KEY = 'tailored:recentlyViewed';
       const snap = cfg.snapshot;
-      const escapeHtml = (s: string) =>
-        s.replace(/[&<>"']/g, (c) =>
+      const esc = (s: string) =>
+        String(s ?? '').replace(/[&<>"']/g, (c) =>
           ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string,
         );
-      let list: PdpConfig['snapshot'][] = [];
+      const svg = (paths: string, size: number) =>
+        `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+      const ICON = {
+        heart: '<path d="M19 14c1.5-1.5 3-3.4 3-5.5A4.5 4.5 0 0 0 12 5 4.5 4.5 0 0 0 2 8.5C2 12 5 14 12 20c3-2.6 5-4.4 7-6Z"/>',
+        eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+        plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+      };
+      const fmt = (amt: string, cur: string) => {
+        const n = Number(amt);
+        if (!Number.isFinite(n)) return '';
+        return new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: cur || 'USD',
+          minimumFractionDigits: Number.isInteger(n) ? 0 : 2,
+        }).format(n);
+      };
+
+      type Snap = NonNullable<PdpConfig['snapshot']>;
+      const reveal = 'translate-x-3 opacity-0 group-hover:translate-x-0 group-hover:opacity-100';
+      // A ProductCard-identical card (utility classes only, so it styles the
+      // injected markup); actions reuse the same hooks the theme card uses.
+      const rvCard = (s: Snap, rail: boolean): string => {
+        const href = `/products/${encodeURIComponent(s.handle)}`;
+        const price = Number(s.price);
+        const cmp = s.compareAt != null ? Number(s.compareAt) : null;
+        const onSale = cmp != null && Number.isFinite(cmp) && cmp > price;
+        const off = onSale ? Math.round(((cmp! - price) / cmp!) * 100) : 0;
+        const badges: string[] = [];
+        if (s.isNew) badges.push('<span class="rounded-pill bg-green px-2.5 py-1.5 text-[9.5px] font-bold uppercase tracking-[0.8px] text-white">New</span>');
+        if (off >= 1) badges.push(`<span class="rounded-pill bg-coral px-2.5 py-1.5 text-[9.5px] font-bold uppercase tracking-[0.8px] text-white">-${off}%</span>`);
+        if (!s.available) badges.push('<span class="rounded-pill bg-dark px-2.5 py-1.5 text-[9.5px] font-bold uppercase tracking-[0.8px] text-white">Sold out</span>');
+        const lqip = s.image
+          ? `<img src="${esc(s.image)}${s.image.includes('?') ? '&' : '?'}width=32" alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover blur-xl">`
+          : '';
+        const vendor = s.vendor
+          ? `<span class="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[1.1px] text-green"><span class="h-[5px] w-[5px] rounded-pill bg-green"></span>${esc(s.vendor)}</span>`
+          : '';
+        const priceHtml = `${fmt(s.price, s.currency)}${onSale ? `<span class="ml-1.5 text-[12.5px] font-medium text-text-muted line-through">${fmt(String(cmp), s.currency)}</span>` : ''}`;
+        let cta: string;
+        if (s.variantId && s.available && !s.requiresChoice) {
+          cta = `<button type="button" data-variant-id="${esc(s.variantId)}" aria-label="Add ${esc(s.title)} to bag" class="add-to-bag-btn inline-flex flex-none items-center gap-1.5 rounded-md bg-dark px-3 py-2 text-[11px] font-bold uppercase tracking-[0.5px] text-white transition-fluid hover:bg-coral disabled:opacity-50 data-[loading]:pointer-events-none"><span class="btn-default inline-flex items-center gap-1.5">${svg(ICON.plus, 14)} Add</span><span class="btn-loading hidden items-center gap-1.5"><span class="h-3.5 w-3.5 animate-spin rounded-pill border-2 border-current border-t-transparent"></span> Add</span></button>`;
+        } else if (s.available && s.requiresChoice) {
+          cta = `<button type="button" data-quick-view="${esc(s.handle)}" aria-label="Choose options for ${esc(s.title)}" class="quick-view-btn inline-flex flex-none items-center gap-1.5 rounded-md bg-dark px-3 py-2 text-[11px] font-bold uppercase tracking-[0.5px] text-white transition-fluid hover:bg-coral">${svg(ICON.plus, 14)} Add</button>`;
+        } else {
+          cta = `<a href="${href}" class="inline-flex flex-none items-center gap-1.5 rounded-md bg-dark px-3 py-2 text-[11px] font-bold uppercase tracking-[0.5px] text-white transition-fluid hover:bg-coral">${svg(ICON.plus, 14)} Add</a>`;
+        }
+        const widthCls = rail ? 'flex-none w-[78%] sm:w-[46%] lg:w-[calc(25%_-_18px)] snap-start' : '';
+        return `<article class="pcard group relative overflow-hidden rounded-lg bg-surface shadow-xs transition-fluid hover:-translate-y-[5px] hover:shadow-md ${widthCls}">
+    <div class="relative aspect-[3/4] overflow-hidden bg-surface-cool">
+      <div class="absolute left-3 top-3 z-[2] flex flex-col gap-1.5">${badges.join('')}</div>
+      <div class="absolute right-3 top-3 z-[3] flex flex-col gap-2">
+        <button type="button" data-wishlist="${esc(s.id)}" aria-label="Add ${esc(s.title)} to wishlist" aria-pressed="false" class="wishlist-btn grid h-9 w-9 place-items-center rounded-full bg-white text-dark shadow-sm transition-fluid hover:scale-110 ${reveal}">${svg(ICON.heart, 16)}</button>
+        <button type="button" data-quick-view="${esc(s.handle)}" aria-label="Quick view ${esc(s.title)}" class="quick-view-btn grid h-9 w-9 place-items-center rounded-full bg-white text-dark shadow-sm transition-fluid hover:scale-110 hover:bg-coral hover:text-white ${reveal}">${svg(ICON.eye, 17)}</button>
+      </div>
+      <a href="${href}" class="block h-full w-full">${lqip}<img src="${esc(s.image)}" alt="${esc(s.title)}" loading="lazy" decoding="async" class="relative z-[1] h-full w-full object-cover transition-transform duration-[1000ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.05]"></a>
+    </div>
+    <div class="px-[17px] pb-[18px] pt-4">
+      ${vendor}
+      <a href="${href}"><h3 class="my-2 font-heading text-[21px] font-bold leading-[0.98] text-text-primary transition-fluid hover:text-coral">${esc(s.title)}</h3></a>
+      <div class="flex items-center justify-between border-t border-border pt-3">
+        <span class="text-[16px] font-bold tabular">${priceHtml}</span>
+        ${cta}
+      </div>
+    </div>
+  </article>`;
+      };
+
+      let list: (Snap | undefined)[] = [];
       try {
         const parsed = JSON.parse(localStorage.getItem(KEY) || '[]');
         if (Array.isArray(parsed)) list = parsed;
@@ -3309,33 +3464,70 @@ const addPriceLabel = formatMoney(
         list = [];
       }
       const others = list
-        .filter((p) => p && p.handle && p.handle !== snap?.handle)
-        .slice(0, 4);
+        .filter((p): p is Snap => Boolean(p && p.handle && p.handle !== snap?.handle))
+        .slice(0, 12);
       const grid = $<HTMLElement>('[data-recent-grid]');
       const section = $<HTMLElement>('[data-recent]');
       if (grid && section && others.length) {
-        const fmt = (amt: string, cur: string) => {
-          const n = Number(amt);
-          if (!Number.isFinite(n)) return '';
-          return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: cur || 'USD',
-            minimumFractionDigits: Number.isInteger(n) ? 0 : 2,
-          }).format(n);
-        };
-        grid.innerHTML = others
-          .map(
-            (p) => `
-          <a class="rc-card" href="/products/${encodeURIComponent(p!.handle)}">
-            <div class="rc-img">${p!.image ? `<img src="${escapeHtml(p!.image)}" alt="" loading="lazy" />` : ''}</div>
-            <div class="rc-meta">
-              <div class="rc-name">${escapeHtml(p!.title || '')}</div>
-              <div class="rc-price">${fmt(p!.price, p!.currency)}</div>
-            </div>
-          </a>`,
-          )
-          .join('');
+        const rail = others.length > 4; // grid for 1–4, slider beyond
+        grid.className = `recent-track ${rail ? 'is-rail' : 'is-grid'}`;
+        grid.innerHTML = others.map((s) => rvCard(s, rail)).join('');
         section.hidden = false;
+
+        // Arrows only in slider mode.
+        const nav = $<HTMLElement>('[data-recent-nav]');
+        if (nav) nav.hidden = !rail;
+        if (rail) {
+          const page = () => Math.max(grid.clientWidth * 0.9, 260);
+          $('[data-recent-prev]')?.addEventListener('click', () =>
+            grid.scrollBy({ left: -page(), behavior: 'smooth' }),
+          );
+          $('[data-recent-next]')?.addEventListener('click', () =>
+            grid.scrollBy({ left: page(), behavior: 'smooth' }),
+          );
+        }
+
+        // Wire card actions (self-contained — no reliance on ProductCard's script).
+        grid.querySelectorAll<HTMLButtonElement>('.add-to-bag-btn').forEach((b) =>
+          b.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const v = b.dataset.variantId;
+            if (!v || b.hasAttribute('data-loading')) return;
+            b.setAttribute('data-loading', '');
+            try {
+              await addItem(v, 1);
+            } finally {
+              b.removeAttribute('data-loading');
+            }
+          }),
+        );
+        grid.querySelectorAll<HTMLElement>('.quick-view-btn').forEach((b) =>
+          b.addEventListener('click', (e) => {
+            e.preventDefault();
+            const h = b.dataset.quickView;
+            if (h) window.dispatchEvent(new CustomEvent('quickview:open', { detail: { handle: h } }));
+          }),
+        );
+        const paintRV = () => {
+          const saved = new Set($wishlist.get());
+          grid.querySelectorAll<HTMLElement>('.wishlist-btn').forEach((b) => {
+            const on = saved.has(b.dataset.wishlist || '');
+            b.classList.toggle('is-active', on);
+            b.setAttribute('aria-pressed', String(on));
+          });
+        };
+        grid.querySelectorAll<HTMLButtonElement>('.wishlist-btn').forEach((b) =>
+          b.addEventListener('click', (e) => {
+            e.preventDefault();
+            const id = b.dataset.wishlist;
+            if (id) {
+              toggleWishlist(id);
+              window.dispatchEvent(new CustomEvent('wishlist-updated'));
+            }
+          }),
+        );
+        paintRV();
+        $wishlist.subscribe(paintRV);
       }
       // Record the current product at the front (deduped), cap at 12.
       if (snap?.handle) {

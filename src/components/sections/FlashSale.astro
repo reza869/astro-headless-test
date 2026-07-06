@@ -35,12 +35,14 @@ const products = pool.slice(0, 6).map((p, i) => {
   return {
     ...meta,
     variantId: p.variantId ?? '',
+    requiresChoice: p.requiresChoice ?? false,
     handle: p.handle,
     name: p.title,
     cat: p.vendor || "TAILORED",
     now: formatMoney(now, currency),
     was: formatMoney(was, currency),
     img: p.featuredImage?.url ?? '/images/Product Image 1.png',
+    img2: p.secondImage?.url ?? null,
   };
 });
 
@@ -105,6 +107,15 @@ const hasProducts = products.length > 0;
                     loading="lazy"
                     class="h-full w-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                   />
+                  {p.img2 && (
+                    <img
+                      src={p.img2}
+                      alt=""
+                      aria-hidden="true"
+                      loading="lazy"
+                      class="absolute inset-0 z-[1] h-full w-full object-cover opacity-0 transition-opacity duration-[600ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:opacity-100"
+                    />
+                  )}
                 </a>
 
                 <div class="flex flex-1 flex-col px-4 pb-[17px] pt-[15px]">
@@ -130,8 +141,10 @@ const hasProducts = products.length > 0;
                     type="button"
                     data-flash-add
                     data-variant-id={p.variantId}
+                    data-handle={p.handle}
+                    data-choice={p.requiresChoice ? '1' : undefined}
                     disabled={!p.variantId}
-                    aria-label={`Add ${p.name} to bag`}
+                    aria-label={p.requiresChoice ? `Choose options for ${p.name}` : `Add ${p.name} to bag`}
                     class="btn mt-auto inline-flex w-full items-center justify-center gap-2 rounded-sm bg-dark px-4 py-3 text-white transition-fluid hover:bg-coral disabled:opacity-50 data-[loading]:pointer-events-none"
                   >
                     <span class="fa-label inline-flex items-center gap-2">
@@ -240,6 +253,13 @@ const hasProducts = products.length > 0;
       // ── Add to Bag ─────────────────────────────────────────
       root.querySelectorAll<HTMLButtonElement>('[data-flash-add]').forEach((btn) => {
         btn.addEventListener('click', async () => {
+          // Multi-variant products open Quick View so the shopper picks options
+          // instead of silently adding the first variant (PC-6 parity).
+          if (btn.dataset.choice === '1') {
+            const handle = btn.dataset.handle;
+            if (handle) window.dispatchEvent(new CustomEvent('quickview:open', { detail: { handle } }));
+            return;
+          }
           const variantId = btn.dataset.variantId;
           if (!variantId || btn.hasAttribute('data-loading')) return;
           btn.setAttribute('data-loading', '');

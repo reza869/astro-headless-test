@@ -18,13 +18,22 @@ export interface ShopItem {
   type: string;
   vendor: string;
   price: number;
+  /** Highest variant price — drives the "From $X" range label (PC-4). */
+  priceMax: number;
   was: number | null;
   off: number | null;
   img: string;
+  /** Second image for the hover swap (PC-1); null when there isn't one. */
+  img2: string | null;
   alt: string;
   inStock: boolean;
   variantId: string | null;
+  /** A variant choice actually matters → route "Add" to Quick View (PC-6). */
+  requiresChoice: boolean;
   isNew: boolean;
+  /** Aggregate rating from the reviews metafield (PC-3); null when unset. */
+  rating: number | null;
+  ratingCount: number | null;
   colors: { name: string; hex: string }[];
   createdAt: string | null;
 }
@@ -52,6 +61,7 @@ const HIDE_COLLECTION = /^(all|frontpage)$/i;
 export function toShopItems(raw: ProductCard[]): ShopItem[] {
   return raw.map((p) => {
     const min = p.priceRange.minVariantPrice;
+    const max = p.priceRange.maxVariantPrice;
     const compareAt = p.compareAtPriceRange?.minVariantPrice ?? null;
     const onSale = isOnSale(min, compareAt);
     const cats = (p.collections ?? [])
@@ -65,13 +75,18 @@ export function toShopItems(raw: ProductCard[]): ShopItem[] {
       type: cats[0] || (p.productType && p.productType.trim()) || p.vendor || 'Catalogue',
       vendor: p.vendor || '',
       price: Number(min.amount),
+      priceMax: Number(max.amount),
       was: onSale ? Number(compareAt!.amount) : null,
       off: onSale ? discountPercent(min, compareAt) : null,
       img: p.featuredImage?.url || '',
+      img2: p.secondImage?.url || null,
       alt: p.featuredImage?.altText || p.title,
       inStock: p.availableForSale,
       variantId: p.variantId || null,
-      isNew: (p.tags || []).some((t) => NEW_RE.test(t)),
+      requiresChoice: p.requiresChoice ?? false,
+      isNew: p.isNew === true || (p.tags || []).some((t) => NEW_RE.test(t)),
+      rating: typeof p.rating === 'number' ? p.rating : null,
+      ratingCount: p.ratingCount ?? null,
       colors: (p.colors || [])
         .map((c) => ({ name: c.name, hex: hexFor(c) }))
         .filter((c): c is { name: string; hex: string } => Boolean(c.hex)),
