@@ -1,5 +1,5 @@
 // @ts-check
-import { defineConfig } from "astro/config";
+import { defineConfig, sessionDrivers } from "astro/config";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@astrojs/react";
 import cloudflare from "@astrojs/cloudflare";
@@ -41,12 +41,14 @@ export default defineConfig({
   // want Astro.site populated for absolute-URL helpers. No wrong default.
   site: process.env.SITE_URL || undefined,
   adapter: getAdapter(),
-  // NOTE: sessions are intentionally left on the adapter default. On
-  // Cloudflare that is the KV-backed store bound to the `SESSION` namespace
-  // (auto-declared by @astrojs/cloudflare and emitted into
-  // dist/server/wrangler.json). Do NOT set an in-memory driver here
-  // (e.g. lruCache): on Workers it is per-isolate and ephemeral, so any
-  // Astro.session data would be silently lost between requests on the edge.
+  // Sessions: this storefront never uses `Astro.session` — customer auth and
+  // the cart are httpOnly cookies (see src/lib/shopify/customer/session.ts and
+  // src/lib/cart-cookie.ts). Left on the default, @astrojs/cloudflare would
+  // auto-enable a KV-backed session store and declare a `SESSION` KV binding in
+  // the deploy config, forcing a KV namespace to be created for a feature
+  // nothing uses. The `null` (no-op) driver keeps sessions disabled and stops
+  // that KV binding from ever being emitted into dist/server/wrangler.json.
+  session: { driver: sessionDrivers.null() },
   integrations: [react()],
   vite: {
     plugins: [tailwindcss()],

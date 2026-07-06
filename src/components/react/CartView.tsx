@@ -2,14 +2,17 @@
 //  CartView — the full-page shopping bag (designer Cart.html),
 //  wired to the REAL Shopify cart via the shared nanostore.
 //  Renders the live hero stats, free-shipping progress, line
-//  list (qty / save-for-later / remove), order notes, saved-for-
-//  later, and the order summary (promo codes, shipping + tax
-//  estimates, gift wrapping). Lines, quantities, promo codes and
-//  checkout are real Shopify operations; shipping/tax/gift are
-//  estimates — Shopify computes the binding figures at checkout,
-//  exactly as the design's "estimated tax" copy implies.
+//  list (qty / save-for-later / remove), order note, saved-for-
+//  later, and the order summary (promo codes, delivery estimate,
+//  gift wrapping). Everything that affects the total is a REAL
+//  Shopify value: lines, quantities, promo codes, the order note
+//  (cart.note), gift wrap (a charged variant or a `Gift wrap`
+//  attribute) and the total (goods after discount). Shipping and
+//  taxes are NOT fabricated here — Shopify computes them at
+//  checkout; the delivery selector is an estimate + a saved
+//  `Delivery preference` attribute.
 // ============================================================
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '@nanostores/react';
 import {
   Truck,
@@ -37,24 +40,24 @@ import {
   removeItem,
   addItem,
   applyDiscountCode,
+  setCartAttributes,
   checkout,
 } from '~/stores/cart';
 import type { Cart, CartLine } from '~/lib/shopify/types';
 import { formatMoney } from '~/lib/utils';
+import { lineDiscount, lineMaxQty, lineLowStock } from '~/lib/cart-pricing';
 import { SITE } from '~/config/site';
+import { useCartNote } from './useCartNote';
+import { useCountUp } from './useCountUp';
 
-// ── Estimate constants (mirror the design; binding values at checkout) ──
-const GIFT = 8;
-const TAX_RATE = 0.08;
-const SHIP_METHODS = [
-  { k: 'standard', label: 'Standard', sub: '3–5 business days', price: 12 },
-  { k: 'express', label: 'Express', sub: '1–2 business days', price: 24 },
-  { k: 'pickup', label: 'Boutique pickup', sub: 'Paris flagship · ready today', price: 0 },
-] as const;
-type ShipKey = (typeof SHIP_METHODS)[number]['k'];
+// Cart-attribute keys (surface on the Shopify order for the merchant).
+const GIFT_WRAP_KEY = 'Gift wrap';
+const DELIVERY_KEY = 'Delivery preference';
+
+const DELIVERY = SITE.deliveryOptions;
+type ShipKey = (typeof DELIVERY)[number]['key'];
 
 const SAVED_KEY = 'tailored:saved-for-later';
-const NOTES_KEY = 'tailored:cart-notes';
 
 interface SavedItem {
   merchandiseId: string;
@@ -87,14 +90,11 @@ export default function CartView({ initialCart }: Props) {
   const cart = storeCart ?? initialCart;
 
   const [saved, setSaved] = useState<SavedItem[]>([]);
-  const [notes, setNotes] = useState('');
-  const [shipSel, setShipSel] = useState<ShipKey>('standard');
-  const [giftWrap, setGiftWrap] = useState(false);
-  const [country, setCountry] = useState('United States');
-  const [zip, setZip] = useState('');
+  // Order note — persists to the real Shopify cart.note (CP-1), shared with the drawer.
+  const { note: notes, onChange: onNotes } = useCartNote();
+  const [shipSel, setShipSel] = useState<ShipKey>(DELIVERY[0].key);
   const [coupon, setCoupon] = useState('');
   const [couponNote, setCouponNote] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
-  const [estimateNote, setEstimateNote] = useState('');
 
   // Seed the store from the SSR cart, then hydrate the live source of truth.
   useEffect(() => {
@@ -102,13 +102,12 @@ export default function CartView({ initialCart }: Props) {
     initCart();
   }, [initialCart]);
 
-  // Restore saved-for-later + notes from localStorage.
+  // Restore saved-for-later from localStorage (a client-only convenience list;
+  // the order note now lives on the real Shopify cart, not localStorage).
   useEffect(() => {
     try {
       const s = localStorage.getItem(SAVED_KEY);
       if (s) setSaved(JSON.parse(s));
-      const n = localStorage.getItem(NOTES_KEY);
-      if (n) setNotes(n);
     } catch {
       /* storage unavailable — non-critical */
     }
@@ -128,24 +127,70 @@ export default function CartView({ initialCart }: Props) {
   const subtotal = Number(cart?.cost?.subtotalAmount?.amount ?? 0);
   const cartTotal = Number(cart?.cost?.totalAmount?.amount ?? subtotal);
   const discount = Math.max(0, subtotal - cartTotal);
-  const afterDisc = subtotal - discount;
   const itemCount = cart?.totalQuantity ?? 0;
   const appliedCodes = (cart?.discountCodes ?? []).filter((d) => d.applicable);
+  const empty = lines.length === 0;
 
   const threshold = SITE.freeShippingThreshold;
+  const unlocked = subtotal >= threshold && subtotal > 0;
 
-  const shipMethod = SHIP_METHODS.find((m) => m.k === shipSel)!;
-  // Gate on the merchandise subtotal so the free-shipping meter/copy (also
-  // subtotal-based) and the actual free-shipping outcome never contradict.
-  const shipFree = shipMethod.k === 'pickup' || (shipMethod.k === 'standard' && subtotal >= threshold);
-  const shipCost = shipFree ? 0 : shipMethod.price;
-  const tax = afterDisc * TAX_RATE;
-  const gift = giftWrap ? GIFT : 0;
-  const grandTotal = afterDisc + shipCost + tax + gift;
+  // ── Gift wrap (CP-3) — real: a configured variant becomes a charged line,
+  // otherwise a `Gift wrap` cart attribute. Never a fabricated amount. ──
+  const giftVariantId = SITE.giftWrap.variantId;
+  const giftLine = giftVariantId ? lines.find((l) => l.merchandise.id === giftVariantId) : undefined;
+  const giftWrapOn = giftVariantId
+    ? !!giftLine
+    : (cart?.attributes ?? []).some((a) => a.key === GIFT_WRAP_KEY && a.value === 'Yes');
+  // The gift-wrap product line is represented by the toggle, so hide it from the
+  // visible list — it still counts in the real subtotal.
+  const visibleLines = giftLine ? lines.filter((l) => l.id !== giftLine.id) : lines;
 
-  const heroSave = discount + (shipCost === 0 && shipSel !== 'pickup' ? SHIP_METHODS[0].price : 0);
+  // ── Delivery (CP-2) — estimate only; Shopify sets the binding rate at
+  // checkout. No fabricated price feeds the total. ──
+  const methodFree = (m: (typeof DELIVERY)[number]) => {
+    const o = m as { free?: boolean; freeOverThreshold?: boolean };
+    return o.free === true || (o.freeOverThreshold === true && subtotal >= threshold);
+  };
+
+  // Total is the REAL cart total (goods after discount). Shipping + taxes are
+  // added by Shopify at checkout — we never invent them here.
+  const grandTotal = cartTotal;
+  const displayTotal = useCountUp(grandTotal);
+  const heroSave = discount;
   const progress = Math.min(100, threshold > 0 ? (subtotal / threshold) * 100 : 0);
   const remaining = Math.max(0, threshold - subtotal);
+
+  // ── attribute helpers ──
+  const mergeAttr = (key: string, value: string | null) => {
+    const rest = (cart?.attributes ?? []).filter((a) => a.key !== key);
+    return setCartAttributes(value ? [...rest, { key, value }] : rest);
+  };
+
+  const onToggleGift = async () => {
+    if (giftVariantId) {
+      if (giftLine) await removeItem(giftLine.id);
+      else await addItem(giftVariantId, 1, { open: false });
+    } else {
+      await mergeAttr(GIFT_WRAP_KEY, giftWrapOn ? null : 'Yes');
+    }
+  };
+
+  const onSelectDelivery = (key: ShipKey) => {
+    setShipSel(key);
+    const opt = DELIVERY.find((o) => o.key === key);
+    if (opt) mergeAttr(DELIVERY_KEY, opt.label);
+  };
+
+  // Seed the selected delivery option once per cart from the saved attribute.
+  const shipSeeded = useRef<string | null>(null);
+  useEffect(() => {
+    const id = cart?.id ?? null;
+    if (!id || shipSeeded.current === id) return;
+    shipSeeded.current = id;
+    const pref = (cart?.attributes ?? []).find((a) => a.key === DELIVERY_KEY)?.value;
+    const match = pref ? DELIVERY.find((o) => o.label === pref) : undefined;
+    if (match) setShipSel(match.key);
+  }, [cart?.id, cart?.attributes]);
 
   // ── actions ──
   const onSaveForLater = async (line: CartLine) => {
@@ -194,16 +239,23 @@ export default function CartView({ initialCart }: Props) {
     setCouponNote(null);
   };
 
-  const onNotes = (v: string) => {
-    setNotes(v);
-    try {
-      localStorage.setItem(NOTES_KEY, v);
-    } catch {
-      /* ignore */
+  // ── Mobile sticky checkout bar (CP-5) — reveal once the summary's own
+  // checkout button scrolls out of view. IntersectionObserver avoids a
+  // scroll handler entirely (no throttling needed). ──
+  const summaryRef = useRef<HTMLElement | null>(null);
+  const [summaryInView, setSummaryInView] = useState(true);
+  useEffect(() => {
+    const el = summaryRef.current;
+    if (!el) {
+      setSummaryInView(true);
+      return;
     }
-  };
-
-  const empty = lines.length === 0;
+    const io = new IntersectionObserver(([e]) => setSummaryInView(e.isIntersecting), {
+      threshold: 0,
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [empty]);
 
   return (
     <>
@@ -224,7 +276,7 @@ export default function CartView({ initialCart }: Props) {
             {[
               { b: String(itemCount), s: 'Items' },
               { b: money(subtotal, currency), s: 'Subtotal' },
-              { b: empty ? '—' : shipCost === 0 ? 'Free' : money(shipCost, currency), s: 'Shipping' },
+              { b: empty ? '—' : unlocked ? 'Free' : '—', s: 'Shipping' },
               { b: money(heroSave, currency), s: 'You Save' },
             ].map((st, i) => (
               <div key={st.s} className={i < 3 ? 'border-r border-border pr-[18px]' : 'pr-[18px]'}>
@@ -275,7 +327,11 @@ export default function CartView({ initialCart }: Props) {
                         <b className="font-bold text-text-primary">You've unlocked free standard shipping.</b>
                       )}
                     </p>
-                    <div className="h-[7px] overflow-hidden rounded-pill bg-surface-cool">
+                    <div
+                      className={`h-[7px] overflow-hidden rounded-pill bg-surface-cool ${
+                        unlocked ? 'cart-ship-unlocked' : ''
+                      }`}
+                    >
                       <div
                         className="h-full rounded-pill bg-green transition-[width] duration-500 ease-[var(--ease-out-soft)]"
                         style={{ width: `${progress}%` }}
@@ -294,7 +350,7 @@ export default function CartView({ initialCart }: Props) {
 
                 {/* Lines */}
                 <div className="flex flex-col">
-                  {lines.map((line) => (
+                  {visibleLines.map((line) => (
                     <CartRow
                       key={line.id}
                       line={line}
@@ -383,7 +439,10 @@ export default function CartView({ initialCart }: Props) {
               </div>
 
               {/* ---------------- SUMMARY ---------------- */}
-              <aside className="overflow-hidden rounded-xl bg-surface shadow-sm ring-1 ring-inset ring-border lg:sticky lg:top-[96px]">
+              <aside
+                ref={summaryRef}
+                className="overflow-hidden rounded-xl bg-surface shadow-sm ring-1 ring-inset ring-border lg:sticky lg:top-[96px]"
+              >
                 <div className="p-[28px_26px]">
                   <h3 className="mb-5 font-heading text-[26px] font-extrabold">Order Summary</h3>
 
@@ -432,17 +491,22 @@ export default function CartView({ initialCart }: Props) {
                     </div>
                   ))}
 
-                  {/* Shipping method */}
+                  {/* Delivery (estimate — Shopify sets the binding rate at checkout) */}
                   <div className="mb-[18px] border-t border-border pt-[18px]">
-                    <h6 className="mb-3 text-[10.5px] font-extrabold uppercase tracking-[1.6px]">Shipping Method</h6>
-                    {SHIP_METHODS.map((m) => {
-                      const free = m.k === 'pickup' || (m.k === 'standard' && afterDisc >= threshold);
-                      const on = m.k === shipSel;
+                    <div className="mb-3 flex items-center justify-between">
+                      <h6 className="text-[10.5px] font-extrabold uppercase tracking-[1.6px]">Delivery</h6>
+                      <span className="text-[9.5px] font-bold uppercase tracking-[1.2px] text-text-muted">
+                        Estimated
+                      </span>
+                    </div>
+                    {DELIVERY.map((m) => {
+                      const free = methodFree(m);
+                      const on = m.key === shipSel;
                       return (
                         <button
                           type="button"
-                          key={m.k}
-                          onClick={() => setShipSel(m.k)}
+                          key={m.key}
+                          onClick={() => onSelectDelivery(m.key)}
                           className={`mb-[9px] flex w-full items-center gap-[11px] rounded-sm px-[13px] py-[11px] text-left transition-fluid ring-inset ${
                             on
                               ? 'bg-coral-soft ring-2 ring-coral'
@@ -456,83 +520,57 @@ export default function CartView({ initialCart }: Props) {
                           />
                           <span className="flex-1">
                             <b className="block text-[13px] font-bold">{m.label}</b>
-                            <span className="text-[11.5px] text-text-muted">{m.sub}</span>
+                            <span className="text-[11.5px] text-text-muted">{m.eta}</span>
                           </span>
-                          <span className="text-[13px] font-extrabold">
-                            {free ? 'Free' : money(m.price, currency)}
-                          </span>
+                          {free ? (
+                            <span className="text-[13px] font-extrabold text-green">Free</span>
+                          ) : (
+                            <span className="text-[10.5px] font-semibold text-text-muted">At checkout</span>
+                          )}
                         </button>
                       );
                     })}
+                    <p className="text-[11px] text-text-muted">
+                      Final shipping is calculated at checkout.
+                    </p>
                   </div>
 
-                  {/* Estimate */}
-                  <div className="mb-[18px] border-t border-border pt-[18px]">
-                    <h6 className="mb-3 text-[10.5px] font-extrabold uppercase tracking-[1.6px]">
-                      Estimate for your area
-                    </h6>
-                    <div className="grid grid-cols-1 gap-[9px] sm:grid-cols-2">
-                      <select
-                        value={country}
-                        onChange={(e) => {
-                          setCountry(e.target.value);
-                          setEstimateNote(`Estimate updated for ${e.target.value}.`);
-                        }}
-                        aria-label="Country"
-                        className="h-11 rounded-sm bg-bg-light px-3 text-[13px] outline-none ring-1 ring-inset ring-border focus:ring-2 focus:ring-coral"
-                      >
-                        {['United States', 'United Kingdom', 'France', 'Germany', 'Italy', 'Japan', 'Australia', 'Canada'].map(
-                          (c) => (
-                            <option key={c}>{c}</option>
-                          ),
-                        )}
-                      </select>
-                      <input
-                        type="text"
-                        value={zip}
-                        onChange={(e) => setZip(e.target.value)}
-                        onKeyDown={(e) =>
-                          e.key === 'Enter' && setEstimateNote(`Estimate updated for ${zip || 'your area'}.`)
-                        }
-                        placeholder="ZIP / Postcode"
-                        aria-label="ZIP or postcode"
-                        className="h-11 rounded-sm bg-bg-light px-3 text-[13px] outline-none ring-1 ring-inset ring-border focus:ring-2 focus:ring-coral"
-                      />
-                    </div>
-                    {estimateNote && <p className="mt-2 text-[11.5px] text-text-muted">{estimateNote}</p>}
-                  </div>
-
-                  {/* Gift wrap */}
-                  <div className="mb-[18px] border-t border-border pt-[18px]">
-                    <button
-                      type="button"
-                      onClick={() => setGiftWrap((g) => !g)}
-                      className={`flex w-full items-center gap-3 rounded-sm p-[13px] text-left transition-fluid ring-inset ${
-                        giftWrap ? 'bg-green-soft ring-2 ring-green' : 'ring-1 ring-border'
-                      }`}
-                    >
-                      <Gift size={22} strokeWidth={1.7} className="text-green" />
-                      <span className="flex-1">
-                        <b className="block text-[13px] font-bold">Add gift wrapping</b>
-                        <span className="text-[11.5px] text-text-muted">
-                          Hand-wrapped in signature tissue · +{money(GIFT, currency)}
-                        </span>
-                      </span>
-                      <span
-                        className={`relative h-[22px] w-[38px] flex-none rounded-pill transition-colors duration-200 ${
-                          giftWrap ? 'bg-green' : 'bg-border'
+                  {/* Gift wrap — real: attribute (complimentary) or a configured charged variant */}
+                  {SITE.giftWrap.enabled && (
+                    <div className="mb-[18px] border-t border-border pt-[18px]">
+                      <button
+                        type="button"
+                        onClick={onToggleGift}
+                        disabled={busy}
+                        aria-pressed={giftWrapOn}
+                        className={`flex w-full items-center gap-3 rounded-sm p-[13px] text-left transition-fluid ring-inset disabled:opacity-60 ${
+                          giftWrapOn ? 'bg-green-soft ring-2 ring-green' : 'ring-1 ring-border'
                         }`}
                       >
+                        <Gift size={22} strokeWidth={1.7} className="text-green" />
+                        <span className="flex-1">
+                          <b className="block text-[13px] font-bold">{SITE.giftWrap.label}</b>
+                          <span className="text-[11.5px] text-text-muted">
+                            {SITE.giftWrap.note}
+                            {!giftVariantId && ' · Complimentary'}
+                          </span>
+                        </span>
                         <span
-                          className={`absolute top-0.5 h-[18px] w-[18px] rounded-full bg-white transition-[left] duration-200 ${
-                            giftWrap ? 'left-[18px]' : 'left-0.5'
+                          className={`relative h-[22px] w-[38px] flex-none rounded-pill transition-colors duration-200 ${
+                            giftWrapOn ? 'bg-green' : 'bg-border'
                           }`}
-                        />
-                      </span>
-                    </button>
-                  </div>
+                        >
+                          <span
+                            className={`absolute top-0.5 h-[18px] w-[18px] rounded-full bg-white transition-[left] duration-200 ${
+                              giftWrapOn ? 'left-[18px]' : 'left-0.5'
+                            }`}
+                          />
+                        </span>
+                      </button>
+                    </div>
+                  )}
 
-                  {/* Rows */}
+                  {/* Rows — real Shopify values only; shipping + tax at checkout */}
                   <div className="border-t border-border pt-[18px]">
                     <Row label="Subtotal" value={money(subtotal, currency)} />
                     {discount > 0 && (
@@ -542,9 +580,8 @@ export default function CartView({ initialCart }: Props) {
                         accent
                       />
                     )}
-                    <Row label="Shipping" value={shipCost === 0 ? 'Free' : money(shipCost, currency)} />
-                    {gift > 0 && <Row label="Gift wrapping" value={money(gift, currency)} />}
-                    <Row label="Estimated tax" value={money(tax, currency)} />
+                    <Row label="Shipping" value={unlocked ? 'Free' : 'Calculated at checkout'} />
+                    <Row label="Taxes" value="Calculated at checkout" />
                   </div>
 
                   {/* Total */}
@@ -552,9 +589,11 @@ export default function CartView({ initialCart }: Props) {
                     <span className="text-[13px] font-bold uppercase tracking-[0.5px]">Total</span>
                     <div className="text-right">
                       <b className="block font-heading text-[34px] font-extrabold leading-[0.9]">
-                        {money(grandTotal, currency)}
+                        {money(displayTotal, currency)}
                       </b>
-                      <span className="mt-1 block text-[11px] text-text-muted">incl. estimated tax</span>
+                      <span className="mt-1 block text-[11px] text-text-muted">
+                        Shipping &amp; taxes at checkout
+                      </span>
                     </div>
                   </div>
 
@@ -586,6 +625,38 @@ export default function CartView({ initialCart }: Props) {
           )}
         </div>
       </section>
+
+      {/* Mobile sticky checkout bar (CP-5) — sits above the BottomNav; hidden on
+          desktop where the summary is sticky. Slides away while the summary's
+          own checkout button is on screen. */}
+      {!empty && (
+        <div
+          className={`fixed inset-x-0 bottom-[calc(58px_+_env(safe-area-inset-bottom))] z-40 border-t border-border bg-surface/95 px-4 py-3 shadow-[0_-4px_20px_rgba(9,10,11,0.08)] backdrop-blur-md transition-transform duration-300 md:bottom-0 lg:hidden ${
+            summaryInView ? 'translate-y-[135%]' : 'translate-y-0'
+          }`}
+          aria-hidden={summaryInView}
+        >
+          <div className="container-mag flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <span className="block text-[9.5px] font-bold uppercase tracking-[1.4px] text-text-muted">
+                Total
+              </span>
+              <b className="font-heading text-[22px] font-extrabold leading-none tabular">
+                {money(grandTotal, currency)}
+              </b>
+            </div>
+            <button
+              type="button"
+              onClick={checkout}
+              disabled={busy}
+              tabIndex={summaryInView ? -1 : 0}
+              className="flex h-12 max-w-[240px] flex-1 items-center justify-center gap-2 rounded-sm bg-coral text-[12.5px] font-extrabold uppercase tracking-[1px] text-white transition-fluid hover:bg-coral-hover disabled:opacity-60"
+            >
+              Checkout <ArrowRight size={16} strokeWidth={2} />
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -606,6 +677,10 @@ function CartRow({
   const image = (m.image ?? m.product.featuredImage)?.url ?? null;
   const meta = optionText(line);
   const unit = line.cost.amountPerQuantity?.amount ?? m.price.amount;
+  const dp = lineDiscount(line);
+  const maxQty = lineMaxQty(line);
+  const lowStock = lineLowStock(line);
+  const atMax = line.quantity >= maxQty;
 
   return (
     <div
@@ -638,8 +713,22 @@ function CartRow({
             ))}
           </ul>
         )}
-        <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-green">
-          <CheckCircle2 size={14} strokeWidth={1.9} /> {m.availableForSale ? 'In stock' : 'Made to order'}
+        {dp.allocations.length > 0 && (
+          <ul className="space-y-0.5">
+            {dp.allocations.map((a, i) => (
+              <li key={i} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-coral">
+                <Percent size={12} strokeWidth={2} /> {a.label} −{money(a.amount, a.currency)}
+              </li>
+            ))}
+          </ul>
+        )}
+        <div
+          className={`inline-flex items-center gap-1.5 text-xs font-semibold ${
+            lowStock ? 'text-coral' : 'text-green'
+          }`}
+        >
+          <CheckCircle2 size={14} strokeWidth={1.9} />
+          {lowStock ? `Only ${lowStock} left` : m.availableForSale ? 'In stock' : 'Made to order'}
         </div>
         <div className="mt-auto flex gap-4 pt-2">
           <button
@@ -662,8 +751,17 @@ function CartRow({
       </div>
 
       <div className="col-span-2 flex flex-row items-center justify-between gap-3.5 sm:col-span-1 sm:flex-col sm:items-end sm:justify-between">
-        <div className="text-right font-heading text-[22px] font-extrabold">
-          {money(line.cost.totalAmount.amount, currency)}
+        <div className="text-right">
+          {dp.hasStrike && (
+            <s className="block font-body text-[13px] font-medium text-text-muted">
+              {money(dp.original, currency)}
+            </s>
+          )}
+          <span
+            className={`font-heading text-[22px] font-extrabold ${dp.hasStrike ? 'text-coral' : ''}`}
+          >
+            {money(dp.finalTotal, currency)}
+          </span>
           <span className="block font-body text-[11.5px] font-medium text-text-muted">
             {money(unit, currency)} each
           </span>
@@ -682,8 +780,9 @@ function CartRow({
           <button
             type="button"
             onClick={() => updateItem(line.id, line.quantity + 1)}
-            disabled={busy}
+            disabled={busy || atMax}
             aria-label="Increase quantity"
+            title={atMax ? 'No more stock available' : undefined}
             className="flex h-10 w-9 items-center justify-center text-[17px] disabled:opacity-40"
           >
             <Plus size={15} strokeWidth={2} />

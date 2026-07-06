@@ -9,6 +9,8 @@ import {
   CART_LINES_UPDATE_MUTATION,
   CART_LINES_REMOVE_MUTATION,
   CART_DISCOUNT_CODES_UPDATE_MUTATION,
+  CART_NOTE_UPDATE_MUTATION,
+  CART_ATTRIBUTES_UPDATE_MUTATION,
 } from '../graphql/cart';
 import { mapCart } from '../transforms';
 import type { Cart } from '../types';
@@ -128,4 +130,32 @@ export async function applyDiscountCodes(
     opts,
   );
   return result(data.cartDiscountCodesUpdate);
+}
+
+/** Set the cart note (persists to the Shopify order). Pass "" to clear. */
+export async function updateCartNote(
+  cartId: string,
+  note: string,
+  opts: ShopifyFetchOptions = {},
+): Promise<CartResult> {
+  const data = await shopifyFetch<{ cartNoteUpdate: any }>(
+    CART_NOTE_UPDATE_MUTATION,
+    { cartId, note },
+    opts,
+  );
+  return result(data.cartNoteUpdate);
+}
+
+/** Replace the cart's attribute set (gift wrap flag, gift message, …). */
+export async function updateCartAttributes(
+  cartId: string,
+  attributes: CartLineAttribute[],
+  opts: ShopifyFetchOptions = {},
+): Promise<CartResult> {
+  const data = await shopifyFetch<{ cartAttributesUpdate: any }>(
+    CART_ATTRIBUTES_UPDATE_MUTATION,
+    { cartId, attributes },
+    opts,
+  );
+  return result(data.cartAttributesUpdate);
 }

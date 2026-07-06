@@ -108,3 +108,37 @@ export const CART_DISCOUNT_CODES_UPDATE_MUTATION = /* GraphQL */ `
     }
   }
 `;
+
+// Order note → persists to cart.note (surfaces on the Shopify order). `note`
+// is nullable; pass "" to clear.
+export const CART_NOTE_UPDATE_MUTATION = /* GraphQL */ `
+  ${CART_FRAGMENTS}
+  mutation CartNoteUpdate($cartId: ID!, $note: String!) {
+    cartNoteUpdate(cartId: $cartId, note: $note) {
+      cart {
+        ...CartFields
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`;
+
+// Cart-level attributes (gift wrap flag, gift message, etc.) → surface on the
+// Shopify order for the merchant to fulfil. Replaces the full attribute set.
+export const CART_ATTRIBUTES_UPDATE_MUTATION = /* GraphQL */ `
+  ${CART_FRAGMENTS}
+  mutation CartAttributesUpdate($cartId: ID!, $attributes: [AttributeInput!]!) {
+    cartAttributesUpdate(cartId: $cartId, attributes: $attributes) {
+      cart {
+        ...CartFields
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`;

@@ -11,6 +11,9 @@ import {
   getCart,
   removeCartLines,
   updateCartLines,
+  updateCartNote,
+  updateCartAttributes,
+  type CartLineAttribute,
   type CartLineInput,
   type CartLineUpdateInput,
   type CartResult,
@@ -145,6 +148,32 @@ export async function applyDiscount(
   const id = getCartId(cookies);
   if (!id) return { cart: null, userErrors: [{ message: 'No active cart' }] };
   const res = await applyDiscountCodes(id, discountCodes, { buyerIp });
+  if (!res.cart) clearCartId(cookies); // cart expired — forget it
+  return res;
+}
+
+/** Set the order note on the current cart. No-op without a cart. */
+export async function setNote(
+  cookies: AstroCookies,
+  note: string,
+  buyerIp?: string,
+): Promise<CartResult> {
+  const id = getCartId(cookies);
+  if (!id) return { cart: null, userErrors: [{ message: 'No active cart' }] };
+  const res = await updateCartNote(id, note, { buyerIp });
+  if (!res.cart) clearCartId(cookies); // cart expired — forget it
+  return res;
+}
+
+/** Replace the current cart's attribute set. No-op without a cart. */
+export async function setAttributes(
+  cookies: AstroCookies,
+  attributes: CartLineAttribute[],
+  buyerIp?: string,
+): Promise<CartResult> {
+  const id = getCartId(cookies);
+  if (!id) return { cart: null, userErrors: [{ message: 'No active cart' }] };
+  const res = await updateCartAttributes(id, attributes, { buyerIp });
   if (!res.cart) clearCartId(cookies); // cart expired — forget it
   return res;
 }

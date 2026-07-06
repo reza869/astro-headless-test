@@ -8,8 +8,9 @@
 // ============================================================
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '@nanostores/react';
-import { X, ShoppingBag, ArrowRight, Trash2 } from 'lucide-react';
+import { X, ShoppingBag, ArrowRight, Trash2, PenLine, Tag, Plus } from 'lucide-react';
 import { useFocusTrap } from './useFocusTrap';
+import { useCartNote } from './useCartNote';
 import {
   $cart,
   $cartOpen,
@@ -19,14 +20,19 @@ import {
   closeCart,
   updateItem,
   removeItem,
+  addItem,
+  applyDiscountCode,
   checkout,
 } from '~/stores/cart';
 import type { CartLine, ProductCard } from '~/lib/shopify/types';
 import { formatMoney } from '~/lib/utils';
+import { lineDiscount, lineMaxQty } from '~/lib/cart-pricing';
 import { lockScroll, unlockScroll } from '~/lib/scroll-lock';
 import { SITE } from '~/config/site';
 import QuantityStepper from './QuantityStepper';
 import Spinner from './Spinner';
+import CartLiveRegion from './CartLiveRegion';
+import { useCountUp } from './useCountUp';
 
 export default function CartDrawer() {
   const cart = useStore($cart);
@@ -58,6 +64,8 @@ export default function CartDrawer() {
   const remaining = Math.max(0, threshold - subtotal);
   const unlocked = remaining <= 0 && subtotal > 0;
   const progress = threshold > 0 ? Math.min(100, (subtotal / threshold) * 100) : 100;
+  // Animate the headline total when it changes (CD-5).
+  const displayTotal = useCountUp(discount > 0 ? total : subtotal);
 
   // ── Recommendations — lazy-fetched when the drawer opens, keyed to the
   // first line's product so it only refetches when that changes. Filters out
@@ -88,12 +96,17 @@ export default function CartDrawer() {
   }, [open, lines]);
 
   return (
-    <div
-      className={`fixed inset-0 z-[100] ${open ? '' : 'pointer-events-none'}`}
-      aria-hidden={!open}
-      inert={!open}
-    >
-      {/* Backdrop */}
+    <>
+      {/* Global cart announcements — a sibling of the drawer so it keeps
+          announcing even while the (inert, aria-hidden) drawer is closed. */}
+      <CartLiveRegion />
+
+      <div
+        className={`fixed inset-0 z-[100] ${open ? '' : 'pointer-events-none'}`}
+        aria-hidden={!open}
+        inert={!open}
+      >
+        {/* Backdrop */}
       <div
         onClick={closeCart}
         className={`absolute inset-0 bg-dark/50 backdrop-blur-[2px] transition-opacity duration-300 ${
@@ -152,7 +165,11 @@ export default function CartDrawer() {
                     </>
                   )}
                 </p>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-cool">
+                <div
+                  className={`mt-2 h-1.5 overflow-hidden rounded-full bg-surface-cool ${
+                    unlocked ? 'cart-ship-unlocked' : ''
+                  }`}
+                >
                   <div
                     className={`h-full rounded-full transition-[width] duration-500 ease-out ${
                       unlocked ? 'bg-green' : 'bg-coral'
@@ -176,6 +193,8 @@ export default function CartDrawer() {
                   ))}
                 </ul>
 
+                <DrawerNote />
+
                 {recs.length > 0 && (
                   <section className="mt-8 border-t border-border/60 pt-6">
                     <h3 className="mb-4 flex items-center justify-center gap-2.5 text-[11px] font-bold uppercase tracking-[1.8px] text-text-muted">
@@ -185,7 +204,11 @@ export default function CartDrawer() {
                     </h3>
                     <div className="grid grid-cols-2 gap-3.5">
                       {recs.map((p) => (
-                        <RecommendationCard key={p.id} product={p} />
+                        <RecommendationCard
+                          key={p.id}
+                          product={p}
+                          onAdded={(handle) => setRecs((rs) => rs.filter((r) => r.handle !== handle))}
+                        />
                       ))}
                     </div>
                   </section>
@@ -203,6 +226,9 @@ export default function CartDrawer() {
                       {error}
                     </p>
                   )}
+
+                  <DrawerDiscount />
+
                   {discount > 0 && (
                     <div className="mb-3 flex items-baseline justify-between text-[13px] font-medium text-coral">
                       <span>Discount{discountCodes.length ? ` · ${discountCodes.join(', ')}` : ''}</span>
@@ -220,7 +246,7 @@ export default function CartDrawer() {
                       </p>
                     </div>
                     <span className="shrink-0 font-heading text-[30px] font-extrabold leading-none tabular text-text-primary">
-                      {formatMoney(discount > 0 ? total : subtotal, currency)}
+                      {formatMoney(displayTotal, currency)}
                     </span>
                   </div>
 
@@ -254,6 +280,7 @@ export default function CartDrawer() {
         </div>
       </div>
     </div>
+    </>
   );
 }
 
@@ -262,6 +289,7 @@ function CartLineRow({ line, currency }: { line: CartLine; currency: string }) {
   const busy = !!busyLines[line.id];
   const m = line.merchandise;
   const image = m.image ?? m.product?.featuredImage ?? null;
+  const dp = lineDiscount(line);
   const optionText = m.selectedOptions
     .filter((o) => o.value !== 'Default Title')
     .map((o) => o.value)
@@ -311,9 +339,29 @@ function CartLineRow({ line, currency }: { line: CartLine; currency: string }) {
                 ))}
               </ul>
             )}
+            {dp.allocations.length > 0 && (
+              <ul className="mt-1 space-y-0.5">
+                {dp.allocations.map((a, i) => (
+                  <li key={i} className="truncate text-[11px] font-semibold text-coral">
+                    {a.label} −{formatMoney(a.amount, a.currency)}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-          <span className="shrink-0 text-[15px] font-bold tabular text-text-primary">
-            {formatMoney(line.cost.totalAmount.amount, currency)}
+          <span className="shrink-0 text-right leading-tight">
+            {dp.hasStrike && (
+              <s className="mr-1.5 align-middle text-[12px] font-medium text-text-muted">
+                {formatMoney(dp.original, currency)}
+              </s>
+            )}
+            <span
+              className={`align-middle text-[15px] font-bold tabular ${
+                dp.hasStrike ? 'text-coral' : 'text-text-primary'
+              }`}
+            >
+              {formatMoney(dp.finalTotal, currency)}
+            </span>
           </span>
         </div>
 
@@ -325,6 +373,7 @@ function CartLineRow({ line, currency }: { line: CartLine; currency: string }) {
             size="sm"
             variant="soft"
             min={1}
+            max={lineMaxQty(line)}
             ariaLabel={`Quantity for ${m.product.title}`}
           />
           <button
@@ -342,34 +391,215 @@ function CartLineRow({ line, currency }: { line: CartLine; currency: string }) {
   );
 }
 
-function RecommendationCard({ product }: { product: ProductCard }) {
+/** Promo-code input for the drawer (CD-1) — applies/removes a real cart-level
+ *  discount without leaving the mini-cart. The saving itself renders in the
+ *  footer discount row; here we own the input + applied-code chips. */
+function DrawerDiscount() {
+  const cart = useStore($cart);
+  const busy = useStore($cartBusy);
+  const applied = (cart?.discountCodes ?? []).filter((d) => d.applicable);
+  const [code, setCode] = useState('');
+  const [note, setNote] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
+
+  const apply = async () => {
+    const c = code.trim().toUpperCase();
+    if (!c) return;
+    setNote(null);
+    // Merge with any already-applied codes so a second code doesn't drop the first.
+    const next = Array.from(new Set([...applied.map((d) => d.code.toUpperCase()), c]));
+    const res = await applyDiscountCode(next, { open: false });
+    const ok = (res.cart?.discountCodes ?? []).some(
+      (d) => d.applicable && d.code.toUpperCase() === c,
+    );
+    setNote(ok ? { tone: 'ok', text: 'Code applied.' } : { tone: 'err', text: "That code isn't valid." });
+    if (ok) setCode('');
+  };
+
+  const remove = async (target: string) => {
+    const next = applied.map((d) => d.code).filter((c) => c.toUpperCase() !== target.toUpperCase());
+    await applyDiscountCode(next, { open: false });
+    setNote(null);
+  };
+
+  return (
+    <div className="mb-3">
+      <div className="flex gap-2">
+        <label htmlFor="drawer-promo" className="sr-only">
+          Promo code
+        </label>
+        <div className="relative min-w-0 flex-1">
+          <Tag
+            size={14}
+            strokeWidth={1.8}
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted"
+          />
+          <input
+            id="drawer-promo"
+            type="text"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && apply()}
+            placeholder="Promo code"
+            className="h-10 w-full rounded-lg bg-surface-cool pl-8 pr-3 text-[12.5px] uppercase tracking-[0.5px] outline-none ring-1 ring-inset ring-border transition-shadow focus:ring-2 focus:ring-coral"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={apply}
+          disabled={busy || !code.trim()}
+          className="h-10 flex-none rounded-lg bg-dark px-4 text-[11px] font-bold uppercase tracking-[1px] text-white transition-fluid hover:bg-dark-hover disabled:opacity-50"
+        >
+          Apply
+        </button>
+      </div>
+      {note && (
+        <p className={`mt-1.5 text-[11.5px] font-medium ${note.tone === 'ok' ? 'text-green' : 'text-coral'}`}>
+          {note.text}
+        </p>
+      )}
+      {applied.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {applied.map((d) => (
+            <span
+              key={d.code}
+              className="inline-flex items-center gap-1.5 rounded-md bg-green-soft px-2 py-1 text-[11px] font-bold text-green-hover"
+            >
+              {d.code}
+              <button
+                type="button"
+                onClick={() => remove(d.code)}
+                disabled={busy}
+                aria-label={`Remove ${d.code}`}
+                className="transition-fluid hover:text-coral disabled:opacity-40"
+              >
+                <X size={12} strokeWidth={2.2} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Collapsible order note — persists to the real Shopify cart.note (CD-4). */
+function DrawerNote() {
+  const { note, onChange } = useCartNote();
+  const [openNote, setOpenNote] = useState(false);
+  // Reveal the field automatically when a note already exists.
+  useEffect(() => {
+    if (note) setOpenNote(true);
+  }, [note]);
+
+  return (
+    <section className="mt-5 border-t border-border/60 pt-4">
+      {openNote ? (
+        <div>
+          <label
+            htmlFor="drawer-order-note"
+            className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[1.6px] text-text-secondary"
+          >
+            <PenLine size={14} strokeWidth={1.8} /> Order note
+          </label>
+          <textarea
+            id="drawer-order-note"
+            value={note}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Delivery instructions or a gift message…"
+            rows={2}
+            className="w-full resize-y rounded-xl bg-surface px-3.5 py-2.5 text-[13px] leading-[1.55] outline-none ring-1 ring-inset ring-border transition-shadow focus:ring-2 focus:ring-coral"
+          />
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpenNote(true)}
+          className="flex items-center gap-2 text-[12.5px] font-semibold text-text-secondary transition-fluid hover:text-coral"
+        >
+          <PenLine size={15} strokeWidth={1.8} /> Add an order note
+        </button>
+      )}
+    </section>
+  );
+}
+
+function RecommendationCard({
+  product,
+  onAdded,
+}: {
+  product: ProductCard;
+  onAdded: (handle: string) => void;
+}) {
   const img = product.featuredImage;
   const price = product.priceRange.minVariantPrice;
+  // Quick-add only when the choice is unambiguous; otherwise send to the PDP so
+  // the shopper picks a variant (mirrors the ProductCard PC-6 behaviour).
+  const canQuickAdd = product.availableForSale && !product.requiresChoice && !!product.variantId;
+  const [adding, setAdding] = useState(false);
+
+  const quickAdd = async () => {
+    if (!product.variantId) return;
+    setAdding(true);
+    try {
+      await addItem(product.variantId, 1, { open: false });
+      onAdded(product.handle);
+    } finally {
+      setAdding(false);
+    }
+  };
+
   return (
-    <a
-      href={`/products/${product.handle}`}
-      onClick={closeCart}
-      className="group block overflow-hidden rounded-2xl bg-surface shadow-xs ring-1 ring-border/70 transition-fluid hover:shadow-md"
-    >
-      <div className="aspect-[4/5] overflow-hidden bg-surface-cool">
-        {img ? (
-          <img
-            src={img.url}
-            alt={img.altText ?? product.title}
-            className="h-full w-full object-cover transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
-            loading="lazy"
-          />
-        ) : null}
-      </div>
-      <div className="p-3">
-        <p className="truncate text-[13px] font-semibold leading-tight text-text-primary group-hover:text-coral">
+    <div className="group flex flex-col overflow-hidden rounded-2xl bg-surface shadow-xs ring-1 ring-border/70 transition-fluid hover:shadow-md">
+      <a href={`/products/${product.handle}`} onClick={closeCart} className="block">
+        <div className="aspect-[4/5] overflow-hidden bg-surface-cool">
+          {img ? (
+            <img
+              src={img.url}
+              alt={img.altText ?? product.title}
+              className="h-full w-full object-cover transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+              loading="lazy"
+            />
+          ) : null}
+        </div>
+      </a>
+      <div className="flex flex-1 flex-col p-3">
+        <a
+          href={`/products/${product.handle}`}
+          onClick={closeCart}
+          className="block truncate text-[13px] font-semibold leading-tight text-text-primary group-hover:text-coral"
+        >
           {product.title}
-        </p>
+        </a>
         <p className="mt-1 text-[13px] tabular text-text-secondary">
           {formatMoney(price.amount, price.currencyCode)}
         </p>
+        {canQuickAdd ? (
+          <button
+            type="button"
+            onClick={quickAdd}
+            disabled={adding}
+            className="mt-2.5 flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-border text-[11px] font-bold uppercase tracking-[1px] text-text-primary transition-fluid hover:border-dark hover:bg-dark hover:text-white disabled:opacity-50"
+            aria-label={`Add ${product.title} to bag`}
+          >
+            {adding ? (
+              <Spinner size={14} />
+            ) : (
+              <>
+                <Plus size={13} strokeWidth={2.4} /> Add
+              </>
+            )}
+          </button>
+        ) : (
+          <a
+            href={`/products/${product.handle}`}
+            onClick={closeCart}
+            className="mt-2.5 flex h-8 w-full items-center justify-center rounded-lg border border-border text-[11px] font-bold uppercase tracking-[1px] text-text-primary transition-fluid hover:border-dark hover:text-coral"
+          >
+            Choose
+          </a>
+        )}
       </div>
-    </a>
+    </div>
   );
 }
 

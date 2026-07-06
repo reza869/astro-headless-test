@@ -8,6 +8,32 @@ export const SITE = {
   tagline: 'Modern Fashion & Everyday Luxury',
   /** Free-shipping threshold (matches the value in `announcements`). */
   freeShippingThreshold: 150,
+  /**
+   * Gift wrapping. When `variantId` is a real ProductVariant gid, toggling gift
+   * wrap adds/removes that line so it's actually charged (its real price shows
+   * in the subtotal). Otherwise it records a `Gift wrap` cart attribute
+   * (complimentary — the merchant fulfils it; nothing is fabricated into the
+   * total). Leave `variantId` empty for the attribute-only default.
+   */
+  giftWrap: {
+    enabled: true,
+    label: 'Add gift wrapping',
+    note: 'Hand-wrapped in signature tissue with a personal note.',
+    /** e.g. 'gid://shopify/ProductVariant/1234567890'; empty = attribute-only. */
+    variantId: '',
+  },
+  /**
+   * Delivery-speed options shown on the cart as an ESTIMATE. Real shipping is
+   * calculated by Shopify at checkout — these carry no fabricated price. The
+   * shopper's choice is saved as a `Delivery preference` cart attribute so the
+   * merchant sees it. `standard` shows "Free" once the free-shipping threshold
+   * is met; everything else shows "Calculated at checkout".
+   */
+  deliveryOptions: [
+    { key: 'standard', label: 'Standard', eta: '3–5 business days', freeOverThreshold: true },
+    { key: 'express', label: 'Express', eta: '1–2 business days', freeOverThreshold: false },
+    { key: 'pickup', label: 'Boutique pickup', eta: 'Flagship · ready today', free: true },
+  ],
   description:
     'Modern everyday apparel — better materials, cleaner cuts, cut for the way you actually live. A headless Shopify storefront built with Astro.',
   // ─── Business / contact details ───────────────────────────────

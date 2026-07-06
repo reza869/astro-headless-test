@@ -178,6 +178,10 @@ export const CART_FRAGMENT = /* GraphQL */ `
     checkoutUrl
     totalQuantity
     note
+    attributes {
+      key
+      value
+    }
     discountCodes {
       applicable
       code
@@ -204,8 +208,28 @@ export const CART_FRAGMENT = /* GraphQL */ `
             totalAmount {
               ...Money
             }
+            subtotalAmount {
+              ...Money
+            }
             amountPerQuantity {
               ...Money
+            }
+            compareAtAmountPerQuantity {
+              ...Money
+            }
+          }
+          discountAllocations {
+            discountedAmount {
+              ...Money
+            }
+            ... on CartCodeDiscountAllocation {
+              code
+            }
+            ... on CartAutomaticDiscountAllocation {
+              title
+            }
+            ... on CartCustomDiscountAllocation {
+              title
             }
           }
           attributes {
@@ -217,6 +241,12 @@ export const CART_FRAGMENT = /* GraphQL */ `
               id
               title
               availableForSale
+              quantityAvailable
+              quantityRule {
+                minimum
+                maximum
+                increment
+              }
               selectedOptions {
                 name
                 value

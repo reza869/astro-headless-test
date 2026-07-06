@@ -233,6 +233,14 @@ export interface CartLineMerchandise {
   id: string;
   title: string;
   availableForSale: boolean;
+  /** Units in stock for this variant (null when Shopify doesn't track it). */
+  quantityAvailable?: number | null;
+  /** Merchant purchase rules (min / max / increment) — CP-6. */
+  quantityRule?: {
+    minimum?: number | null;
+    maximum?: number | null;
+    increment?: number | null;
+  } | null;
   selectedOptions: SelectedOption[];
   price: Money;
   image?: Image | null;
@@ -244,14 +252,29 @@ export interface CartLineMerchandise {
   };
 }
 
+/** One discount applied to a cart line (code or automatic) — CD-2. */
+export interface CartLineDiscountAllocation {
+  discountedAmount: Money;
+  /** Present on code discounts. */
+  code?: string;
+  /** Present on automatic / custom discounts. */
+  title?: string;
+}
+
 export interface CartLine {
   id: string;
   quantity: number;
   cost: {
     totalAmount: Money;
+    /** Line price before line-level discounts (for strikethrough). */
+    subtotalAmount?: Money;
     amountPerQuantity: Money;
+    /** Per-unit compare-at (merchant sale) price, when set. */
+    compareAtAmountPerQuantity?: Money | null;
   };
   merchandise: CartLineMerchandise;
+  /** Line-level discount allocations (code + automatic) — CD-2. */
+  discountAllocations?: CartLineDiscountAllocation[];
   /** Line-item properties (personalization / gift notes) — MP-24. */
   attributes?: { key: string; value: string }[];
 }
@@ -261,6 +284,8 @@ export interface Cart {
   checkoutUrl: string;
   totalQuantity: number;
   note?: string | null;
+  /** Cart-level attributes (gift wrap flag, gift message, …). */
+  attributes?: { key: string; value: string }[];
   discountCodes?: { applicable: boolean; code: string }[];
   discountAllocations?: { discountedAmount: Money }[];
   cost: {

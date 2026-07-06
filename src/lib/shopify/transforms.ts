@@ -325,12 +325,18 @@ function mapCartLine(l: Raw): CartLine {
     id: l.id,
     quantity: l.quantity,
     cost: l.cost,
+    // Keep only allocations that actually reduced the price (defensive).
+    discountAllocations: (l.discountAllocations ?? []).filter(
+      (d: Raw) => Number(d?.discountedAmount?.amount ?? 0) > 0,
+    ),
     // Only keep buyer-facing properties (hide Shopify's `_`-prefixed internals).
     attributes: (l.attributes ?? []).filter((a: Raw) => a?.key && !a.key.startsWith('_')),
     merchandise: {
       id: l.merchandise?.id,
       title: l.merchandise?.title,
       availableForSale: l.merchandise?.availableForSale ?? true,
+      quantityAvailable: l.merchandise?.quantityAvailable ?? null,
+      quantityRule: l.merchandise?.quantityRule ?? null,
       selectedOptions: l.merchandise?.selectedOptions ?? [],
       price: l.merchandise?.price,
       image: l.merchandise?.image ?? null,
@@ -346,6 +352,8 @@ export function mapCart(c: Raw | null | undefined): Cart | null {
     checkoutUrl: c.checkoutUrl,
     totalQuantity: c.totalQuantity ?? 0,
     note: c.note ?? null,
+    // Hide Shopify's `_`-prefixed internal attributes from the UI.
+    attributes: (c.attributes ?? []).filter((a: Raw) => a?.key && !a.key.startsWith('_')),
     discountCodes: c.discountCodes ?? [],
     discountAllocations: c.discountAllocations ?? [],
     cost: c.cost,

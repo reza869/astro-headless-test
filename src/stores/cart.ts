@@ -152,6 +152,32 @@ export async function buyNow(
   }
 }
 
+/** Persist the order note to the Shopify cart (`cart.note`). Background save —
+ *  the UI debounces calls, so this deliberately does NOT toggle the global
+ *  busy spinner or surface transient errors (a lost keystroke save is silent). */
+export async function setNote(note: string): Promise<void> {
+  try {
+    const data = await post('/api/cart/note', { note });
+    if (data.cart) $cart.set(data.cart);
+  } catch {
+    /* background save — ignore */
+  }
+}
+
+/** Replace the cart's attribute set (gift wrap flag, gift message, …). */
+export async function setCartAttributes(attributes: LineAttribute[]): Promise<MutationResponse> {
+  $cartBusy.set(true);
+  $cartError.set(null);
+  try {
+    return applyResult(await post('/api/cart/attributes', { attributes }));
+  } catch {
+    $cartError.set('Could not update the cart. Please try again.');
+    return { cart: null };
+  } finally {
+    $cartBusy.set(false);
+  }
+}
+
 export async function updateItem(lineId: string, quantity: number): Promise<void> {
   $busyLines.setKey(lineId, true);
   try {

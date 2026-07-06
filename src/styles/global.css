@@ -302,6 +302,24 @@
 }
 
 /* ============================================================
+   Cart free-shipping "unlocked" glow (CD-8). Applied to the meter
+   track once the threshold is met. The global reduced-motion rule
+   below neutralises it automatically.
+   ============================================================ */
+@keyframes cart-ship-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 3px 0 color-mix(in srgb, var(--color-green) 35%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 11px 2px color-mix(in srgb, var(--color-green) 72%, transparent);
+  }
+}
+.cart-ship-unlocked {
+  animation: cart-ship-glow 1.8s ease-in-out infinite;
+}
+
+/* ============================================================
    Reduced motion + no-JS — never leave reveal targets hidden.
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {

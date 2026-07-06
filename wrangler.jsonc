@@ -6,9 +6,10 @@
 	//   Build:   npm run build
 	//   Deploy:  npx wrangler deploy -c ./dist/server/wrangler.json
 	//
-	// The build auto-declares a "SESSION" KV binding (Astro sessions). Create
-	// it once and its id is picked up on deploy:
-	//   npx wrangler kv namespace create SESSION
+	// No KV binding is emitted. This storefront doesn't use Astro sessions
+	// (auth + cart are httpOnly cookies), so astro.config.mjs pins the `null`
+	// session driver — @astrojs/cloudflare no longer declares a "SESSION" KV
+	// binding, and no KV namespace needs to be created on deploy.
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "tailored",
 	"compatibility_date": "2025-05-05",
