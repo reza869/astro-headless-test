@@ -1,89 +1,92 @@
 ---
 // ============================================================
-//  ShopTheLook — interactive 3-tab lookbook. Tabs swap the stage
-//  image, hotspots and the product list. Each product links to its
-//  PDP; single-variant pieces quick-add, multi-variant pieces route
-//  to the PDP to choose (no fake size picker). The dark bundle bar
-//  totals the pieces — and only claims a "Save X%" when a REAL
-//  Shopify discount code is configured (SITE.shopTheLook.bundleCode).
-//  Looks are backed by real Shopify products (variantId ⇒ live cart).
+//  ShopTheLook — interactive 3-tab lookbook (config-driven).
+//  Each look's products come from SITE.shopTheLook.looks[].handles
+//  (curated) or fall back to best-sellers. Products are fetched WITH
+//  their real variants, so the inline picker shows the ACTUAL sizes/
+//  options — selecting one adds exactly that variant; with no choice
+//  the single variant is added. "+" adds to the cart and opens the
+//  drawer. The bundle bar only claims a "Save X%" when a REAL Shopify
+//  discount code is configured (SITE.shopTheLook.bundleCode).
 // ============================================================
 import MagHeading from '~/components/sections/MagHeading.astro';
 import Icon from '~/components/ui/Icon.astro';
-import { getProducts } from '~/lib/shopify';
+import { getProduct, getProducts } from '~/lib/shopify';
 import { formatMoney } from '~/lib/utils';
 import { SITE } from '~/config/site';
+import type { Product } from '~/lib/shopify/types';
 
-let pool: Awaited<ReturnType<typeof getProducts>>['items'] = [];
-try {
-  pool = (await getProducts({ pageSize: 12, sortKey: 'BEST_SELLING' })).items;
-} catch (err) {
-  console.error('[shop-the-look] product load failed:', (err as Error).message);
-}
+const cfg = SITE.shopTheLook;
+const LOOK_DEFS = cfg.looks;
 
-// Per-look hotspot coordinates (roughly upper / mid / lower body), distinct per
-// look so the markers read as intentional. Clicking one highlights + scrolls to
-// the matching product. Precise per-product placement is a merchant-curation
-// follow-up; these are sensible defaults.
-const LOOK_HOTSPOTS = [
-  [{ x: '26%', y: '34%' }, { x: '55%', y: '58%' }, { x: '40%', y: '82%' }],
-  [{ x: '42%', y: '30%' }, { x: '50%', y: '60%' }, { x: '45%', y: '84%' }],
-  [{ x: '34%', y: '38%' }, { x: '52%', y: '56%' }, { x: '44%', y: '82%' }],
-];
-const LOOK_DEFS = [
-  { id: '01', name: 'The Resort Edit', image: '/images/Look 01.png' },
-  { id: '02', name: 'City Tailoring', image: '/images/Look 02.png' },
-  { id: '03', name: 'Evening Soft', image: '/images/Look 03.png' },
-];
-
-const currency = pool[0]?.priceRange.minVariantPrice.currencyCode ?? 'USD';
-const pick = (i: number) => (pool.length ? pool[i % pool.length] : null);
-
-// Never surface internal/demo vendor names as a category — fall back to brand.
-const cleanCat = (v?: string) =>
-  v && !/demo|partner|sample|test/i.test(v) ? v : SITE.name;
-
-// Bundle saving is only real (and only shown) when a discount code is configured.
-const bundleCode = (SITE.shopTheLook.bundleCode ?? '').trim();
-const bundlePct = SITE.shopTheLook.bundleDiscountPct ?? 0;
+const bundleCode = (cfg.bundleCode ?? '').trim();
+const bundlePct = cfg.bundleDiscountPct ?? 0;
 const hasBundleSaving = Boolean(bundleCode) && bundlePct > 0;
 
+// Best-seller handles power any look left un-curated.
+let bestHandles: string[] = [];
+try {
+  bestHandles = (await getProducts({ pageSize: 12, sortKey: 'BEST_SELLING' })).items.map((p) => p.handle);
+} catch (err) {
+  console.error('[shop-the-look] best-seller load failed:', (err as Error).message);
+}
+
+// Resolve the handle list for each look (curated → else a best-seller slice).
+const lookHandles = LOOK_DEFS.map((d, li) => {
+  const curated = (d.handles ?? []).filter(Boolean);
+  return curated.length ? curated : bestHandles.slice(li * 3, li * 3 + 3);
+});
+
+// Fetch each product ONCE with full variant data, in parallel, then index by handle.
+const uniqueHandles = [...new Set(lookHandles.flat())];
+const fetched = await Promise.all(uniqueHandles.map((h) => getProduct(h).catch(() => null)));
+const byHandle = new Map<string, Product>();
+uniqueHandles.forEach((h, i) => {
+  const p = fetched[i];
+  if (p) byHandle.set(h, p);
+});
+
+const firstProduct = [...byHandle.values()][0];
+const currency = firstProduct?.priceRange.minVariantPrice.currencyCode ?? 'USD';
+
+// Never surface internal/demo vendor names as a category — fall back to brand.
+const cleanCat = (v?: string) => (v && !/demo|partner|sample|test/i.test(v) ? v : SITE.name);
+
 const looks = LOOK_DEFS.map((d, li) => {
-  const products = [0, 1, 2]
-    .map((j) => {
-      const p = pick(li * 3 + j);
-      if (!p) return null;
-      const amount = Number(p.priceRange.minVariantPrice.amount);
+  const products = lookHandles[li]
+    .map((h) => byHandle.get(h))
+    .filter((p): p is Product => Boolean(p))
+    .map((p) => {
+      const variants = p.variants ?? [];
+      const def = variants.find((v) => v.availableForSale) ?? variants[0] ?? null;
+      const amount = Number(def?.price.amount ?? p.priceRange.minVariantPrice.amount);
+      // Offer the picker only when there's a genuine choice (>1 real variant).
+      const options =
+        variants.length > 1
+          ? variants.map((v) => ({ id: v.id, label: v.title, available: v.availableForSale }))
+          : [];
       return {
         handle: p.handle,
-        variantId: p.variantId ?? '',
-        // When a variant choice matters, quick-add would pick the wrong one —
-        // route to the PDP instead (mirrors the ProductCard grid).
-        requiresChoice: Boolean(p.requiresChoice),
         title: p.title,
         cat: cleanCat(p.vendor),
+        image: p.featuredImage?.url ?? d.image,
         amount,
         price: formatMoney(amount, currency),
-        image: p.featuredImage?.url ?? d.image,
+        defaultVariantId: def?.id ?? '',
+        options,
       };
-    })
-    .filter((p): p is NonNullable<typeof p> => p !== null);
+    });
   const original = products.reduce((s, p) => s + p.amount, 0);
   const bundleTotal = hasBundleSaving ? original * (1 - bundlePct / 100) : original;
   return { ...d, products, original, bundleTotal };
 });
 
-const hasLooks = looks[0]?.products.length > 0;
+const hasLooks = looks.some((l) => l.products.length > 0);
 ---
 
 {
   hasLooks && (
-    <section
-      id="shop-the-look"
-      class="pb-section"
-      data-look-section
-      data-bundle-code={bundleCode}
-    >
+    <section id="shop-the-look" class="pb-section" data-look-section data-bundle-code={bundleCode}>
       <div class="container-mag">
         <MagHeading eyebrow="Styled by the Editors" title="Shop the" em="Look" class="mb-10 md:mb-12">
           {/* Tabs */}
@@ -128,7 +131,7 @@ const hasLooks = looks[0]?.products.length > 0;
             data-look-panel
             data-look={look.id}
             data-currency={currency}
-            class:list={['grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[1.3fr_1fr]', li !== 0 && 'hidden']}
+            class:list={['grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]', li !== 0 && 'hidden']}
           >
             {/* ===== Left — stage + hotspots ===== */}
             <div class="look-stage relative min-h-[440px] overflow-hidden rounded-3xl shadow-md md:min-h-[620px]">
@@ -138,22 +141,25 @@ const hasLooks = looks[0]?.products.length > 0;
                 Look {look.id} · {look.name}
               </span>
 
-              {look.products.map((_, j) => (
-                <button
-                  type="button"
-                  data-hotspot
-                  data-index={j}
-                  aria-label={`Highlight item ${j + 1}`}
-                  class:list={['hotspot absolute z-40 flex h-9 w-9 items-center justify-center rounded-full shadow-md', j === 0 && 'is-active']}
-                  style={`left:${LOOK_HOTSPOTS[li][j].x};top:${LOOK_HOTSPOTS[li][j].y};transform:translate(-50%,-50%)`}
-                >
-                  <Icon name="plus" size={18} />
-                </button>
-              ))}
+              {look.products.map((_, j) => {
+                const hs = look.hotspots?.[j] ?? { x: '50%', y: '50%' };
+                return (
+                  <button
+                    type="button"
+                    data-hotspot
+                    data-index={j}
+                    aria-label={`Highlight item ${j + 1}`}
+                    class:list={['hotspot absolute z-40 flex h-9 w-9 items-center justify-center rounded-full shadow-md', j === 0 && 'is-active']}
+                    style={`left:${hs.x};top:${hs.y};transform:translate(-50%,-50%)`}
+                  >
+                    <Icon name="plus" size={18} />
+                  </button>
+                );
+              })}
             </div>
 
             {/* ===== Right — note + products + bundle ===== */}
-            <div class="flex flex-col gap-3">
+            <div class="flex min-w-0 flex-col gap-3">
               <div class="flex items-center gap-3 rounded-2xl bg-coral-soft px-4 py-3">
                 <span class="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-coral text-white">
                   <Icon name="star" size={18} />
@@ -170,7 +176,7 @@ const hasLooks = looks[0]?.products.length > 0;
                 <article
                   data-look-card
                   data-index={j}
-                  data-variant={p.variantId}
+                  data-variant={p.defaultVariantId}
                   data-price={p.amount}
                   class:list={['look-card flex items-center gap-4 rounded-2xl border bg-white p-3 transition-fluid', j === 0 ? 'is-active' : 'border-border']}
                 >
@@ -184,19 +190,32 @@ const hasLooks = looks[0]?.products.length > 0;
                       <a href={`/products/${p.handle}`} class="transition-fluid hover:text-coral">{p.title}</a>
                     </h4>
                     <span class="text-[14px] font-bold tabular text-text-primary">{p.price}</span>
+
+                    {/* Real variant picker — only when the product has a genuine choice.
+                        Single scrollable row so cards stay tidy regardless of count. */}
+                    {p.options.length > 0 && (
+                      <div class="stl-variants mt-2 flex gap-1.5 overflow-x-auto" data-variant-picker>
+                        {p.options.map((o) => (
+                          <button
+                            type="button"
+                            data-variant-opt
+                            data-variant={o.id}
+                            disabled={!o.available}
+                            aria-label={`Select ${o.label}`}
+                            class:list={[
+                              'look-size grid h-7 min-w-7 flex-none place-items-center whitespace-nowrap rounded-md px-2 text-[11px] font-bold transition-fluid',
+                              o.id === p.defaultVariantId && 'is-on',
+                              !o.available && 'is-oos',
+                            ]}
+                          >
+                            {o.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
-                  {/* Single-variant → quick-add; choice-required → go to PDP to pick. */}
-                  {p.requiresChoice || !p.variantId ? (
-                    <a
-                      href={`/products/${p.handle}`}
-                      aria-label={`Choose options for ${p.title}`}
-                      title="Choose options"
-                      class="look-toggle grid h-10 w-10 flex-none place-items-center rounded-full bg-surface-cool text-text-primary transition-fluid hover:bg-coral hover:text-white"
-                    >
-                      <Icon name="arrowRight" size={18} />
-                    </a>
-                  ) : (
+                  {p.defaultVariantId ? (
                     <button
                       type="button"
                       data-card-toggle
@@ -205,6 +224,14 @@ const hasLooks = looks[0]?.products.length > 0;
                     >
                       <Icon name="plus" size={18} />
                     </button>
+                  ) : (
+                    <a
+                      href={`/products/${p.handle}`}
+                      aria-label={`View ${p.title}`}
+                      class="look-toggle grid h-10 w-10 flex-none place-items-center rounded-full bg-surface-cool text-text-primary transition-fluid hover:bg-coral hover:text-white"
+                    >
+                      <Icon name="arrowRight" size={18} />
+                    </a>
                   )}
                 </article>
               ))}
@@ -267,6 +294,29 @@ const hasLooks = looks[0]?.products.length > 0;
     box-shadow: 0 0 0 1px var(--color-coral);
   }
 
+  /* Variant picker — single tidy scroll row, no visible scrollbar */
+  .stl-variants {
+    scrollbar-width: none;
+  }
+  .stl-variants::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Variant pills */
+  .look-size {
+    background: var(--color-surface-cool);
+    color: var(--color-text-primary);
+  }
+  .look-size.is-on {
+    background: var(--color-dark);
+    color: #fff;
+  }
+  .look-size.is-oos {
+    opacity: 0.4;
+    text-decoration: line-through;
+    cursor: not-allowed;
+  }
+
   /* Hotspots */
   .hotspot {
     background: #fff;
@@ -293,6 +343,9 @@ const hasLooks = looks[0]?.products.length > 0;
 <script>
   import { addItem, applyDiscountCode, openCart } from '~/stores/cart';
 
+  /** Variant the card will add: the shopper's pick, else the default. */
+  const chosenVariant = (card: HTMLElement) => card.dataset.selectedVariant || card.dataset.variant || '';
+
   function initPanel(panel: HTMLElement, bundleCode: string): void {
     const cards = Array.from(panel.querySelectorAll<HTMLElement>('[data-look-card]'));
     const hotspots = Array.from(panel.querySelectorAll<HTMLElement>('[data-hotspot]'));
@@ -304,15 +357,28 @@ const hasLooks = looks[0]?.products.length > 0;
     };
 
     cards.forEach((card) => {
+      // Seed the selection with the default variant.
+      card.dataset.selectedVariant = card.dataset.variant || '';
+
       // Spotlight follows the hovered (or focused) card.
       const activate = () => setActive(card.dataset.index || '0');
       card.addEventListener('mouseenter', activate);
       card.addEventListener('focusin', activate);
 
-      // Per-card "+" (single-variant products only) — adds this product, opens the drawer.
+      // Variant picker — selecting a pill sets the exact variant this card adds.
+      const opts = Array.from(card.querySelectorAll<HTMLButtonElement>('[data-variant-opt]'));
+      opts.forEach((opt) => {
+        opt.addEventListener('click', () => {
+          if (opt.disabled) return;
+          card.dataset.selectedVariant = opt.dataset.variant || '';
+          opts.forEach((o) => o.classList.toggle('is-on', o === opt));
+        });
+      });
+
+      // Per-card "+" — adds the chosen (or default) variant and opens the drawer.
       const toggle = card.querySelector<HTMLButtonElement>('[data-card-toggle]');
       toggle?.addEventListener('click', async () => {
-        const variant = card.dataset.variant;
+        const variant = chosenVariant(card);
         if (!variant || card.dataset.busy) return;
         card.dataset.busy = '1';
         try {
@@ -323,7 +389,7 @@ const hasLooks = looks[0]?.products.length > 0;
       });
     });
 
-    // Hotspots are now functional: highlight + scroll to the matching product.
+    // Hotspots are functional: highlight + scroll to the matching product.
     hotspots.forEach((h) => {
       h.addEventListener('click', () => {
         const idx = h.dataset.index || '0';
@@ -335,17 +401,17 @@ const hasLooks = looks[0]?.products.length > 0;
       });
     });
 
-    // Add All — every piece of the look; the bundle discount only applies when a
-    // real code is configured (otherwise the prices are already the honest sum).
+    // Add All — every piece (each with its chosen/default variant); the bundle
+    // discount only applies when a real code is configured.
     addAll?.addEventListener('click', async () => {
-      const items = cards.filter((c) => c.dataset.variant);
+      const items = cards.map(chosenVariant).filter(Boolean);
       if (!items.length) return;
       addAll.setAttribute('disabled', '');
       panel.querySelector('.add-all-label')?.classList.add('hidden');
       panel.querySelector('.add-all-spin')?.classList.remove('hidden');
       try {
-        for (const c of items) {
-          await addItem(c.dataset.variant!, 1, { open: false });
+        for (const variant of items) {
+          await addItem(variant, 1, { open: false });
         }
         if (bundleCode) await applyDiscountCode([bundleCode], { open: false });
         openCart();

@@ -35,15 +35,57 @@ export const SITE = {
     { key: 'pickup', label: 'Boutique pickup', eta: 'Flagship · ready today', free: true },
   ],
   /**
-   * "Shop the Look" bundle. `bundleCode` must be a REAL Shopify discount (a
-   * code discount, or an automatic discount surfaced by that code) that grants
-   * `bundleDiscountPct` off. When set, "Add All" applies it and the bundle bar
-   * previews the saving. Leave `bundleCode` empty (the default) to show the
-   * HONEST full sum with no "Save X%" claim — nothing fabricated.
+   * "Shop the Look" editorial lookbook.
+   *
+   * `bundleCode` must be a REAL Shopify discount (a code discount, or an
+   * automatic discount surfaced by that code) that grants `bundleDiscountPct`
+   * off. When set, "Add All" applies it and the bundle bar previews the saving.
+   * Leave `bundleCode` empty (the default) to show the HONEST full sum with no
+   * "Save X%" claim — nothing fabricated.
+   *
+   * `looks` curates each editorial: `handles` are the product handles shown (in
+   * order) and `hotspots` are the image marker positions (as % — one per
+   * product, sitting on the garment). Leave a look's `handles` empty to fall
+   * back to best-sellers, so the section still works before it's curated.
    */
   shopTheLook: {
     bundleCode: '',
     bundleDiscountPct: 10,
+    looks: [
+      {
+        id: '01',
+        name: 'The Resort Edit',
+        image: '/images/Look 01.png',
+        handles: [] as string[],
+        hotspots: [
+          { x: '26%', y: '34%' },
+          { x: '55%', y: '58%' },
+          { x: '40%', y: '82%' },
+        ],
+      },
+      {
+        id: '02',
+        name: 'City Tailoring',
+        image: '/images/Look 02.png',
+        handles: [] as string[],
+        hotspots: [
+          { x: '42%', y: '30%' },
+          { x: '50%', y: '60%' },
+          { x: '45%', y: '84%' },
+        ],
+      },
+      {
+        id: '03',
+        name: 'Evening Soft',
+        image: '/images/Look 03.png',
+        handles: [] as string[],
+        hotspots: [
+          { x: '34%', y: '38%' },
+          { x: '52%', y: '56%' },
+          { x: '44%', y: '82%' },
+        ],
+      },
+    ],
   },
   description:
     'Modern everyday apparel — better materials, cleaner cuts, cut for the way you actually live. A headless Shopify storefront built with Astro.',
