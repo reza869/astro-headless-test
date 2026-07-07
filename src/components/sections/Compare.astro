@@ -1,47 +1,124 @@
 ---
 // ============================================================
 //  Compare — designer's #compare matrix (.cmp). An editorial
-//  side-by-side comparison of three coats: header row (image +
-//  name + price), then attribute rows (Price, Material, Fit,
-//  Lining, Water Resistant, Colours as swatch dots, Rating as
-//  stars) and a per-column "Add to bag" CTA footer.
+//  side-by-side comparison of three curated products: header row
+//  (image + name + price), attribute rows and a per-column
+//  "Add to bag" CTA footer. The middle (configurable) column is the
+//  "Editor's Pick" with a coral top accent.
 //
-//  Static/presentational (no props, no JS). The middle column is
-//  the "Editor's Pick" featured column with a coral top accent.
-//  Add-to-bag buttons are real links to /products per brief.
+//  Honesty: Price, Colours and Rating come from REAL product data
+//  (Storefront options + the reviews.rating metafield); a row hides
+//  itself when no column carries that value. Material/Fit/Lining/
+//  Water aren't exposed by the Storefront API, so they come from
+//  SITE.compare.specs — and only for curated handles, never the
+//  best-seller fallback. The whole section is demo-only.
 // ============================================================
 import MagHeading from '~/components/sections/MagHeading.astro';
 import Icon from '~/components/ui/Icon.astro';
-import { getProducts } from '~/lib/shopify';
+import { getProduct, getProducts } from '~/lib/shopify';
 import { formatMoney } from '~/lib/utils';
+import { SITE } from '~/config/site';
+import type { Product } from '~/lib/shopify/types';
 
-let pool: Awaited<ReturnType<typeof getProducts>>['items'] = [];
+const CFG = SITE.compare;
+const curated = (CFG.handles ?? []).filter(Boolean);
+
+// Load full products (variants + options + metafields). Curated handles first;
+// if none resolve on this store, fall back to best-sellers so the section still
+// renders — but the editorial specs are applied to CURATED products only.
+let products: Product[] = [];
+let usingCurated = false;
 try {
-  pool = (await getProducts({ pageSize: 6, sortKey: 'BEST_SELLING' })).items;
+  if (curated.length) {
+    products = (await Promise.all(curated.map((h) => getProduct(h).catch(() => null)))).filter(
+      (p): p is Product => Boolean(p),
+    );
+    usingCurated = products.length > 0;
+  }
+  if (!products.length) {
+    const best = (await getProducts({ pageSize: 6, sortKey: 'BEST_SELLING' })).items.slice(0, 3);
+    products = (await Promise.all(best.map((p) => getProduct(p.handle).catch(() => null)))).filter(
+      (p): p is Product => Boolean(p),
+    );
+  }
 } catch (err) {
   console.error('[compare] product load failed:', (err as Error).message);
 }
 
-const currency = pool[0]?.priceRange.minVariantPrice.currencyCode ?? 'USD';
+const currency = products[0]?.priceRange.minVariantPrice.currencyCode ?? 'USD';
+const specs = usingCurated ? (CFG.specs ?? []) : [];
+const featIndex = CFG.featuredIndex ?? 1;
 
-// Editorial comparison attributes — overlaid on the real products (the
-// Storefront API doesn't expose material/fit/lining/etc.). Middle = featured.
-const ATTRS = [
-  { material: 'Virgin Wool', fit: 'Relaxed', lining: true, water: false, swatches: ['#2b2f33', '#8d7a5e'], rating: '4.8' },
-  { material: 'Cotton Gabardine', fit: 'Regular', lining: true, water: true, swatches: ['#c8b89a', '#3a4250', '#1b1d1f'], rating: '4.9', feat: true },
-  { material: 'Wool Blend', fit: 'Slim', lining: false, water: false, swatches: ['#1b1d1f', '#6e6256'], rating: '4.6' },
-];
+// Minimal name→hex fallback for option values without a real Shopify swatch
+// (many colour names are already valid CSS keywords, so this only covers the
+// common non-CSS ones). Mirrors the ProductCard swatch resolver.
+const COLOR_HEX: Record<string, string> = {
+  dark: '#2b2e31', black: '#1b1d1f', tan: '#c8b89a', cream: '#f1e7d6', ivory: '#f1e7d6',
+  coral: '#d95846', green: '#5a9761', blue: '#4576e7', sand: '#cbb68f', gold: '#c9a227',
+  slate: '#3a4250', charcoal: '#3a3d40', camel: '#c2a878', grey: '#8d969c', gray: '#8d969c',
+  navy: '#22304a', white: '#f5f5f0', brown: '#6e5641', olive: '#6b6a44', stone: '#d8ccbb',
+  beige: '#d8c4a5', burgundy: '#7b1e3b', pink: '#e6a4b4', red: '#c0392b', yellow: '#e8c468',
+  denim: '#3b5a7a', bronze: '#8c6a3f',
+};
+const resolveHex = (name: string): string => {
+  const key = name.trim().toLowerCase();
+  return COLOR_HEX[key] ?? COLOR_HEX[key.split(/[\s/]+/)[0]] ?? key;
+};
 
-const cols = pool.slice(0, 3).map((p, i) => ({
-  ...ATTRS[i],
-  name: p.title,
-  price: formatMoney(p.priceRange.minVariantPrice.amount, currency),
-  img: p.featuredImage?.url ?? '',
-  variantId: p.variantId ?? '',
-}));
+// reviews.rating may be a plain number or a JSON metafield ("rating" type,
+// e.g. {"value":"5.0"}). Parse both; return null (row hides) when there's none.
+const parseRating = (raw?: string): string | null => {
+  if (!raw) return null;
+  let n = Number(raw);
+  if (!Number.isFinite(n)) {
+    try {
+      n = Number((JSON.parse(raw) as { value?: string }).value);
+    } catch {
+      return null;
+    }
+  }
+  return Number.isFinite(n) && n > 0 ? n.toFixed(1) : null;
+};
 
-// Boolean cells: green check / muted cross.
-const Bool = (ok: boolean) => ok;
+const cols = products.slice(0, 3).map((p, i) => {
+  const spec = (specs[i] ?? {}) as { material?: string; fit?: string; lining?: boolean; water?: boolean };
+  // Real colours from the Color/Colour option's swatches.
+  const colorOpt = p.options.find((o) => /colou?r/i.test(o.name));
+  const swatches = (colorOpt?.optionValues ?? [])
+    .map((v) => v.swatch?.color ?? resolveHex(v.name))
+    .filter(Boolean)
+    .slice(0, 5);
+  // Real rating from the reviews.rating metafield (null when unsynced).
+  const rating = parseRating(p.metafields?.rating);
+  const def = p.variants?.find((v) => v.availableForSale) ?? p.variants?.[0] ?? null;
+  return {
+    feat: i === featIndex,
+    name: p.title,
+    handle: p.handle,
+    price: formatMoney(p.priceRange.minVariantPrice.amount, currency),
+    img: p.featuredImage?.url ?? '',
+    variantId: def?.id ?? '',
+    requiresChoice: (p.variants?.length ?? 0) > 1,
+    // Material prefers the real metafield, then the editorial config.
+    material: p.metafields?.material ?? spec.material ?? null,
+    fit: spec.fit ?? null,
+    lining: typeof spec.lining === 'boolean' ? spec.lining : null,
+    water: typeof spec.water === 'boolean' ? spec.water : null,
+    swatches,
+    rating,
+  };
+});
+
+// A row renders only when at least one column has a value for it — no empty
+// or fabricated cells. Cells with no value show an em-dash.
+const show = {
+  material: cols.some((c) => c.material),
+  fit: cols.some((c) => c.fit),
+  lining: cols.some((c) => c.lining !== null),
+  water: cols.some((c) => c.water !== null),
+  colours: cols.some((c) => c.swatches.length > 0),
+  rating: cols.some((c) => c.rating),
+};
 
 const hasCols = cols.length > 0;
 ---
@@ -53,8 +130,7 @@ const hasCols = cols.length > 0;
         slot="actions"
         class="max-w-[380px] text-[14px] leading-[1.6] text-text-secondary md:text-right"
       >
-        Three signature outerwear styles, side by side — so you can choose the one that's right for
-        your season.
+        {CFG.description}
       </p>
     </MagHeading>
   </div>
@@ -68,10 +144,8 @@ const hasCols = cols.length > 0;
       <div
         class="cmp-cell cmp-label flex flex-col items-start justify-end bg-surface px-5 pb-5 pt-6 text-left"
       >
-        <span class="font-heading text-[26px] font-extrabold leading-[0.9] text-text-primary">The Coats</span>
-        <span class="mt-[7px] text-[11.5px] leading-[1.4] text-text-muted">
-          Compare materials,<br />fit &amp; finish
-        </span>
+        <span class="font-heading text-[26px] font-extrabold leading-[0.9] text-text-primary">{CFG.label}</span>
+        <span class="mt-[7px] text-[11.5px] leading-[1.4] text-text-muted" set:html={CFG.subtitle.replace(/,\s/, ',<br />')} />
       </div>
 
       {
@@ -110,76 +184,109 @@ const hasCols = cols.length > 0;
       }
 
       <!-- Material -->
-      <div class="cmp-cell cmp-label cmp-row-label">Material</div>
       {
-        cols.map((c) => (
-          <div class:list={['cmp-cell cmp-row', c.feat && 'bg-coral-soft']}>{c.material}</div>
-        ))
+        show.material && (
+          <>
+            <div class="cmp-cell cmp-label cmp-row-label">Material</div>
+            {cols.map((c) => (
+              <div class:list={['cmp-cell cmp-row', c.feat && 'bg-coral-soft']}>{c.material ?? '—'}</div>
+            ))}
+          </>
+        )
       }
 
       <!-- Fit -->
-      <div class="cmp-cell cmp-label cmp-row-label">Fit</div>
       {
-        cols.map((c) => (
-          <div class:list={['cmp-cell cmp-row', c.feat && 'bg-coral-soft']}>{c.fit}</div>
-        ))
+        show.fit && (
+          <>
+            <div class="cmp-cell cmp-label cmp-row-label">Fit</div>
+            {cols.map((c) => (
+              <div class:list={['cmp-cell cmp-row', c.feat && 'bg-coral-soft']}>{c.fit ?? '—'}</div>
+            ))}
+          </>
+        )
       }
 
       <!-- Full Lining -->
-      <div class="cmp-cell cmp-label cmp-row-label">Full Lining</div>
       {
-        cols.map((c) => (
-          <div class:list={['cmp-cell cmp-row', c.feat && 'bg-coral-soft']}>
-            {Bool(c.lining) ? (
-              <Icon name="check" size={19} class="text-green" />
-            ) : (
-              <Icon name="close" size={19} class="text-text-muted" />
-            )}
-          </div>
-        ))
+        show.lining && (
+          <>
+            <div class="cmp-cell cmp-label cmp-row-label">Full Lining</div>
+            {cols.map((c) => (
+              <div class:list={['cmp-cell cmp-row', c.feat && 'bg-coral-soft']}>
+                {c.lining === null ? (
+                  <span class="text-text-muted">—</span>
+                ) : c.lining ? (
+                  <Icon name="check" size={19} class="text-green" />
+                ) : (
+                  <Icon name="close" size={19} class="text-text-muted" />
+                )}
+              </div>
+            ))}
+          </>
+        )
       }
 
       <!-- Water Resistant -->
-      <div class="cmp-cell cmp-label cmp-row-label">Water Resistant</div>
       {
-        cols.map((c) => (
-          <div class:list={['cmp-cell cmp-row', c.feat && 'bg-coral-soft']}>
-            {Bool(c.water) ? (
-              <Icon name="check" size={19} class="text-green" />
-            ) : (
-              <Icon name="close" size={19} class="text-text-muted" />
-            )}
-          </div>
-        ))
+        show.water && (
+          <>
+            <div class="cmp-cell cmp-label cmp-row-label">Water Resistant</div>
+            {cols.map((c) => (
+              <div class:list={['cmp-cell cmp-row', c.feat && 'bg-coral-soft']}>
+                {c.water === null ? (
+                  <span class="text-text-muted">—</span>
+                ) : c.water ? (
+                  <Icon name="check" size={19} class="text-green" />
+                ) : (
+                  <Icon name="close" size={19} class="text-text-muted" />
+                )}
+              </div>
+            ))}
+          </>
+        )
       }
 
       <!-- Colours -->
-      <div class="cmp-cell cmp-label cmp-row-label">Colours</div>
       {
-        cols.map((c) => (
-          <div class:list={['cmp-cell cmp-row', c.feat && 'bg-coral-soft']}>
-            <span class="inline-flex gap-[5px]">
-              {c.swatches.map((hex) => (
-                <span
-                  class="cmp-sw h-[15px] w-[15px] rounded-full"
-                  style={`background:${hex}`}
-                />
-              ))}
-            </span>
-          </div>
-        ))
+        show.colours && (
+          <>
+            <div class="cmp-cell cmp-label cmp-row-label">Colours</div>
+            {cols.map((c) => (
+              <div class:list={['cmp-cell cmp-row', c.feat && 'bg-coral-soft']}>
+                {c.swatches.length ? (
+                  <span class="inline-flex gap-[5px]">
+                    {c.swatches.map((hex) => (
+                      <span class="cmp-sw h-[15px] w-[15px] rounded-full" style={`background:${hex}`} />
+                    ))}
+                  </span>
+                ) : (
+                  <span class="text-text-muted">—</span>
+                )}
+              </div>
+            ))}
+          </>
+        )
       }
 
       <!-- Rating -->
-      <div class="cmp-cell cmp-label cmp-row-label">Rating</div>
       {
-        cols.map((c) => (
-          <div class:list={['cmp-cell cmp-row', c.feat && 'bg-coral-soft']}>
-            <b class="inline-flex items-center gap-1 font-semibold">
-              {c.rating} <Icon name="star" size={14} class="text-coral" />
-            </b>
-          </div>
-        ))
+        show.rating && (
+          <>
+            <div class="cmp-cell cmp-label cmp-row-label">Rating</div>
+            {cols.map((c) => (
+              <div class:list={['cmp-cell cmp-row', c.feat && 'bg-coral-soft']}>
+                {c.rating ? (
+                  <b class="inline-flex items-center gap-1 font-semibold">
+                    {c.rating} <Icon name="star" size={14} class="text-coral" />
+                  </b>
+                ) : (
+                  <span class="text-text-muted">—</span>
+                )}
+              </div>
+            ))}
+          </>
+        )
       }
 
       <!-- Footer CTA -->
@@ -191,8 +298,10 @@ const hasCols = cols.length > 0;
               type="button"
               data-cmp-add
               data-variant-id={c.variantId}
+              data-handle={c.handle}
+              data-choice={c.requiresChoice ? '1' : undefined}
               disabled={!c.variantId}
-              aria-label={`Add ${c.name} to bag`}
+              aria-label={c.requiresChoice ? `Choose options for ${c.name}` : `Add ${c.name} to bag`}
               class:list={[
                 'btn flex w-full items-center justify-center rounded-sm px-5 py-[13px] transition-fluid disabled:opacity-50 data-[loading]:pointer-events-none',
                 c.feat
@@ -200,7 +309,7 @@ const hasCols = cols.length > 0;
                   : 'bg-dark text-white hover:bg-dark-hover',
               ]}
             >
-              Add to Bag
+              {c.requiresChoice ? 'Choose Options' : 'Add to Bag'}
             </button>
           </div>
         ))
@@ -285,6 +394,13 @@ const hasCols = cols.length > 0;
 
       root.querySelectorAll<HTMLButtonElement>('[data-cmp-add]').forEach((btn) => {
         btn.addEventListener('click', async () => {
+          // Multi-variant products open Quick View so the shopper picks options
+          // instead of silently adding the first variant (parity with the rest).
+          if (btn.dataset.choice === '1') {
+            const handle = btn.dataset.handle;
+            if (handle) window.dispatchEvent(new CustomEvent('quickview:open', { detail: { handle } }));
+            return;
+          }
           const variantId = btn.dataset.variantId;
           if (!variantId || btn.hasAttribute('data-loading')) return;
           btn.setAttribute('data-loading', '');

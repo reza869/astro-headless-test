@@ -129,6 +129,31 @@ export const SITE = {
     percent: 15,
     gift: { enabled: false, threshold: 600, label: 'silk scarf' },
   },
+  /**
+   * "Compare the Edit" matrix (homepage, demo-only via SITE.demoContent).
+   * Curate `handles` with 3 genuinely comparable products — leave empty to fall
+   * back to best-sellers. `featuredIndex` is the highlighted "Editor's Pick"
+   * column. Price, colours and rating are read from REAL product data
+   * (Storefront options + the reviews.rating metafield), and any row hides
+   * itself when no product carries that value — nothing is fabricated. `specs`
+   * supplies the editorial attributes the Storefront API can't expose
+   * (material/fit/lining/water), one entry per handle in the same order; they
+   * apply ONLY to curated handles (never to the best-seller fallback). Edit the
+   * label/description to match whatever you curate.
+   */
+  compare: {
+    label: 'The Classics',
+    subtitle: 'Compare materials, fit & finish',
+    description:
+      "Three signature everyday styles, side by side — so you can pick the one that's right for you.",
+    featuredIndex: 1,
+    handles: ['dark-winter-jacket', 'striped-skirt-and-top', 'olive-green-jacket'],
+    specs: [
+      { material: 'Cotton Poplin', fit: 'Regular', lining: false, water: false },
+      { material: 'Cotton Denim', fit: 'Relaxed', lining: true, water: false },
+      { material: 'Linen Blend', fit: 'Slim', lining: false, water: false },
+    ],
+  },
   // Rotating announcement bar (top ticker).
   announcements: [
     'Free carbon-neutral shipping over $150',
