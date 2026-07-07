@@ -8,7 +8,7 @@
 //  Shopify products (variantId ⇒ functional cart).
 // ============================================================
 import Icon from '~/components/ui/Icon.astro';
-import { getProducts } from '~/lib/shopify';
+import { getProduct, getProducts } from '~/lib/shopify';
 import { formatMoney } from '~/lib/utils';
 import { SITE } from '~/config/site';
 
@@ -38,16 +38,35 @@ const currency = pool[0]?.priceRange.minVariantPrice.currencyCode ?? 'USD';
 // Never surface internal/demo vendor names as a category — fall back to brand.
 const cleanCat = (v?: string) => (v && !/demo|partner|sample|test/i.test(v) ? v : SITE.name);
 
-const products = pool.slice(0, 6).map((p) => {
-  const amount = Number(p.priceRange.minVariantPrice.amount);
+// Fetch each card's FULL product (with variants) so the card can offer a real
+// option picker — the chosen variant is what gets added, never a silent default.
+const baseItems = pool.slice(0, 6);
+const full = await Promise.all(baseItems.map((p) => getProduct(p.handle).catch(() => null)));
+
+const products = baseItems.map((p, i) => {
+  const variants = full[i]?.variants ?? [];
+  const def = variants.find((v) => v.availableForSale) ?? variants[0] ?? null;
+  const amount = Number(def?.price.amount ?? p.priceRange.minVariantPrice.amount);
+  // Offer the picker only when there's a genuine choice (>1 real variant).
+  const options =
+    variants.length > 1
+      ? variants.map((v) => ({
+          id: v.id,
+          label: v.title,
+          available: v.availableForSale,
+          amount: Number(v.price.amount),
+        }))
+      : [];
   return {
-    variantId: p.variantId ?? '',
+    variantId: def?.id ?? p.variantId ?? '',
+    defaultLabel: options.length ? (def?.title ?? '') : '',
     handle: p.handle,
     name: p.title,
     cat: cleanCat(p.vendor),
     amount,
     price: formatMoney(amount, currency),
     img: p.featuredImage?.url ?? '',
+    options,
   };
 });
 
@@ -106,32 +125,55 @@ const hasProducts = products.length > 0;
 
           <div class="bundle-rail flex snap-x snap-mandatory gap-[14px] overflow-x-auto pb-1" data-rail>
             {products.map((p, i) => (
-              <button
-                type="button"
+              <div
                 data-bundle-card
                 data-index={i}
                 data-variant={p.variantId}
+                data-selected-variant={p.variantId}
+                data-variant-label={p.defaultLabel}
                 data-name={p.name}
                 data-price={p.amount}
-                aria-pressed={defaultSel[i] ? 'true' : 'false'}
                 class:list={[
-                  'bundle-card relative flex w-[38%] flex-none snap-start flex-col overflow-hidden rounded-md bg-bg-light text-left sm:w-[calc(33.333%_-_10px)]',
+                  'bundle-card relative flex w-[38%] flex-none cursor-pointer snap-start flex-col overflow-hidden rounded-md bg-bg-light text-left sm:w-[calc(33.333%_-_10px)]',
                   defaultSel[i] && 'is-selected',
                 ]}
               >
                 <div class="relative aspect-[3/4] overflow-hidden bg-surface-cool">
-                  <span class="bundle-badge absolute right-2.5 top-2.5 z-[2] grid h-7 w-7 place-items-center rounded-pill shadow-xs">
+                  {/* Real toggle control — the whole card is also clickable (JS). */}
+                  <button
+                    type="button"
+                    data-bundle-toggle
+                    aria-pressed={defaultSel[i] ? 'true' : 'false'}
+                    aria-label={`Toggle ${p.name} in the bundle`}
+                    class="bundle-badge absolute right-2.5 top-2.5 z-[2] grid h-7 w-7 cursor-pointer place-items-center rounded-pill border-0 p-0 shadow-xs"
+                  >
                     <span class="ic-check"><Icon name="check" size={15} /></span>
                     <span class="ic-plus"><Icon name="plus" size={15} /></span>
-                  </span>
+                  </button>
                   <img src={p.img ?? ''} alt={p.name} loading="lazy" class="h-full w-full object-cover" />
                 </div>
                 <div class="px-3 pb-3 pt-2.5">
                   <div class="text-[9.5px] font-bold uppercase tracking-[1px] text-green">{p.cat}</div>
                   <div class="my-1 line-clamp-2 font-heading text-[15px] font-bold leading-tight sm:text-lg">{p.name}</div>
-                  <div class="text-[13px] font-bold">{p.price}</div>
+                  <div class="text-[13px] font-bold" data-card-price>{p.price}</div>
+                  {p.options.length > 0 && (
+                    <label class="mt-2 block">
+                      <span class="sr-only">Choose an option for {p.name}</span>
+                      <select
+                        data-variant-select
+                        class="bundle-select w-full rounded-sm border border-border bg-surface px-2 py-1.5 text-[11.5px] font-semibold text-text-primary"
+                      >
+                        {p.options.map((o) => (
+                          <option value={o.id} data-amount={o.amount} selected={o.id === p.variantId} disabled={!o.available}>
+                            {o.label}
+                            {!o.available ? ' — sold out' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
                 </div>
-              </button>
+              </div>
             ))}
           </div>
 
@@ -324,7 +366,9 @@ const hasProducts = products.length > 0;
             .map((c) => {
               const price = Number(c.dataset.price) || 0;
               subtotal += price;
-              return `<div class="flex items-center justify-between py-2 text-[13px] text-white/80 shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]"><span>${c.dataset.name}</span><span>${money(price)}</span></div>`;
+              const label = c.dataset.variantLabel;
+              const name = label ? `${c.dataset.name} · ${label}` : c.dataset.name;
+              return `<div class="flex items-center justify-between py-2 text-[13px] text-white/80 shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]"><span>${name}</span><span>${money(price)}</span></div>`;
             })
             .join('');
         } else {
@@ -362,11 +406,37 @@ const hasProducts = products.length > 0;
         if (addBtn) addBtn.disabled = selected.length === 0;
       };
 
-      // Toggle selection on card tap.
+      const setSelected = (card: HTMLElement, on: boolean) => {
+        card.classList.toggle('is-selected', on);
+        card.querySelector('[data-bundle-toggle]')?.setAttribute('aria-pressed', String(on));
+      };
+
+      // Toggle selection on card tap — but a click inside the variant picker
+      // chooses an option, it must NOT toggle the card in/out of the bundle.
       cards.forEach((card) => {
-        card.addEventListener('click', () => {
-          const on = card.classList.toggle('is-selected');
-          card.setAttribute('aria-pressed', String(on));
+        card.addEventListener('click', (e) => {
+          if ((e.target as HTMLElement).closest('[data-variant-select]')) return;
+          setSelected(card, !card.classList.contains('is-selected'));
+          recompute();
+        });
+      });
+
+      // Variant pickers — the chosen variant (id + price + label) becomes what
+      // gets added; picking one also opts the product into the bundle.
+      root.querySelectorAll<HTMLSelectElement>('[data-variant-select]').forEach((sel) => {
+        sel.addEventListener('change', () => {
+          const card = sel.closest<HTMLElement>('[data-bundle-card]');
+          if (!card) return;
+          const opt = sel.selectedOptions[0];
+          card.dataset.selectedVariant = sel.value;
+          card.dataset.variantLabel = (opt?.textContent ?? '').replace(/\s—\ssold out$/, '').trim();
+          const amt = Number(opt?.dataset.amount);
+          if (!Number.isNaN(amt)) {
+            card.dataset.price = String(amt);
+            const priceEl = card.querySelector<HTMLElement>('[data-card-price]');
+            if (priceEl) priceEl.textContent = money(amt);
+          }
+          if (!card.classList.contains('is-selected')) setSelected(card, true);
           recompute();
         });
       });
@@ -383,14 +453,17 @@ const hasProducts = products.length > 0;
 
       // Add the selected bundle, then apply the discount + open the drawer.
       addBtn?.addEventListener('click', async () => {
-        const selected = cards.filter((c) => c.classList.contains('is-selected') && c.dataset.variant);
+        const selected = cards.filter(
+          (c) => c.classList.contains('is-selected') && (c.dataset.selectedVariant || c.dataset.variant),
+        );
         if (!selected.length) return;
         addBtn.setAttribute('data-loading', '');
         addBtn.disabled = true;
         root.querySelector('.ab-label')?.classList.add('hidden');
         root.querySelector('.ab-spin')?.classList.remove('hidden');
         try {
-          for (const c of selected) await addItem(c.dataset.variant!, 1, { open: false });
+          // Chosen variant wins; falls back to the default when untouched.
+          for (const c of selected) await addItem((c.dataset.selectedVariant || c.dataset.variant)!, 1, { open: false });
           // Apply the discount only when a real code is configured; either way
           // reveal the drawer so the shopper sees the added set.
           if (hasSaving && bundleCode) await applyDiscountCode([bundleCode]);
