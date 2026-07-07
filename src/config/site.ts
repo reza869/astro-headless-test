@@ -115,9 +115,20 @@ export const SITE = {
   /**
    * Homepage bundle builder. `code` MUST exist as a real fixed-percentage
    * discount in Shopify admin (Discounts) for the saving to apply at checkout;
-   * `percent` must match it. `giftThreshold` unlocks the free-gift progress bar.
+   * `percent` must match it. Leave `code` empty to show the HONEST full sum
+   * with no "Save X%" claim (nothing fabricated).
+   *
+   * `gift` drives the free gift-with-purchase meter. Enable it ONLY when a real
+   * Shopify automatic gift (Buy-X-get-Y-free at this spend) is configured — the
+   * theme shows the progress + unlock copy, and Shopify adds the actual gift at
+   * checkout. Disabled by default so no store ever promises a gift it can't
+   * deliver. `threshold` = spend to unlock; `label` = the gift's name in copy.
    */
-  bundle: { code: 'BUNDLE15', percent: 15, giftThreshold: 600 },
+  bundle: {
+    code: 'BUNDLE15',
+    percent: 15,
+    gift: { enabled: false, threshold: 600, label: 'silk scarf' },
+  },
   // Rotating announcement bar (top ticker).
   announcements: [
     'Free carbon-neutral shipping over $150',

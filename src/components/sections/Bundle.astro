@@ -14,6 +14,18 @@ import { SITE } from '~/config/site';
 
 const BUNDLE = SITE.bundle;
 
+// Only claim a saving when a real discount code is configured — otherwise the
+// bundle shows the honest full sum (same guard as ShopTheLook's bundleCode).
+const bundleCode = (BUNDLE.code ?? '').trim();
+const hasSaving = Boolean(bundleCode) && BUNDLE.percent > 0;
+
+// The free-gift meter is shown only when the merchant has enabled it against a
+// REAL Shopify gift-with-purchase — never a phantom promise.
+const gift = BUNDLE.gift;
+const giftOn = gift?.enabled === true && (gift?.threshold ?? 0) > 0;
+const GIFT_THRESHOLD = gift?.threshold ?? 0; // spend to unlock the free gift
+const giftLabel = gift?.label ?? 'gift';
+
 let pool: Awaited<ReturnType<typeof getProducts>>['items'] = [];
 try {
   pool = (await getProducts({ pageSize: 8, sortKey: 'BEST_SELLING' })).items;
@@ -22,7 +34,9 @@ try {
 }
 
 const currency = pool[0]?.priceRange.minVariantPrice.currencyCode ?? 'USD';
-const GIFT_THRESHOLD = BUNDLE.giftThreshold; // spend to unlock the free gift
+
+// Never surface internal/demo vendor names as a category — fall back to brand.
+const cleanCat = (v?: string) => (v && !/demo|partner|sample|test/i.test(v) ? v : SITE.name);
 
 const products = pool.slice(0, 6).map((p) => {
   const amount = Number(p.priceRange.minVariantPrice.amount);
@@ -30,7 +44,7 @@ const products = pool.slice(0, 6).map((p) => {
     variantId: p.variantId ?? '',
     handle: p.handle,
     name: p.title,
-    cat: p.vendor || "TAILORED",
+    cat: cleanCat(p.vendor),
     amount,
     price: formatMoney(amount, currency),
     img: p.featuredImage?.url ?? '',
@@ -40,10 +54,10 @@ const products = pool.slice(0, 6).map((p) => {
 // Default selection: first two pieces (matches the editor-curated set).
 const defaultSel = products.map((_, i) => i < 2);
 const initSubtotal = products.reduce((s, p, i) => (defaultSel[i] ? s + p.amount : s), 0);
-const initDiscount = Math.round(initSubtotal * (BUNDLE.percent / 100));
+const initDiscount = hasSaving ? Math.round(initSubtotal * (BUNDLE.percent / 100)) : 0;
 const initTotal = initSubtotal - initDiscount;
-const initRemaining = Math.max(0, GIFT_THRESHOLD - initTotal);
-const initProgress = Math.min(100, (initTotal / GIFT_THRESHOLD) * 100);
+const initRemaining = giftOn ? Math.max(0, GIFT_THRESHOLD - initTotal) : 0;
+const initProgress = giftOn ? Math.min(100, (initTotal / GIFT_THRESHOLD) * 100) : 0;
 const fmt = (n: number) => formatMoney(n, currency);
 
 const hasProducts = products.length > 0;
@@ -57,8 +71,11 @@ const hasProducts = products.length > 0;
         data-bundle
         data-currency={currency}
         data-gift={GIFT_THRESHOLD}
+        data-gift-on={giftOn ? '1' : '0'}
+        data-gift-label={giftLabel}
         data-percent={BUNDLE.percent}
-        data-code={BUNDLE.code}
+        data-code={bundleCode}
+        data-saving={hasSaving ? '1' : '0'}
       >
         {/* ===== Left — selectable slider ===== */}
         <div class="flex min-w-0 flex-col rounded-xl bg-surface p-4 shadow-sm sm:p-6 md:p-[30px]" data-reveal>
@@ -144,7 +161,9 @@ const hasProducts = products.length > 0;
             The Everyday <span class="text-coral">Luxe</span> Bundle
           </h3>
           <p class="mb-4 mt-2 text-[13px] leading-[1.55] text-white/70">
-            Editor-curated essentials that work together — bundle and save {BUNDLE.percent}%.
+            {hasSaving
+              ? `Editor-curated essentials that work together — bundle and save ${BUNDLE.percent}%.`
+              : 'Editor-curated essentials that work together — styled as one easy set.'}
           </p>
 
           <div data-bundle-lines>
@@ -157,36 +176,44 @@ const hasProducts = products.length > 0;
               ) : null,
             )}
           </div>
-          <div
-            class="flex items-center justify-between py-2 text-[13px] font-semibold text-green shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]"
-            data-bundle-discount
-          >
-            <span>Bundle discount ({BUNDLE.percent}%)</span>
-            <span>-{fmt(initDiscount)}</span>
-          </div>
-
-          {/* Free-gift progress */}
-          <div class="my-[14px]" data-gift-wrap>
-            <p class="mb-2 flex items-center gap-[7px] text-[11.5px] text-white/70" data-gift-text>
-              <Icon name="package" size={15} class="text-green" />
-              Add <b class="mx-1 text-green">{fmt(initRemaining)}</b> more for a free silk scarf
-            </p>
-            <div class="h-[7px] overflow-hidden rounded-pill bg-white/10">
-              <div class="h-full rounded-pill bg-green" style={`width:${initProgress}%`} data-gift-bar />
+          {hasSaving && (
+            <div
+              class="flex items-center justify-between py-2 text-[13px] font-semibold text-green shadow-[inset_0_-1px_0_rgba(255,255,255,0.1)]"
+              data-bundle-discount
+            >
+              <span>Bundle discount ({BUNDLE.percent}%)</span>
+              <span>-{fmt(initDiscount)}</span>
             </div>
-          </div>
+          )}
+
+          {/* Free-gift progress — only when a real Shopify gift is configured. */}
+          {giftOn && (
+            <div class="my-[14px]" data-gift-wrap>
+              <p class="mb-2 flex items-center gap-[7px] text-[11.5px] text-white/70" data-gift-text>
+                <Icon name="package" size={15} class="text-green" />
+                Add <b class="mx-1 text-green">{fmt(initRemaining)}</b> more for a free {giftLabel}
+              </p>
+              <div class="h-[7px] overflow-hidden rounded-pill bg-white/10">
+                <div class="h-full rounded-pill bg-green" style={`width:${initProgress}%`} data-gift-bar />
+              </div>
+            </div>
+          )}
 
           <div class="mb-1.5 mt-[14px] flex items-baseline justify-between">
             <span class="text-[11px] uppercase tracking-[1px] text-white/70">Bundle Total</span>
             <div class="flex items-baseline gap-[9px]">
               <b class="font-heading text-[38px] font-extrabold" data-bundle-total>{fmt(initTotal)}</b>
-              <span class="text-[15px] text-white/45 line-through" data-bundle-subtotal>{fmt(initSubtotal)}</span>
+              {hasSaving && (
+                <span class="text-[15px] text-white/45 line-through" data-bundle-subtotal>{fmt(initSubtotal)}</span>
+              )}
             </div>
           </div>
 
-          <span class="mb-4 inline-flex items-center gap-1.5 self-start rounded-pill bg-green px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-white">
-            <Icon name="check" size={13} /> Save <span data-bundle-save>{fmt(initDiscount)}</span>
-          </span>
+          {hasSaving && (
+            <span class="mb-4 inline-flex items-center gap-1.5 self-start rounded-pill bg-green px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-white">
+              <Icon name="check" size={13} /> Save <span data-bundle-save>{fmt(initDiscount)}</span>
+            </span>
+          )}
 
           <button
             type="button"
@@ -254,7 +281,7 @@ const hasProducts = products.length > 0;
 </style>
 
 <script>
-  import { addItem, applyDiscountCode } from '~/stores/cart';
+  import { addItem, applyDiscountCode, openCart } from '~/stores/cart';
 
   function initBundle(): void {
     document.querySelectorAll<HTMLElement>('[data-bundle]').forEach((root) => {
@@ -263,9 +290,13 @@ const hasProducts = products.length > 0;
 
       const currency = root.dataset.currency || 'USD';
       const gift = Number(root.dataset.gift) || 0;
-      // Discount % + code come from SITE.bundle (must match a real Shopify discount).
+      const giftOn = root.dataset.giftOn === '1';
+      const giftLabel = root.dataset.giftLabel || 'gift';
+      // Discount % + code come from SITE.bundle (must match a real Shopify
+      // discount). No code configured ⇒ no saving is shown or applied.
       const percent = Number(root.dataset.percent) || 15;
-      const bundleCode = root.dataset.code || 'BUNDLE15';
+      const bundleCode = root.dataset.code || '';
+      const hasSaving = root.dataset.saving === '1' && Boolean(bundleCode);
       const cards = Array.from(root.querySelectorAll<HTMLElement>('[data-bundle-card]'));
       const linesEl = root.querySelector<HTMLElement>('[data-bundle-lines]');
       const discountEl = root.querySelector<HTMLElement>('[data-bundle-discount]');
@@ -300,7 +331,7 @@ const hasProducts = products.length > 0;
           selected.forEach((c) => (subtotal += Number(c.dataset.price) || 0));
         }
 
-        const discount = Math.round(subtotal * (percent / 100));
+        const discount = hasSaving ? Math.round(subtotal * (percent / 100)) : 0;
         const total = subtotal - discount;
 
         if (discountEl) {
@@ -316,14 +347,16 @@ const hasProducts = products.length > 0;
         if (saveEl) saveEl.textContent = money(discount);
         if (countEl) countEl.textContent = String(selected.length);
 
-        // Free-gift progress
-        const remaining = Math.max(0, gift - total);
-        if (giftBar) giftBar.style.width = `${Math.min(100, (total / gift) * 100)}%`;
-        if (giftText) {
-          giftText.innerHTML =
-            remaining > 0
-              ? `Add <b class="mx-1 text-green">${money(remaining)}</b> more for a free silk scarf`
-              : `<b class="text-green">Free silk scarf unlocked</b> — nice set.`;
+        // Free-gift progress (only rendered when a real gift is configured).
+        if (giftOn && gift > 0) {
+          const remaining = Math.max(0, gift - total);
+          if (giftBar) giftBar.style.width = `${Math.min(100, (total / gift) * 100)}%`;
+          if (giftText) {
+            giftText.innerHTML =
+              remaining > 0
+                ? `Add <b class="mx-1 text-green">${money(remaining)}</b> more for a free ${giftLabel}`
+                : `<b class="text-green">Free ${giftLabel} unlocked</b> — nice set.`;
+          }
         }
 
         if (addBtn) addBtn.disabled = selected.length === 0;
@@ -358,7 +391,10 @@ const hasProducts = products.length > 0;
         root.querySelector('.ab-spin')?.classList.remove('hidden');
         try {
           for (const c of selected) await addItem(c.dataset.variant!, 1, { open: false });
-          await applyDiscountCode([bundleCode]); // opens the drawer
+          // Apply the discount only when a real code is configured; either way
+          // reveal the drawer so the shopper sees the added set.
+          if (hasSaving && bundleCode) await applyDiscountCode([bundleCode]);
+          else openCart();
         } finally {
           addBtn.removeAttribute('data-loading');
           addBtn.disabled = false;
