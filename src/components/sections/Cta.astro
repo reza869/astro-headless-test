@@ -8,10 +8,11 @@
 //  input + coral submit), social-proof avatars and a privacy
 //  note. Presentational, no props.
 //
-//  NOTE: the newsletter form is presentational only — it POSTs
-//  nowhere (no `action`/handler). It is kept fully accessible
-//  (labelled input, real <button type="submit">) so it can be
-//  wired to a backend later.
+//  The newsletter form POSTs to /api/newsletter, which forwards the
+//  email to Shopify (form_type=customer + `newsletter` tag) — a real
+//  subscription. Fabricated social proof (the "40,000+ readers" stat
+//  + avatars) and the "10% off" welcome claim render only in demo
+//  (SITE.demoContent) so nothing unbacked ships to a production store.
 // ============================================================
 import Icon from '~/components/ui/Icon.astro';
 import { SITE } from '~/config/site';
@@ -70,11 +71,12 @@ const avatars = [
 
         <p class="mb-6 max-w-[420px] text-[15px] leading-[1.6] text-white/80">
           New arrivals, members-only offers and editorial stories — delivered
-          every Thursday. Subscribe and get 10% off your first order.
+          every Thursday.{SITE.demoContent && ' Subscribe and get 10% off your first order.'}
         </p>
 
-        {/* Presentational newsletter form — no action/handler */}
+        {/* Newsletter form — posts to /api/newsletter (real Shopify sign-up). */}
         <form
+          data-newsletter
           class="flex max-w-[450px] items-center rounded-pill bg-white py-[6px] pl-[22px] pr-[6px]"
           aria-label="Newsletter sign-up"
         >
@@ -83,23 +85,35 @@ const avatars = [
             type="email"
             id="cta-email"
             name="email"
+            required
             placeholder="Your email address"
             autocomplete="email"
             class="min-w-0 flex-1 border-none bg-transparent font-body text-[14px] text-text-primary outline-none placeholder:text-text-muted"
           />
+          {/* Honeypot — hidden from users; bots that fill it are silently dropped. */}
+          <input
+            type="text"
+            name="website"
+            tabindex="-1"
+            autocomplete="off"
+            aria-hidden="true"
+            class="absolute left-[-9999px] h-0 w-0 opacity-0"
+          />
           <button
             type="submit"
-            class="flex-none rounded-pill bg-coral px-[26px] py-[14px] text-[12px] font-bold uppercase tracking-[1px] text-white transition-colors duration-300 hover:bg-coral-hover"
+            data-newsletter-submit
+            class="flex-none rounded-pill bg-coral px-[26px] py-[14px] text-[12px] font-bold uppercase tracking-[1px] text-white transition-colors duration-300 hover:bg-coral-hover disabled:opacity-60 data-[loading]:pointer-events-none"
           >
             Subscribe
           </button>
         </form>
+        <p data-newsletter-msg role="status" aria-live="polite" class="mt-2 hidden text-[12.5px]"></p>
 
-        {/* Social proof */}
-        <div class="mt-[22px] flex flex-wrap items-center gap-4">
-          <div class="flex">
-            {
-              avatars.map((src, i) => (
+        {/* Social proof — illustrative figures/avatars, demo only */}
+        {SITE.demoContent && (
+          <div class="mt-[22px] flex flex-wrap items-center gap-4">
+            <div class="flex">
+              {avatars.map((src, i) => (
                 <img
                   src={src}
                   alt=""
@@ -109,13 +123,13 @@ const avatars = [
                     i > 0 && '-ml-[11px]',
                   ]}
                 />
-              ))
-            }
+              ))}
+            </div>
+            <span class="text-[12.5px] text-white/[0.78]">
+              Joined by <b class="font-bold text-white">40,000+</b> readers worldwide
+            </span>
           </div>
-          <span class="text-[12.5px] text-white/[0.78]">
-            Joined by <b class="font-bold text-white">40,000+</b> readers worldwide
-          </span>
-        </div>
+        )}
 
         <p class="mt-4 flex items-center gap-2 text-[11.5px] text-white/60">
           <Icon name="shield" size={14} class="text-green" /> No spam. Unsubscribe anytime.
@@ -159,3 +173,56 @@ const avatars = [
     background: rgba(255, 255, 255, 0.32);
   }
 </style>
+
+<script>
+  // Wire the newsletter form to /api/newsletter (real Shopify sign-up).
+  // Progressive enhancement: without JS the form still POSTs nothing harmful;
+  // with JS it submits async and shows inline success/error feedback.
+  function wireNewsletter(): void {
+    document.querySelectorAll<HTMLFormElement>('[data-newsletter]').forEach((form) => {
+      if (form.dataset.bound) return;
+      form.dataset.bound = 'true';
+
+      const btn = form.querySelector<HTMLButtonElement>('[data-newsletter-submit]');
+      const msg = form.parentElement?.querySelector<HTMLElement>('[data-newsletter-msg]') ?? null;
+      const input = form.querySelector<HTMLInputElement>('input[name="email"]');
+
+      const say = (text: string, ok: boolean) => {
+        if (!msg) return;
+        msg.textContent = text;
+        msg.classList.remove('hidden');
+        msg.style.color = ok ? 'var(--color-green)' : '#ffb4a8';
+      };
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (btn?.hasAttribute('data-loading')) return;
+        const email = input?.value.trim() ?? '';
+        const website = form.querySelector<HTMLInputElement>('input[name="website"]')?.value ?? '';
+
+        btn?.setAttribute('data-loading', '');
+        try {
+          const res = await fetch('/api/newsletter', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ email, website }),
+          });
+          const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+          if (res.ok && data.ok) {
+            form.reset();
+            say("You're on the list — check your inbox to confirm.", true);
+          } else {
+            say(data.error ?? 'Something went wrong. Please try again.', false);
+          }
+        } catch {
+          say('Network error. Please try again.', false);
+        } finally {
+          btn?.removeAttribute('data-loading');
+        }
+      });
+    });
+  }
+
+  wireNewsletter();
+  document.addEventListener('astro:page-load', wireNewsletter);
+</script>

@@ -6,7 +6,12 @@
 // ============================================================
 import Icon from '~/components/ui/Icon.astro';
 import { formatMoney, discountPercent } from '~/lib/utils';
+import { SITE } from '~/config/site';
 import type { ProductCard } from '~/lib/shopify/types';
+
+// Never surface internal/demo vendor names ("PARTNERS-DEMO" etc.) as the
+// category label — fall back to the brand (same guard the homepage sections use).
+const cleanCat = (v?: string) => (v && !/demo|partner|sample|test/i.test(v) ? v : SITE.name);
 
 interface Props {
   product: ProductCard;
@@ -166,10 +171,10 @@ const chooseAdd = product.availableForSale && product.requiresChoice;
 
   <div class="px-[17px] pb-[18px] pt-4">
     {
-      product.vendor && (
+      cleanCat(product.vendor) && (
         <span class="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[1.1px] text-green">
           <span class="h-[5px] w-[5px] rounded-pill bg-green" />
-          {product.vendor}
+          {cleanCat(product.vendor)}
         </span>
       )
     }

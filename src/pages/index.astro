@@ -40,9 +40,9 @@ try {
   <CategoryGrid />
   <BestSellers products={bestSellers} />
   <ShopTheLook />
-  <Campaign />
   {/* Editorial/marketing sections with illustrative figures — shown in the
       demo, hidden for production stores via SITE.demoContent. */}
+  {SITE.demoContent && <Campaign />}
   {SITE.demoContent && <FlashSale />}
   <Bundle />
   {SITE.demoContent && <Compare />}

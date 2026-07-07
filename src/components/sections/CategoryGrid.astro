@@ -9,13 +9,8 @@
 import Icon from '~/components/ui/Icon.astro';
 import { SITE } from '~/config/site';
 
-const categories = [
-  { name: 'Ready-to-Wear', handle: 'ready-to-wear', count: 248, image: '/images/Look 01.png' },
-  { name: 'Accessories', handle: 'accessories', count: 86, image: '/images/Hero Image 01.png' },
-  { name: 'Footwear', handle: 'footwear', count: 64, image: '/images/Campaign 01.png' },
-  { name: 'Bags', handle: 'bags', count: 52, image: '/images/Look 02.png' },
-  { name: 'Jewelry', handle: 'jewelry', count: 38, image: '/images/Hero Image 02.png' },
-];
+// Real Shopify collections, single-sourced from config (see SITE.categories).
+const categories = SITE.categories;
 ---
 
 <section id="category" class="cat-section">

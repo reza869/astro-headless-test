@@ -154,6 +154,19 @@ export const SITE = {
       { material: 'Linen Blend', fit: 'Slim', lining: false, water: false },
     ],
   },
+  /**
+   * "Shop by Category" tiles. Each `handle` must be a REAL Shopify collection
+   * handle (links resolve to /collections/<handle>) so no tile 404s. `count` is
+   * an illustrative figure shown only in demo (SITE.demoContent); `image` is a
+   * public/ asset. Edit these to your own collections.
+   */
+  categories: [
+    { name: "Women's Fashion", handle: 'women-s-fashion', count: 248, image: '/images/Look 01.png' },
+    { name: "Men's Fashion", handle: 'mens-fashion', count: 86, image: '/images/Hero Image 01.png' },
+    { name: "Kid's Fashion", handle: 'kid-s-fashion', count: 64, image: '/images/Campaign 01.png' },
+    { name: 'New Arrivals', handle: 'new-arrivals', count: 52, image: '/images/Look 02.png' },
+    { name: 'Top Sales', handle: 'top-sale-s', count: 38, image: '/images/Hero Image 02.png' },
+  ],
   // Rotating announcement bar (top ticker).
   announcements: [
     'Free carbon-neutral shipping over $150',
@@ -237,10 +250,10 @@ export const SITE = {
  * resolve to `/collections/<handle>`.
  */
 export const CAMPAIGN_COLLECTIONS = {
-  /** Left card — "Shop the Event". */
-  midSeason: 'mid-season-sale',
-  /** Right card — "Join the Club". */
-  members: 'members',
+  /** Left card — "Shop the Event". Real Shopify collection handle. */
+  midSeason: 'top-sale-s',
+  /** Right card — "Join the Club". Real Shopify collection handle. */
+  members: 'new-arrivals',
 } as const;
 
 export const USE_SHOPIFY_MENU = false;
