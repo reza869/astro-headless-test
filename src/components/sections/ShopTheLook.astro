@@ -37,14 +37,19 @@ const lookHandles = LOOK_DEFS.map((d, li) => {
   return curated.length ? curated : bestHandles.slice(li * 3, li * 3 + 3);
 });
 
-// Fetch each product ONCE with full variant data, in parallel, then index by handle.
-const uniqueHandles = [...new Set(lookHandles.flat())];
+// Fetch each product ONCE with full variant data, in parallel, then index by
+// handle. Best-sellers are fetched too so they can back-fill any curated look
+// whose handles don't exist on THIS store (e.g. a fresh buyer store that hasn't
+// renamed its products yet) — the tab still shows a full look, never a blank.
+const uniqueHandles = [...new Set([...lookHandles.flat(), ...bestHandles])];
 const fetched = await Promise.all(uniqueHandles.map((h) => getProduct(h).catch(() => null)));
 const byHandle = new Map<string, Product>();
 uniqueHandles.forEach((h, i) => {
   const p = fetched[i];
   if (p) byHandle.set(h, p);
 });
+const resolve = (handles: string[]) =>
+  handles.map((h) => byHandle.get(h)).filter((p): p is Product => Boolean(p));
 
 const firstProduct = [...byHandle.values()][0];
 const currency = firstProduct?.priceRange.minVariantPrice.currencyCode ?? 'USD';
@@ -53,9 +58,10 @@ const currency = firstProduct?.priceRange.minVariantPrice.currencyCode ?? 'USD';
 const cleanCat = (v?: string) => (v && !/demo|partner|sample|test/i.test(v) ? v : SITE.name);
 
 const looks = LOOK_DEFS.map((d, li) => {
-  const products = lookHandles[li]
-    .map((h) => byHandle.get(h))
-    .filter((p): p is Product => Boolean(p))
+  // Curated products; if none resolve on this store, fall back to best-sellers.
+  const picked = resolve(lookHandles[li]);
+  const source = picked.length ? picked : resolve(bestHandles.slice(li * 3, li * 3 + 3));
+  const products = source
     .map((p) => {
       const variants = p.variants ?? [];
       const def = variants.find((v) => v.availableForSale) ?? variants[0] ?? null;

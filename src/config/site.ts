@@ -56,7 +56,7 @@ export const SITE = {
         id: '01',
         name: 'The Resort Edit',
         image: '/images/Look 01.png',
-        handles: [] as string[],
+        handles: ['striped-silk-blouse', 'navy-sport-jacket', 'ocean-blue-shirt'] as string[],
         hotspots: [
           { x: '26%', y: '34%' },
           { x: '55%', y: '58%' },
@@ -67,7 +67,7 @@ export const SITE = {
         id: '02',
         name: 'City Tailoring',
         image: '/images/Look 02.png',
-        handles: [] as string[],
+        handles: ['dark-winter-jacket', 'olive-green-jacket', 'striped-skirt-and-top'] as string[],
         hotspots: [
           { x: '42%', y: '30%' },
           { x: '50%', y: '60%' },
@@ -78,7 +78,7 @@ export const SITE = {
         id: '03',
         name: 'Evening Soft',
         image: '/images/Look 03.png',
-        handles: [] as string[],
+        handles: ['white-cotton-shirt', 'striped-silk-blouse', 'dark-winter-jacket'] as string[],
         hotspots: [
           { x: '34%', y: '38%' },
           { x: '52%', y: '56%' },
