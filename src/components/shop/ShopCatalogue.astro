@@ -11,6 +11,7 @@
 import Cta from '~/components/sections/Cta.astro';
 import ShopHero from '~/components/shop/ShopHero.astro';
 import ShopDeck from '~/components/shop/ShopDeck.astro';
+import { SITE } from '~/config/site';
 import '~/styles/shop-clone.css';
 import type { ShopItem } from '~/lib/shop-catalogue';
 
@@ -45,7 +46,12 @@ const {
 } = Astro.props;
 
 // Escape `<` so a product title containing "</script>" can't break out.
-const shopData = JSON.stringify({ items, currency, initialCat }).replace(/</g, '\\u003c');
+// `demo` gates the illustrative promo tile so a production store never shows a
+// fabricated "40% off" banner in the grid.
+const shopData = JSON.stringify({ items, currency, initialCat, demo: SITE.demoContent }).replace(
+  /</g,
+  '\\u003c',
+);
 ---
 
 {/* Phosphor icon font — the control deck + product cards use `ph` icons. */}
@@ -98,7 +104,7 @@ const shopData = JSON.stringify({ items, currency, initialCat }).replace(/</g, '
   const dataEl = document.getElementById('shopData');
   if (dataEl) {
     const DATA = JSON.parse(dataEl.textContent || '{}') as {
-      items: ShopItem[]; currency: string; initialCat?: string | null;
+      items: ShopItem[]; currency: string; initialCat?: string | null; demo?: boolean;
     };
     const items: ShopItem[] = DATA.items || [];
     const CURRENCY = DATA.currency || 'USD';
@@ -277,7 +283,8 @@ const shopData = JSON.stringify({ items, currency, initialCat }).replace(/</g, '
       $('#showCount').textContent = String(list.length);
       const slice = list.slice(0, state.shown);
       const html = slice.map(cardHTML);
-      if (slice.length >= 8) html.splice(8, 0, PROMO);
+      // Illustrative promo tile — demo only, never on a production store.
+      if (slice.length >= 8 && DATA.demo) html.splice(8, 0, PROMO);
       $('#shopGrid').innerHTML = html.join('');
       $('#shopGrid').classList.toggle('cols4', state.view === 4);
       $('#shownCount').textContent = String(slice.length);

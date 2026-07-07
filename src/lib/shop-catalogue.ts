@@ -51,6 +51,11 @@ const NAME_HEX: Record<string, string> = {
 const hexFor = (c: { name: string; hex: string | null }): string | null =>
   c.hex ?? NAME_HEX[c.name?.trim().toLowerCase()] ?? null;
 
+// Never surface internal/demo vendor names ("PARTNERS-DEMO" etc.) — treat them
+// as "no vendor" so they don't leak into the card meta, the "Designers" facet,
+// or the type eyebrow. A real store's real vendors pass through untouched.
+const cleanVendor = (v?: string) => (v && !/demo|partner|sample|test/i.test(v) ? v : '');
+
 // A tag that marks a product as "new" (drives the New badge + Newest sort).
 const NEW_RE = /(^|[-\s])new($|[-\s])|new[-\s]?in|new[-\s]?arriv/i;
 
@@ -67,13 +72,14 @@ export function toShopItems(raw: ProductCard[]): ShopItem[] {
     const cats = (p.collections ?? [])
       .filter((c) => !HIDE_COLLECTION.test(c.handle))
       .map((c) => c.title);
+    const vendor = cleanVendor(p.vendor);
     return {
       id: p.id,
       handle: p.handle,
       title: p.title,
       cats,
-      type: cats[0] || (p.productType && p.productType.trim()) || p.vendor || 'Catalogue',
-      vendor: p.vendor || '',
+      type: cats[0] || (p.productType && p.productType.trim()) || vendor || 'Catalogue',
+      vendor,
       price: Number(min.amount),
       priceMax: Number(max.amount),
       was: onSale ? Number(compareAt!.amount) : null,

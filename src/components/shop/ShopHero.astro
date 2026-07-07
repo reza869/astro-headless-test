@@ -5,6 +5,8 @@
 //  full catalogue (/collections/all) and a single collection
 //  (/collections/[handle]); stat counts + intro fall back sensibly.
 // ============================================================
+import { SITE } from '~/config/site';
+
 interface Props {
   eyebrow?: string;
   /** Heading HTML (allows the coral <em> accent). */
@@ -26,12 +28,19 @@ const {
   categories,
 } = Astro.props;
 
+// Real counts when provided; a demo-only placeholder when a count is absent
+// (e.g. an empty catalogue). A real 0 is omitted rather than shown. "Restocks"
+// is an illustrative claim, so it too is demo only — nothing fabricated ships.
+const demo = SITE.demoContent;
+const stat = (val: number | undefined, placeholder: string, label: string) =>
+  val != null ? (val > 0 ? { n: String(val), l: label } : null) : demo ? { n: placeholder, l: label } : null;
+
 const stats = [
-  { n: products != null ? String(products) : '248', l: 'Products' },
-  { n: designers != null ? String(designers) : '12', l: 'Designers' },
-  { n: categories != null ? String(categories) : '8', l: 'Categories' },
-  { n: 'Weekly', l: 'Restocks' },
-];
+  stat(products, '248', 'Products'),
+  stat(designers, '12', 'Designers'),
+  stat(categories, '8', 'Categories'),
+  demo ? { n: 'Weekly', l: 'Restocks' } : null,
+].filter((s): s is { n: string; l: string } => s !== null);
 ---
 
 <section class="pb-3.5 pt-[34px]">
