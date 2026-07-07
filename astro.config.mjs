@@ -48,6 +48,9 @@ export default defineConfig({
   // the deploy config, forcing a KV namespace to be created for a feature
   // nothing uses. The `null` (no-op) driver keeps sessions disabled and stops
   // that KV binding from ever being emitted into dist/server/wrangler.json.
+  // (`null` is a real unstorage driver resolved at runtime; Astro's typed
+  // sessionDrivers list just omits it — hence the suppression.)
+  // @ts-expect-error — `null` no-op driver missing from Astro's typed list
   session: { driver: sessionDrivers.null() },
   integrations: [react()],
   vite: {

@@ -37,6 +37,13 @@ export function lineMaxQty(line: CartLine): number {
   return Math.max(1, Math.min(cap, 99));
 }
 
+/** True when a line-item property value is an uploaded file (Shopify serves
+ *  these from a `/uploads/` path) — so the cart can render a download link
+ *  instead of a raw URL (CP-9). No-op for ordinary text properties. */
+export function isFileUpload(value: string): boolean {
+  return /^https?:\/\/\S+\/uploads\//i.test(value.trim());
+}
+
 /** A small remaining-stock count worth surfacing as urgency ("Only N left"), or
  *  null when stock is untracked / comfortably high. */
 export function lineLowStock(line: CartLine, floor = 5): number | null {

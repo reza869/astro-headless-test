@@ -16,6 +16,15 @@ export const $cartError = atom<string | null>(null);
 /** Per-line ids with a request in flight (drawer row spinners). */
 export const $busyLines = map<Record<string, boolean>>({});
 
+export interface RemovedLine {
+  merchandiseId: string;
+  quantity: number;
+  attributes?: { key: string; value: string }[];
+  title: string;
+}
+/** The most-recently removed line, retained briefly so the UI can offer Undo (CP-13). */
+export const $lastRemoved = atom<RemovedLine | null>(null);
+
 let initialized = false;
 
 /** Hydrate the cart once on first island mount. */
@@ -189,15 +198,43 @@ export async function updateItem(lineId: string, quantity: number): Promise<void
   }
 }
 
-export async function removeItem(lineId: string): Promise<void> {
+export async function removeItem(
+  lineId: string,
+  opts: { trackUndo?: boolean } = {},
+): Promise<void> {
+  // Snapshot the line BEFORE removal so an accidental delete is recoverable (CP-13).
+  // Only user-initiated "remove" opts in — save-for-later / gift-wrap / empty-bag
+  // pass the default so they don't spawn a misleading Undo toast.
+  const snap = opts.trackUndo ? $cart.get()?.lines.find((l) => l.id === lineId) : undefined;
   $busyLines.setKey(lineId, true);
   try {
-    applyResult(await post('/api/cart/remove', { lineId }));
+    const data = applyResult(await post('/api/cart/remove', { lineId }));
+    if (snap && data.cart) {
+      $lastRemoved.set({
+        merchandiseId: snap.merchandise.id,
+        quantity: snap.quantity,
+        attributes: snap.attributes,
+        title: snap.merchandise.product.title,
+      });
+    }
   } catch {
     $cartError.set('Could not remove the item.');
   } finally {
     $busyLines.setKey(lineId, false);
   }
+}
+
+/** Re-add the most-recently removed line (CP-13). A no-op if nothing is pending. */
+export async function undoRemove(): Promise<void> {
+  const last = $lastRemoved.get();
+  if (!last) return;
+  $lastRemoved.set(null);
+  await addItem(last.merchandiseId, last.quantity, { open: false, attributes: last.attributes });
+}
+
+/** Dismiss the pending Undo without re-adding. */
+export function clearLastRemoved(): void {
+  $lastRemoved.set(null);
 }
 
 /** Jump to Shopify's hosted checkout for the current cart. */

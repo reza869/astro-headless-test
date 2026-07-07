@@ -14,9 +14,16 @@ import Cta from '~/components/sections/Cta.astro';
 import Icon from '~/components/ui/Icon.astro';
 import { clientIp, readCart } from '~/lib/cart-server';
 import { getProducts } from '~/lib/shopify';
+import { createCustomerClient, getPublicOrigin } from '~/lib/shopify/customer';
 import type { Cart, ProductCard as TProductCard } from '~/lib/shopify/types';
 
 export const prerender = false;
+
+// Signed-in state for the empty-cart returning-customer prompt (CP-7).
+const loggedIn = createCustomerClient(
+  Astro.cookies,
+  getPublicOrigin(Astro.request, Astro.url),
+).isLoggedIn();
 
 let cart: Cart | null = null;
 let crossSell: TProductCard[] = [];
@@ -42,7 +49,7 @@ try {
   noindex
 >
   {/* Live hero + cart layout + summary (real Shopify cart) */}
-  <CartView client:load initialCart={cart} />
+  <CartView client:load initialCart={cart} loggedIn={loggedIn} />
 
   {/* ===================== CROSS-SELL ===================== */}
   {

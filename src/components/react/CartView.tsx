@@ -30,6 +30,8 @@ import {
   Percent,
   CheckCircle2,
   ShoppingBag,
+  Download,
+  LogIn,
 } from 'lucide-react';
 import {
   $cart,
@@ -45,13 +47,14 @@ import {
 } from '~/stores/cart';
 import type { Cart, CartLine } from '~/lib/shopify/types';
 import { formatMoney } from '~/lib/utils';
-import { lineDiscount, lineMaxQty, lineLowStock } from '~/lib/cart-pricing';
+import { lineDiscount, lineMaxQty, lineLowStock, isFileUpload } from '~/lib/cart-pricing';
 import { SITE } from '~/config/site';
 import { useCartNote } from './useCartNote';
 import { useCountUp } from './useCountUp';
 
 // Cart-attribute keys (surface on the Shopify order for the merchant).
 const GIFT_WRAP_KEY = 'Gift wrap';
+const GIFT_MESSAGE_KEY = 'Gift message';
 const DELIVERY_KEY = 'Delivery preference';
 
 const DELIVERY = SITE.deliveryOptions;
@@ -71,6 +74,8 @@ interface SavedItem {
 interface Props {
   /** SSR-read cart so the first paint has the real lines (no flash). */
   initialCart: Cart | null;
+  /** Signed-in state (SSR) — drives the returning-customer prompt (CP-7). */
+  loggedIn?: boolean;
 }
 
 const money = (amount: string | number, currency: string) => formatMoney(amount, currency);
@@ -83,7 +88,7 @@ function optionText(line: CartLine): string {
     .join(' · ');
 }
 
-export default function CartView({ initialCart }: Props) {
+export default function CartView({ initialCart, loggedIn = false }: Props) {
   const storeCart = useStore($cart);
   const busy = useStore($cartBusy);
   // Prefer the live store once hydrated; fall back to the SSR snapshot.
@@ -95,6 +100,9 @@ export default function CartView({ initialCart }: Props) {
   const [shipSel, setShipSel] = useState<ShipKey>(DELIVERY[0].key);
   const [coupon, setCoupon] = useState('');
   const [couponNote, setCouponNote] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
+  // Gift message (CP-17) — a real `Gift message` cart attribute, paired with gift wrap.
+  const [giftMsg, setGiftMsg] = useState('');
+  const giftMsgTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Seed the store from the SSR cart, then hydrate the live source of truth.
   useEffect(() => {
@@ -161,18 +169,40 @@ export default function CartView({ initialCart }: Props) {
   const remaining = Math.max(0, threshold - subtotal);
 
   // ── attribute helpers ──
-  const mergeAttr = (key: string, value: string | null) => {
-    const rest = (cart?.attributes ?? []).filter((a) => a.key !== key);
-    return setCartAttributes(value ? [...rest, { key, value }] : rest);
+  // Apply several attribute keys in ONE mutation so paired updates (e.g. clearing
+  // gift wrap + gift message together) can't race two setCartAttributes calls.
+  const applyAttrs = (updates: Record<string, string | null>) => {
+    const rest = (cart?.attributes ?? []).filter((a) => !(a.key in updates));
+    const added = Object.entries(updates)
+      .filter(([, v]) => v)
+      .map(([key, value]) => ({ key, value: value as string }));
+    return setCartAttributes([...rest, ...added]);
   };
+  const mergeAttr = (key: string, value: string | null) => applyAttrs({ [key]: value });
 
   const onToggleGift = async () => {
+    const turningOff = giftWrapOn;
     if (giftVariantId) {
       if (giftLine) await removeItem(giftLine.id);
       else await addItem(giftVariantId, 1, { open: false });
+      // The message lives in an attribute, not on the variant line — clear it too.
+      if (turningOff && giftMsg) {
+        setGiftMsg('');
+        await mergeAttr(GIFT_MESSAGE_KEY, null);
+      }
+    } else if (turningOff) {
+      setGiftMsg('');
+      await applyAttrs({ [GIFT_WRAP_KEY]: null, [GIFT_MESSAGE_KEY]: null });
     } else {
-      await mergeAttr(GIFT_WRAP_KEY, giftWrapOn ? null : 'Yes');
+      await mergeAttr(GIFT_WRAP_KEY, 'Yes');
     }
+  };
+
+  // Debounced save of the gift message (only reachable while gift wrap is on).
+  const onGiftMsg = (value: string) => {
+    setGiftMsg(value);
+    if (giftMsgTimer.current) clearTimeout(giftMsgTimer.current);
+    giftMsgTimer.current = setTimeout(() => mergeAttr(GIFT_MESSAGE_KEY, value.trim() || null), 700);
   };
 
   const onSelectDelivery = (key: ShipKey) => {
@@ -190,6 +220,16 @@ export default function CartView({ initialCart }: Props) {
     const pref = (cart?.attributes ?? []).find((a) => a.key === DELIVERY_KEY)?.value;
     const match = pref ? DELIVERY.find((o) => o.label === pref) : undefined;
     if (match) setShipSel(match.key);
+  }, [cart?.id, cart?.attributes]);
+
+  // Seed the gift message once per cart from its saved attribute (CP-17).
+  const giftMsgSeeded = useRef<string | null>(null);
+  useEffect(() => {
+    const id = cart?.id ?? null;
+    if (!id || giftMsgSeeded.current === id) return;
+    giftMsgSeeded.current = id;
+    const saved = (cart?.attributes ?? []).find((a) => a.key === GIFT_MESSAGE_KEY)?.value;
+    if (saved) setGiftMsg(saved);
   }, [cart?.id, cart?.attributes]);
 
   // ── actions ──
@@ -306,6 +346,19 @@ export default function CartView({ initialCart }: Props) {
               >
                 Start Shopping <ArrowRight size={16} strokeWidth={2} />
               </a>
+              {/* Returning-customer prompt (CP-7) — honest CTA, signed-out only. */}
+              {!loggedIn && (
+                <p className="mt-5 text-[13px] text-text-secondary">
+                  Have an account?{' '}
+                  <a
+                    href="/account/login?return_to=/cart"
+                    className="inline-flex items-center gap-1 font-bold text-text-primary transition-fluid hover:text-coral"
+                  >
+                    <LogIn size={14} strokeWidth={1.8} /> Sign in
+                  </a>{' '}
+                  for faster checkout.
+                </p>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 items-start gap-[30px] lg:grid-cols-[1.55fr_0.85fr] lg:gap-[46px]">
@@ -570,6 +623,28 @@ export default function CartView({ initialCart }: Props) {
                     </div>
                   )}
 
+                  {/* Gift message (CP-17) — appears only with gift wrap; saves to a
+                      real `Gift message` cart attribute (reaches the merchant order) */}
+                  {SITE.giftWrap.enabled && giftWrapOn && (
+                    <div className="mb-[18px]">
+                      <label
+                        htmlFor="cart-gift-message"
+                        className="mb-2 flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[1.6px] text-text-secondary"
+                      >
+                        <Gift size={14} strokeWidth={1.8} /> Gift message
+                      </label>
+                      <textarea
+                        id="cart-gift-message"
+                        value={giftMsg}
+                        onChange={(e) => onGiftMsg(e.target.value)}
+                        placeholder="Add a personal note for the recipient (optional)…"
+                        rows={3}
+                        maxLength={300}
+                        className="w-full resize-y rounded-sm bg-bg-light px-[15px] py-[13px] text-sm leading-[1.6] outline-none ring-1 ring-inset ring-border transition-shadow focus:ring-2 focus:ring-coral"
+                      />
+                    </div>
+                  )}
+
                   {/* Rows — real Shopify values only; shipping + tax at checkout */}
                   <div className="border-t border-border pt-[18px]">
                     <Row label="Subtotal" value={money(subtotal, currency)} />
@@ -708,7 +783,20 @@ function CartRow({
           <ul className="space-y-0.5">
             {line.attributes.map((a) => (
               <li key={a.key} className="text-[12px] text-text-muted">
-                <span className="font-semibold">{a.key}:</span> {a.value}
+                <span className="font-semibold">{a.key}:</span>{' '}
+                {isFileUpload(a.value) ? (
+                  <a
+                    href={a.value}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download
+                    className="inline-flex items-center gap-1 font-semibold text-coral hover:underline"
+                  >
+                    <Download size={12} strokeWidth={2} /> Download
+                  </a>
+                ) : (
+                  a.value
+                )}
               </li>
             ))}
           </ul>
@@ -741,7 +829,7 @@ function CartRow({
           </button>
           <button
             type="button"
-            onClick={() => removeItem(line.id)}
+            onClick={() => removeItem(line.id, { trackUndo: true })}
             disabled={busy}
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-text-secondary transition-fluid hover:text-coral disabled:opacity-50"
           >

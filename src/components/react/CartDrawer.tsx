@@ -8,7 +8,7 @@
 // ============================================================
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '@nanostores/react';
-import { X, ShoppingBag, ArrowRight, Trash2, PenLine, Tag, Plus } from 'lucide-react';
+import { X, ShoppingBag, ArrowRight, Trash2, PenLine, Tag, Plus, RotateCcw, Download, LogIn } from 'lucide-react';
 import { useFocusTrap } from './useFocusTrap';
 import { useCartNote } from './useCartNote';
 import {
@@ -17,16 +17,19 @@ import {
   $cartBusy,
   $busyLines,
   $cartError,
+  $lastRemoved,
   closeCart,
   updateItem,
   removeItem,
   addItem,
   applyDiscountCode,
+  undoRemove,
+  clearLastRemoved,
   checkout,
 } from '~/stores/cart';
 import type { CartLine, ProductCard } from '~/lib/shopify/types';
 import { formatMoney } from '~/lib/utils';
-import { lineDiscount, lineMaxQty } from '~/lib/cart-pricing';
+import { lineDiscount, lineMaxQty, isFileUpload } from '~/lib/cart-pricing';
 import { lockScroll, unlockScroll } from '~/lib/scroll-lock';
 import { SITE } from '~/config/site';
 import QuantityStepper from './QuantityStepper';
@@ -34,7 +37,7 @@ import Spinner from './Spinner';
 import CartLiveRegion from './CartLiveRegion';
 import { useCountUp } from './useCountUp';
 
-export default function CartDrawer() {
+export default function CartDrawer({ loggedIn = false }: { loggedIn?: boolean }) {
   const cart = useStore($cart);
   const open = useStore($cartOpen);
   const busy = useStore($cartBusy);
@@ -100,6 +103,10 @@ export default function CartDrawer() {
       {/* Global cart announcements — a sibling of the drawer so it keeps
           announcing even while the (inert, aria-hidden) drawer is closed. */}
       <CartLiveRegion />
+
+      {/* Undo-remove toast (CP-13) — a top-level sibling so it floats over any
+          surface (drawer open/closed, or the /cart page) after a removal. */}
+      <UndoToast />
 
       <div
         className={`fixed inset-0 z-[100] ${open ? '' : 'pointer-events-none'}`}
@@ -182,7 +189,7 @@ export default function CartDrawer() {
           </header>
 
           {lines.length === 0 ? (
-            <EmptyCart />
+            <EmptyCart loggedIn={loggedIn} />
           ) : (
             <>
               {/* Scroll region — line items + recommendations */}
@@ -334,7 +341,20 @@ function CartLineRow({ line, currency }: { line: CartLine; currency: string }) {
               <ul className="mt-1 space-y-0.5">
                 {line.attributes.map((a) => (
                   <li key={a.key} className="truncate text-[11.5px] text-text-muted">
-                    <span className="font-semibold">{a.key}:</span> {a.value}
+                    <span className="font-semibold">{a.key}:</span>{' '}
+                    {isFileUpload(a.value) ? (
+                      <a
+                        href={a.value}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download
+                        className="inline-flex items-center gap-1 font-semibold text-coral hover:underline"
+                      >
+                        <Download size={11} strokeWidth={2} /> Download
+                      </a>
+                    ) : (
+                      a.value
+                    )}
                   </li>
                 ))}
               </ul>
@@ -378,7 +398,7 @@ function CartLineRow({ line, currency }: { line: CartLine; currency: string }) {
           />
           <button
             type="button"
-            onClick={() => removeItem(line.id)}
+            onClick={() => removeItem(line.id, { trackUndo: true })}
             disabled={busy}
             className="-mb-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg text-text-muted transition-fluid hover:bg-coral-soft hover:text-coral disabled:opacity-40"
             aria-label={`Remove ${m.product.title}`}
@@ -603,7 +623,7 @@ function RecommendationCard({
   );
 }
 
-function EmptyCart() {
+function EmptyCart({ loggedIn }: { loggedIn?: boolean }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-8 pb-10 text-center">
       <span className="mb-4 grid h-16 w-16 place-items-center rounded-full bg-surface text-text-muted ring-1 ring-border">
@@ -621,6 +641,54 @@ function EmptyCart() {
         Shop all products
         <ArrowRight size={17} strokeWidth={1.8} />
       </a>
+      {/* Returning-customer prompt (CP-7) — honest CTA (prefilled checkout),
+          only when signed out. No false "recover your cart" promise. */}
+      {!loggedIn && (
+        <a
+          href="/account/login"
+          className="mt-3 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-text-secondary transition-fluid hover:text-coral"
+        >
+          <LogIn size={14} strokeWidth={1.8} /> Have an account? Sign in
+        </a>
+      )}
+    </div>
+  );
+}
+
+/** Undo-remove toast (CP-13) — subscribes to $lastRemoved, offers a re-add and
+ *  auto-dismisses. Position bottom-left so it never clashes with the right-side
+ *  drawer panel. Reduced-motion safe (no essential motion). */
+function UndoToast() {
+  const last = useStore($lastRemoved);
+  useEffect(() => {
+    if (!last) return;
+    const t = setTimeout(() => clearLastRemoved(), 6000);
+    return () => clearTimeout(t);
+  }, [last]);
+
+  if (!last) return null;
+  return (
+    <div className="fixed bottom-4 left-4 z-[110] max-w-[calc(100vw-2rem)]" role="status" aria-live="polite">
+      <div className="flex items-center gap-3 rounded-xl bg-dark px-4 py-3 text-white shadow-lg ring-1 ring-white/10">
+        <span className="min-w-0 truncate text-[13px]">
+          Removed <b className="font-semibold">{last.title}</b>
+        </span>
+        <button
+          type="button"
+          onClick={() => undoRemove()}
+          className="inline-flex flex-none items-center gap-1.5 rounded-md bg-white/10 px-3 py-1.5 text-[12px] font-bold uppercase tracking-[1px] text-white transition-fluid hover:bg-coral"
+        >
+          <RotateCcw size={13} strokeWidth={2} /> Undo
+        </button>
+        <button
+          type="button"
+          onClick={() => clearLastRemoved()}
+          aria-label="Dismiss"
+          className="grid h-6 w-6 flex-none place-items-center rounded-md text-white/60 transition-fluid hover:text-white"
+        >
+          <X size={14} strokeWidth={2} />
+        </button>
+      </div>
     </div>
   );
 }

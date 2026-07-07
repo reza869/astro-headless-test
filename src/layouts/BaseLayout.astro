@@ -12,6 +12,7 @@ import Footer from '~/components/global/Footer.astro';
 import CartDrawer from '~/components/react/CartDrawer.tsx';
 import BottomNav from '~/components/react/BottomNav.tsx';
 import QuickViewModal from '~/components/react/QuickViewModal.tsx';
+import { createCustomerClient, getPublicOrigin } from '~/lib/shopify/customer';
 
 interface Props {
   title?: string;
@@ -27,6 +28,13 @@ const { title, description = SITE.description, image, noFooter = false, noindex 
 const pageTitle = title ? `${title} · ${SITE.name}` : `${SITE.name} — ${SITE.tagline}`;
 const canonical = new URL(Astro.url.pathname, Astro.url.origin).href;
 const pathname = Astro.url.pathname;
+
+// Signed-in state for the cart drawer's returning-customer prompt (CP-7).
+// isLoggedIn() only reads the session cookie — no network call.
+const loggedIn = createCustomerClient(
+  Astro.cookies,
+  getPublicOrigin(Astro.request, Astro.url),
+).isLoggedIn();
 // Absolute share image (OG requires absolute); fall back to the site-wide
 // default so every page gets a social preview card.
 const ogImage = new URL(image ?? SITE.ogImage, Astro.url.origin).href;
@@ -118,7 +126,7 @@ const websiteJsonLd = {
     {!noFooter && <Footer />}
 
     {/* Persistent interactive islands */}
-    <CartDrawer client:load />
+    <CartDrawer client:load loggedIn={loggedIn} />
     <BottomNav client:load pathname={pathname} />
     <QuickViewModal client:load />
 
