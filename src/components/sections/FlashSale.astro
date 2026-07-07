@@ -7,7 +7,12 @@
 // ============================================================
 import Icon from '~/components/ui/Icon.astro';
 import { getProducts } from '~/lib/shopify';
-import { formatMoney } from '~/lib/utils';
+import { formatMoney, discountPercent } from '~/lib/utils';
+import { SITE } from '~/config/site';
+
+// Never surface internal/demo vendor names as a category — fall back to brand.
+// (Same guard as ShopTheLook's cleanCat, so both sections behave identically.)
+const cleanCat = (v?: string) => (v && !/demo|partner|sample|test/i.test(v) ? v : SITE.name);
 
 let pool: Awaited<ReturnType<typeof getProducts>>['items'] = [];
 try {
@@ -31,14 +36,21 @@ const currency = pool[0]?.priceRange.minVariantPrice.currencyCode ?? 'USD';
 const products = pool.slice(0, 6).map((p, i) => {
   const meta = FLASH_META[i % FLASH_META.length];
   const now = Number(p.priceRange.minVariantPrice.amount);
-  const was = now / (1 - meta.disc / 100);
+  // Prefer the product's REAL compare-at price + discount; only fall back to the
+  // editorial demo figure when the product isn't genuinely marked down. The
+  // demo "was" is rounded so it doesn't read as a fabricated fraction.
+  const compareAt = p.compareAtPriceRange?.minVariantPrice;
+  const realOff = discountPercent(p.priceRange.minVariantPrice, compareAt);
+  const disc = realOff ?? meta.disc;
+  const was = realOff ? Number(compareAt!.amount) : Math.round(now / (1 - meta.disc / 100));
   return {
     ...meta,
+    disc,
     variantId: p.variantId ?? '',
     requiresChoice: p.requiresChoice ?? false,
     handle: p.handle,
     name: p.title,
-    cat: p.vendor || "TAILORED",
+    cat: cleanCat(p.vendor),
     now: formatMoney(now, currency),
     was: formatMoney(was, currency),
     img: p.featuredImage?.url ?? '/images/Product Image 1.png',
@@ -66,7 +78,7 @@ const hasProducts = products.length > 0;
         {/* Header: label + display H2 left, live countdown right */}
         <div class="mb-9 flex flex-wrap items-center justify-between gap-6">
           <div>
-            <span class="mag-label mb-2 text-coral-soft">48 Hours Only</span>
+            <span class="mag-label mb-2 text-coral-soft">Limited Time</span>
             <h2 class="font-heading text-[clamp(36px,4.2vw,56px)] font-extrabold leading-[0.92] text-white">
               Flash <em class="not-italic text-coral">Sale</em>
             </h2>
