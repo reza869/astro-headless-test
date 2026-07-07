@@ -1,15 +1,18 @@
 ---
 // ============================================================
 //  ShopTheLook — interactive 3-tab lookbook. Tabs swap the stage
-//  image, hotspots and the product list. Each product has a size
-//  selector + a select toggle; the dark bundle bar totals the
-//  selected pieces (save 10%) and "Add All" pushes them to the cart.
+//  image, hotspots and the product list. Each product links to its
+//  PDP; single-variant pieces quick-add, multi-variant pieces route
+//  to the PDP to choose (no fake size picker). The dark bundle bar
+//  totals the pieces — and only claims a "Save X%" when a REAL
+//  Shopify discount code is configured (SITE.shopTheLook.bundleCode).
 //  Looks are backed by real Shopify products (variantId ⇒ live cart).
 // ============================================================
 import MagHeading from '~/components/sections/MagHeading.astro';
 import Icon from '~/components/ui/Icon.astro';
 import { getProducts } from '~/lib/shopify';
 import { formatMoney } from '~/lib/utils';
+import { SITE } from '~/config/site';
 
 let pool: Awaited<ReturnType<typeof getProducts>>['items'] = [];
 try {
@@ -18,11 +21,14 @@ try {
   console.error('[shop-the-look] product load failed:', (err as Error).message);
 }
 
-const SIZES = ['XS', 'S', 'M', 'L'];
-const HOTSPOTS = [
-  { x: '27%', y: '40%' },
-  { x: '52%', y: '64%' },
-  { x: '36%', y: '82%' },
+// Per-look hotspot coordinates (roughly upper / mid / lower body), distinct per
+// look so the markers read as intentional. Clicking one highlights + scrolls to
+// the matching product. Precise per-product placement is a merchant-curation
+// follow-up; these are sensible defaults.
+const LOOK_HOTSPOTS = [
+  [{ x: '26%', y: '34%' }, { x: '55%', y: '58%' }, { x: '40%', y: '82%' }],
+  [{ x: '42%', y: '30%' }, { x: '50%', y: '60%' }, { x: '45%', y: '84%' }],
+  [{ x: '34%', y: '38%' }, { x: '52%', y: '56%' }, { x: '44%', y: '82%' }],
 ];
 const LOOK_DEFS = [
   { id: '01', name: 'The Resort Edit', image: '/images/Look 01.png' },
@@ -33,6 +39,15 @@ const LOOK_DEFS = [
 const currency = pool[0]?.priceRange.minVariantPrice.currencyCode ?? 'USD';
 const pick = (i: number) => (pool.length ? pool[i % pool.length] : null);
 
+// Never surface internal/demo vendor names as a category — fall back to brand.
+const cleanCat = (v?: string) =>
+  v && !/demo|partner|sample|test/i.test(v) ? v : SITE.name;
+
+// Bundle saving is only real (and only shown) when a discount code is configured.
+const bundleCode = (SITE.shopTheLook.bundleCode ?? '').trim();
+const bundlePct = SITE.shopTheLook.bundleDiscountPct ?? 0;
+const hasBundleSaving = Boolean(bundleCode) && bundlePct > 0;
+
 const looks = LOOK_DEFS.map((d, li) => {
   const products = [0, 1, 2]
     .map((j) => {
@@ -40,9 +55,13 @@ const looks = LOOK_DEFS.map((d, li) => {
       if (!p) return null;
       const amount = Number(p.priceRange.minVariantPrice.amount);
       return {
+        handle: p.handle,
         variantId: p.variantId ?? '',
+        // When a variant choice matters, quick-add would pick the wrong one —
+        // route to the PDP instead (mirrors the ProductCard grid).
+        requiresChoice: Boolean(p.requiresChoice),
         title: p.title,
-        cat: p.vendor || "TAILORED",
+        cat: cleanCat(p.vendor),
         amount,
         price: formatMoney(amount, currency),
         image: p.featuredImage?.url ?? d.image,
@@ -50,7 +69,8 @@ const looks = LOOK_DEFS.map((d, li) => {
     })
     .filter((p): p is NonNullable<typeof p> => p !== null);
   const original = products.reduce((s, p) => s + p.amount, 0);
-  return { ...d, products, original, bundle: original * 0.9 };
+  const bundleTotal = hasBundleSaving ? original * (1 - bundlePct / 100) : original;
+  return { ...d, products, original, bundleTotal };
 });
 
 const hasLooks = looks[0]?.products.length > 0;
@@ -58,7 +78,12 @@ const hasLooks = looks[0]?.products.length > 0;
 
 {
   hasLooks && (
-    <section id="shop-the-look" class="pb-section" data-look-section>
+    <section
+      id="shop-the-look"
+      class="pb-section"
+      data-look-section
+      data-bundle-code={bundleCode}
+    >
       <div class="container-mag">
         <MagHeading eyebrow="Styled by the Editors" title="Shop the" em="Look" class="mb-10 md:mb-12">
           {/* Tabs */}
@@ -120,7 +145,7 @@ const hasLooks = looks[0]?.products.length > 0;
                   data-index={j}
                   aria-label={`Highlight item ${j + 1}`}
                   class:list={['hotspot absolute z-40 flex h-9 w-9 items-center justify-center rounded-full shadow-md', j === 0 && 'is-active']}
-                  style={`left:${HOTSPOTS[j].x};top:${HOTSPOTS[j].y};transform:translate(-50%,-50%)`}
+                  style={`left:${LOOK_HOTSPOTS[li][j].x};top:${LOOK_HOTSPOTS[li][j].y};transform:translate(-50%,-50%)`}
                 >
                   <Icon name="plus" size={18} />
                 </button>
@@ -147,36 +172,40 @@ const hasLooks = looks[0]?.products.length > 0;
                   data-index={j}
                   data-variant={p.variantId}
                   data-price={p.amount}
-                  data-selected="true"
                   class:list={['look-card flex items-center gap-4 rounded-2xl border bg-white p-3 transition-fluid', j === 0 ? 'is-active' : 'border-border']}
                 >
-                  <img src={p.image} alt={p.title} loading="lazy" class="h-[74px] w-[64px] flex-none rounded-xl object-cover" />
+                  <a href={`/products/${p.handle}`} class="flex-none" aria-label={p.title}>
+                    <img src={p.image} alt={p.title} loading="lazy" class="h-[74px] w-[64px] rounded-xl object-cover" />
+                  </a>
 
                   <div class="min-w-0 flex-1">
                     <span class="text-[10px] font-bold uppercase tracking-[1px] text-green">{p.cat}</span>
-                    <h4 class="font-heading text-[18px] font-bold leading-tight text-text-primary">{p.title}</h4>
+                    <h4 class="font-heading text-[18px] font-bold leading-tight text-text-primary">
+                      <a href={`/products/${p.handle}`} class="transition-fluid hover:text-coral">{p.title}</a>
+                    </h4>
                     <span class="text-[14px] font-bold tabular text-text-primary">{p.price}</span>
-                    <div class="mt-2 flex gap-1.5">
-                      {SIZES.map((s) => (
-                        <button
-                          type="button"
-                          data-size={s}
-                          class:list={['look-size grid h-7 w-7 place-items-center rounded-md text-[11px] font-bold transition-fluid', s === 'S' && 'is-on']}
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </div>
                   </div>
 
-                  <button
-                    type="button"
-                    data-card-toggle
-                    aria-label={`Add ${p.title} to cart`}
-                    class="look-toggle grid h-10 w-10 flex-none place-items-center rounded-full bg-surface-cool text-text-primary transition-fluid hover:bg-coral hover:text-white"
-                  >
-                    <Icon name="plus" size={18} />
-                  </button>
+                  {/* Single-variant → quick-add; choice-required → go to PDP to pick. */}
+                  {p.requiresChoice || !p.variantId ? (
+                    <a
+                      href={`/products/${p.handle}`}
+                      aria-label={`Choose options for ${p.title}`}
+                      title="Choose options"
+                      class="look-toggle grid h-10 w-10 flex-none place-items-center rounded-full bg-surface-cool text-text-primary transition-fluid hover:bg-coral hover:text-white"
+                    >
+                      <Icon name="arrowRight" size={18} />
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      data-card-toggle
+                      aria-label={`Add ${p.title} to cart`}
+                      class="look-toggle grid h-10 w-10 flex-none place-items-center rounded-full bg-surface-cool text-text-primary transition-fluid hover:bg-coral hover:text-white"
+                    >
+                      <Icon name="plus" size={18} />
+                    </button>
+                  )}
                 </article>
               ))}
 
@@ -185,15 +214,21 @@ const hasLooks = looks[0]?.products.length > 0;
                 <div class="min-w-0">
                   <span class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[1.4px] text-white/70">
                     Complete the Look
-                    <span class="rounded-pill bg-green px-2 py-0.5 text-[9px] font-bold tracking-[0.5px] text-white">Save 10%</span>
+                    {hasBundleSaving && (
+                      <span class="rounded-pill bg-green px-2 py-0.5 text-[9px] font-bold tracking-[0.5px] text-white">
+                        Save {bundlePct}%
+                      </span>
+                    )}
                   </span>
                   <div class="mt-1.5 flex items-baseline gap-2">
                     <b class="font-heading text-2xl font-extrabold tabular" data-bundle-total>
-                      {formatMoney(look.bundle, currency)}
+                      {formatMoney(look.bundleTotal, currency)}
                     </b>
-                    <s class="text-[14px] text-white/50 tabular" data-bundle-original>
-                      {formatMoney(look.original, currency)}
-                    </s>
+                    {hasBundleSaving && (
+                      <s class="text-[14px] text-white/50 tabular" data-bundle-original>
+                        {formatMoney(look.original, currency)}
+                      </s>
+                    )}
                   </div>
                 </div>
                 <button
@@ -232,16 +267,6 @@ const hasLooks = looks[0]?.products.length > 0;
     box-shadow: 0 0 0 1px var(--color-coral);
   }
 
-  /* Size pills */
-  .look-size {
-    background: var(--color-surface-cool);
-    color: var(--color-text-primary);
-  }
-  .look-size.is-on {
-    background: var(--color-dark);
-    color: #fff;
-  }
-
   /* Hotspots */
   .hotspot {
     background: #fff;
@@ -268,11 +293,7 @@ const hasLooks = looks[0]?.products.length > 0;
 <script>
   import { addItem, applyDiscountCode, openCart } from '~/stores/cart';
 
-  // Must exist as a real 10%-off discount in Shopify admin (code or automatic)
-  // for the saving to actually apply at checkout + show in the drawer.
-  const BUNDLE_CODE = 'BUNDLE10';
-
-  function initPanel(panel: HTMLElement): void {
+  function initPanel(panel: HTMLElement, bundleCode: string): void {
     const cards = Array.from(panel.querySelectorAll<HTMLElement>('[data-look-card]'));
     const hotspots = Array.from(panel.querySelectorAll<HTMLElement>('[data-hotspot]'));
     const addAll = panel.querySelector<HTMLButtonElement>('[data-add-all]');
@@ -283,20 +304,12 @@ const hasLooks = looks[0]?.products.length > 0;
     };
 
     cards.forEach((card) => {
-      // Spotlight follows the hovered (or focused) card — not a click.
+      // Spotlight follows the hovered (or focused) card.
       const activate = () => setActive(card.dataset.index || '0');
       card.addEventListener('mouseenter', activate);
       card.addEventListener('focusin', activate);
 
-      // Size pills — purely select the size (no spotlight change).
-      card.querySelectorAll<HTMLButtonElement>('[data-size]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          card.querySelectorAll('[data-size]').forEach((b) => b.classList.toggle('is-on', b === btn));
-          card.dataset.size = btn.dataset.size;
-        });
-      });
-
-      // Per-card "+" — adds ONLY this product to the cart, opens the drawer.
+      // Per-card "+" (single-variant products only) — adds this product, opens the drawer.
       const toggle = card.querySelector<HTMLButtonElement>('[data-card-toggle]');
       toggle?.addEventListener('click', async () => {
         const variant = card.dataset.variant;
@@ -310,7 +323,20 @@ const hasLooks = looks[0]?.products.length > 0;
       });
     });
 
-    // Add All — every piece of the look, then the 10% bundle discount.
+    // Hotspots are now functional: highlight + scroll to the matching product.
+    hotspots.forEach((h) => {
+      h.addEventListener('click', () => {
+        const idx = h.dataset.index || '0';
+        setActive(idx);
+        cards.find((c) => c.dataset.index === idx)?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+        });
+      });
+    });
+
+    // Add All — every piece of the look; the bundle discount only applies when a
+    // real code is configured (otherwise the prices are already the honest sum).
     addAll?.addEventListener('click', async () => {
       const items = cards.filter((c) => c.dataset.variant);
       if (!items.length) return;
@@ -321,8 +347,7 @@ const hasLooks = looks[0]?.products.length > 0;
         for (const c of items) {
           await addItem(c.dataset.variant!, 1, { open: false });
         }
-        // Apply the bundle discount, then reveal the cart once.
-        await applyDiscountCode([BUNDLE_CODE], { open: false });
+        if (bundleCode) await applyDiscountCode([bundleCode], { open: false });
         openCart();
       } finally {
         addAll.removeAttribute('disabled');
@@ -337,6 +362,7 @@ const hasLooks = looks[0]?.products.length > 0;
       if (section.dataset.bound) return;
       section.dataset.bound = 'true';
 
+      const bundleCode = section.dataset.bundleCode || '';
       const tabs = Array.from(section.querySelectorAll<HTMLButtonElement>('[data-look-tab]'));
       const panels = Array.from(section.querySelectorAll<HTMLElement>('[data-look-panel]'));
 
@@ -352,7 +378,7 @@ const hasLooks = looks[0]?.products.length > 0;
         });
       });
 
-      panels.forEach(initPanel);
+      panels.forEach((p) => initPanel(p, bundleCode));
     });
   }
 

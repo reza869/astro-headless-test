@@ -34,6 +34,17 @@ export const SITE = {
     { key: 'express', label: 'Express', eta: '1–2 business days', freeOverThreshold: false },
     { key: 'pickup', label: 'Boutique pickup', eta: 'Flagship · ready today', free: true },
   ],
+  /**
+   * "Shop the Look" bundle. `bundleCode` must be a REAL Shopify discount (a
+   * code discount, or an automatic discount surfaced by that code) that grants
+   * `bundleDiscountPct` off. When set, "Add All" applies it and the bundle bar
+   * previews the saving. Leave `bundleCode` empty (the default) to show the
+   * HONEST full sum with no "Save X%" claim — nothing fabricated.
+   */
+  shopTheLook: {
+    bundleCode: '',
+    bundleDiscountPct: 10,
+  },
   description:
     'Modern everyday apparel — better materials, cleaner cuts, cut for the way you actually live. A headless Shopify storefront built with Astro.',
   // ─── Business / contact details ───────────────────────────────
