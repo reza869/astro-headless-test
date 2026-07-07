@@ -1,10 +1,10 @@
 ---
 // ============================================================
-//  OrderCard — one order rendered with its product line items
-//  (thumbnail + title + variant + qty + line price). Shared by
-//  the account overview ("Recent orders") and /account/orders so
-//  both stay visually identical. Degrades gracefully when an
-//  order has no line-item data.
+//  OrderCard — compact order SUMMARY for list views (account
+//  overview "Recent orders" + /account/orders). Shows the order
+//  id, date, item count and total only — no product imagery or
+//  rows. The full product breakdown lives on the detail page,
+//  reached via "View order details".
 // ============================================================
 import Icon from '~/components/ui/Icon.astro';
 import { formatMoney } from '~/lib/utils';
@@ -12,11 +12,9 @@ import type { CustomerOrder } from '~/lib/shopify/customer';
 
 interface Props {
   order: CustomerOrder;
-  /** How many product rows to show before collapsing into "+N more". */
-  maxItems?: number;
 }
 
-const { order, maxItems = 3 } = Astro.props;
+const { order } = Astro.props;
 
 const fmtDate = (iso: string) =>
   new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric' }).format(
@@ -24,22 +22,16 @@ const fmtDate = (iso: string) =>
   );
 
 const items = order.lineItems?.nodes ?? [];
-const shown = items.slice(0, maxItems);
-const extra = items.length - shown.length;
 const unitCount = items.reduce((n, li) => n + (li.quantity || 0), 0);
 const cancelled = Boolean(order.cancelledAt);
 
 // Detail route keyed by the numeric id suffix (keeps GID slashes out of URLs).
 const detailHref = `/account/orders/${order.id.split('/').pop()}`;
-
-// Lighten Shopify CDN thumbnails; leave other hosts untouched.
-const thumb = (url: string) =>
-  /cdn\.shopify\.com/.test(url) ? `${url}${url.includes('?') ? '&' : '?'}width=160` : url;
 ---
 
 <article class="overflow-hidden rounded-xl bg-surface ring-1 ring-inset ring-border transition-fluid hover:shadow-xs">
-  {/* Header — order id, date, total */}
-  <header class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border px-5 py-4">
+  {/* Header — order id, date, item count, total */}
+  <header class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-4">
     <div class="flex items-center gap-3">
       <span class="grid h-10 w-10 flex-none place-items-center rounded-full bg-coral-soft text-coral">
         <Icon name="package" size={18} />
@@ -55,9 +47,7 @@ const thumb = (url: string) =>
         </div>
         <p class="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-text-muted">
           <Icon name="clock" size={13} /> {fmtDate(order.processedAt)}
-          {unitCount > 0 && (
-            <span class="text-border">·</span>
-          )}
+          {unitCount > 0 && <span class="text-border">·</span>}
           {unitCount > 0 && (
             <span>{unitCount} item{unitCount === 1 ? '' : 's'}</span>
           )}
@@ -71,54 +61,6 @@ const thumb = (url: string) =>
       </p>
     </div>
   </header>
-
-  {/* Product line items */}
-  {shown.length > 0 ? (
-    <ul class:list={['divide-y divide-border', cancelled && 'opacity-60']}>
-      {shown.map((li) => (
-        <li class="flex items-center gap-3.5 px-5 py-3.5">
-          <span class="relative grid h-14 w-14 flex-none place-items-center overflow-hidden rounded-lg bg-surface-cool ring-1 ring-inset ring-border">
-            {li.image?.url ? (
-              <img
-                src={thumb(li.image.url)}
-                alt={li.image.altText ?? li.title}
-                width="56"
-                height="56"
-                loading="lazy"
-                decoding="async"
-                class="h-full w-full object-cover"
-              />
-            ) : (
-              <Icon name="package" size={20} class="text-text-muted" />
-            )}
-            {li.quantity > 1 && (
-              <span class="absolute -right-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-dark px-1 text-[11px] font-bold leading-none text-white ring-2 ring-surface">
-                {li.quantity}
-              </span>
-            )}
-          </span>
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-[14px] font-semibold leading-snug text-text-primary">{li.title}</p>
-            {li.variantTitle && li.variantTitle !== 'Default Title' && (
-              <p class="mt-0.5 truncate text-[12.5px] text-text-muted">{li.variantTitle}</p>
-            )}
-          </div>
-          {li.totalPrice && (
-            <p class="shrink-0 text-[13.5px] font-semibold tabular text-text-secondary">
-              {formatMoney(li.totalPrice.amount, li.totalPrice.currencyCode)}
-            </p>
-          )}
-        </li>
-      ))}
-      {extra > 0 && (
-        <li class="px-5 py-3 text-[12.5px] font-medium text-text-muted">
-          + {extra} more item{extra === 1 ? '' : 's'}
-        </li>
-      )}
-    </ul>
-  ) : (
-    <p class="px-5 py-4 text-[12.5px] text-text-muted">Item details unavailable for this order.</p>
-  )}
 
   {/* Footer — link to the full order detail */}
   <a

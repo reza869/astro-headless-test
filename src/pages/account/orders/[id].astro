@@ -21,11 +21,10 @@ import type { CustomerOrderDetailResult, CustomerOrderDetail } from '~/lib/shopi
 export const prerender = false;
 
 const { id } = Astro.params;
-const loginRedirect = '/account/login?return_to=' + encodeURIComponent('/account/orders/' + id);
 
 const client = createCustomerClient(Astro.cookies, getPublicOrigin(Astro.request, Astro.url));
 if (!client.isLoggedIn()) {
-  return Astro.redirect(loginRedirect);
+  return Astro.redirect(`/account/login?return_to=${encodeURIComponent(`/account/orders/${id}`)}`);
 }
 
 let name = '';
@@ -43,7 +42,7 @@ try {
   order = data.customer?.orders?.nodes.find((o) => o.id.split('/').pop() === id) ?? null;
 } catch (err) {
   if (err instanceof NotAuthenticatedError) {
-    return Astro.redirect(loginRedirect);
+    return Astro.redirect(`/account/login?return_to=${encodeURIComponent(`/account/orders/${id}`)}`);
   }
   console.error('[account/orders/[id]] load failed:', (err as Error).message);
   error = (err as Error).message;
