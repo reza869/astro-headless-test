@@ -1,0 +1,57 @@
+---
+// ============================================================
+//  CartButton — header cart trigger: bag icon + live count badge.
+//  Vanilla island (no React): SSR markup + a script that subscribes
+//  to the shared $cart nanostore. Replaces the former React version;
+//  markup/classes are unchanged so the header layout is identical.
+// ============================================================
+import Icon from '~/components/ui/Icon.astro';
+---
+
+<button
+  type="button"
+  data-cart-button
+  aria-label="Open cart"
+  class="relative grid h-[43px] w-[43px] place-items-center rounded-sm bg-dark text-white transition-fluid hover:bg-dark-hover"
+>
+  <Icon name="bag" size={20} />
+  <span
+    data-cart-count
+    style="display:none"
+    class="absolute right-[3px] top-1 grid h-[17px] min-w-[17px] place-items-center rounded-pill bg-coral px-1.5 text-[9.5px] font-bold leading-none text-white tabular"
+  >
+    0
+  </span>
+</button>
+
+<script>
+  import { $cart, initCart, openCart } from '~/stores/cart';
+
+  function initCartButton(): void {
+    document.querySelectorAll<HTMLButtonElement>('[data-cart-button]').forEach((btn) => {
+      if (btn.dataset.bound) return;
+      btn.dataset.bound = 'true';
+
+      const badge = btn.querySelector<HTMLElement>('[data-cart-count]');
+      btn.addEventListener('click', () => openCart());
+
+      const paint = (count: number): void => {
+        if (badge) {
+          badge.textContent = String(count);
+          badge.style.display = count > 0 ? '' : 'none'; // '' → falls back to the `grid` class
+        }
+        btn.setAttribute(
+          'aria-label',
+          count > 0 ? `Open cart, ${count} item${count === 1 ? '' : 's'}` : 'Open cart',
+        );
+      };
+
+      paint($cart.get()?.totalQuantity ?? 0);
+      $cart.subscribe((cart) => paint(cart?.totalQuantity ?? 0));
+      initCart(); // hydrate the cart once
+    });
+  }
+
+  initCartButton();
+  document.addEventListener('astro:page-load', initCartButton);
+</script>

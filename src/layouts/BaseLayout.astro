@@ -10,7 +10,7 @@ import Announcement from '~/components/global/Announcement.astro';
 import Header from '~/components/global/Header.astro';
 import Footer from '~/components/global/Footer.astro';
 import CartDrawer from '~/components/react/CartDrawer.tsx';
-import BottomNav from '~/components/react/BottomNav.tsx';
+import BottomNav from '~/components/cart/BottomNav.astro';
 import QuickViewModal from '~/components/react/QuickViewModal.tsx';
 import { createCustomerClient, getPublicOrigin } from '~/lib/shopify/customer';
 
@@ -127,7 +127,7 @@ const websiteJsonLd = {
 
     {/* Persistent interactive islands */}
     <CartDrawer client:load loggedIn={loggedIn} />
-    <BottomNav client:load pathname={pathname} />
+    <BottomNav />
     <QuickViewModal client:load />
 
     {/* ========================================================

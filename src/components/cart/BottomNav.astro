@@ -1,0 +1,85 @@
+---
+// ============================================================
+//  BottomNav — mobile bottom tab bar (icon + label). The Cart tab
+//  opens the shared drawer and shows the live badge. Vanilla island
+//  (no React); active state is resolved server-side from the URL,
+//  the badge subscribes to the shared $cart store. Markup/classes
+//  match the former React version, so the layout is identical.
+// ============================================================
+import Icon from '~/components/ui/Icon.astro';
+
+const pathname = Astro.url.pathname;
+const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
+
+const itemBase =
+  'flex flex-1 flex-col items-center justify-center gap-1 py-2 text-[0.65rem] font-medium transition-fluid';
+
+const tabs = [
+  { href: '/', label: 'Home', icon: 'home' as const },
+  { href: '/products', label: 'Shop', icon: 'shirt' as const },
+  { href: '/collections', label: 'Collections', icon: 'grid' as const },
+];
+---
+
+<nav
+  class="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-border bg-surface/95 backdrop-blur-md md:hidden"
+  style="padding-bottom: env(safe-area-inset-bottom)"
+  aria-label="Primary mobile"
+>
+  {
+    tabs.map((t) => (
+      <a
+        href={t.href}
+        class:list={[itemBase, isActive(t.href) ? 'text-text-primary' : 'text-text-muted']}
+        aria-current={isActive(t.href) ? 'page' : undefined}
+      >
+        <Icon name={t.icon} size={20} />
+        {t.label}
+      </a>
+    ))
+  }
+  <button type="button" data-bottomnav-cart aria-label="Open cart" class:list={[itemBase, 'text-text-muted']}>
+    <span class="relative">
+      <Icon name="bag" size={20} />
+      <span
+        data-cart-count
+        style="display:none"
+        class="absolute -right-2 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-coral px-1 font-mono text-[9px] font-semibold leading-none text-white"
+      >
+        0
+      </span>
+    </span>
+    Cart
+  </button>
+</nav>
+
+<script>
+  import { $cart, openCart } from '~/stores/cart';
+
+  function initBottomNav(): void {
+    document.querySelectorAll<HTMLButtonElement>('[data-bottomnav-cart]').forEach((btn) => {
+      if (btn.dataset.bound) return;
+      btn.dataset.bound = 'true';
+
+      const badge = btn.querySelector<HTMLElement>('[data-cart-count]');
+      btn.addEventListener('click', () => openCart());
+
+      const paint = (count: number): void => {
+        if (badge) {
+          badge.textContent = String(count);
+          badge.style.display = count > 0 ? '' : 'none';
+        }
+        btn.setAttribute(
+          'aria-label',
+          count > 0 ? `Open cart, ${count} item${count === 1 ? '' : 's'}` : 'Open cart',
+        );
+      };
+
+      paint($cart.get()?.totalQuantity ?? 0);
+      $cart.subscribe((c) => paint(c?.totalQuantity ?? 0));
+    });
+  }
+
+  initBottomNav();
+  document.addEventListener('astro:page-load', initBottomNav);
+</script>
