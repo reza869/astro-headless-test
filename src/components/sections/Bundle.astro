@@ -22,7 +22,7 @@ const hasSaving = Boolean(bundleCode) && BUNDLE.percent > 0;
 // The free-gift meter is shown only when the merchant has enabled it against a
 // REAL Shopify gift-with-purchase — never a phantom promise.
 const gift = BUNDLE.gift;
-const giftOn = gift?.enabled === true && (gift?.threshold ?? 0) > 0;
+const giftOn = Boolean(gift?.enabled) && (gift?.threshold ?? 0) > 0;
 const GIFT_THRESHOLD = gift?.threshold ?? 0; // spend to unlock the free gift
 const giftLabel = gift?.label ?? 'gift';
 

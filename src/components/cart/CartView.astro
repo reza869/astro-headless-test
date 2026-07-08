@@ -476,7 +476,7 @@ const cartData = JSON.stringify(initialCart ?? null).replace(/</g, '\\u003c');
     let noteSeeded: string | null = null;
     let shipSeeded: string | null = null;
     let giftMsgSeeded: string | null = null;
-    let shipSel = DELIVERY[0].key;
+    let shipSel: string = DELIVERY[0].key;
 
     function paintDelivery(subtotal: number): void {
       const currency = $cart.get()?.cost?.subtotalAmount?.currencyCode ?? 'USD';
