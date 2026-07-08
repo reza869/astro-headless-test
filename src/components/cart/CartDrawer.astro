@@ -366,10 +366,6 @@ const { loggedIn = false } = Astro.props;
             .map((a) => `<li class="truncate text-[11px] font-semibold text-coral">${esc(a.label)} −${esc(money(a.amount, a.currency))}</li>`)
             .join('')}</ul>`
         : '';
-      const priceBlock = `<span class="shrink-0 text-right leading-tight">${
-        dp.hasStrike ? `<s class="mr-1.5 align-middle text-[12px] font-medium text-text-muted">${esc(money(dp.original, currency))}</s>` : ''
-      }<span class="align-middle text-[15px] font-bold tabular ${dp.hasStrike ? 'text-coral' : 'text-text-primary'}">${esc(money(dp.finalTotal, currency))}</span></span>`;
-
       const dec = `<button type="button" data-qty-dec class="grid place-items-center h-9 w-9 rounded-full text-text-primary transition-fluid hover:bg-dark/[0.06] disabled:opacity-30 disabled:pointer-events-none" ${busy || line.quantity <= 1 ? 'disabled' : ''} aria-label="Decrease quantity">${ic(GLYPH.minus, 15, 1.6)}</button>`;
       const inc = `<button type="button" data-qty-inc class="grid place-items-center h-9 w-9 rounded-full text-text-primary transition-fluid hover:bg-dark/[0.06] disabled:opacity-30 disabled:pointer-events-none" ${busy || line.quantity >= max ? 'disabled' : ''} aria-label="Increase quantity">${ic(GLYPH.plus, 15, 1.6)}</button>`;
       const stepper = `<div class="inline-flex items-center rounded-full bg-surface-cool ${busy ? 'opacity-60' : ''}" role="group" aria-label="Quantity for ${esc(m.product.title)}">${dec}<span class="min-w-7 text-center font-mono tabular text-sm" aria-live="polite">${line.quantity}</span>${inc}</div>`;
@@ -379,14 +375,11 @@ const { loggedIn = false } = Astro.props;
           image ? `<img src="${image.url}" alt="${esc(image.altText ?? m.product.title)}" class="h-full w-full object-cover" loading="lazy">` : ''
         }${busy ? `<span class="absolute inset-0 grid place-items-center bg-surface/60 text-text-primary">${spinner(18)}</span>` : ''}</a>
         <div class="flex min-w-0 flex-1 flex-col">
-          <div class="flex items-start justify-between gap-2">
-            <div class="min-w-0">
-              <a href="/products/${esc(m.product.handle)}" data-cart-link class="block truncate text-[15px] font-bold leading-tight text-text-primary hover:text-coral">${esc(m.product.title)}</a>
-              ${optionText ? `<p class="mt-1 text-[12.5px] text-text-muted">${esc(optionText)}</p>` : ''}
-              <p class="mt-1 text-[12.5px] text-text-muted"><span class="font-semibold text-text-secondary">Price:</span> ${esc(money(unitPrice, currency))}</p>
-              ${attrs}${allocs}
-            </div>
-            ${priceBlock}
+          <div class="min-w-0">
+            <a href="/products/${esc(m.product.handle)}" data-cart-link class="block truncate text-[15px] font-bold leading-tight text-text-primary hover:text-coral">${esc(m.product.title)}</a>
+            ${optionText ? `<p class="mt-1 text-[12.5px] text-text-muted">${esc(optionText)}</p>` : ''}
+            <p class="mt-1 text-[12.5px] text-text-muted"><span class="font-semibold text-text-secondary">Price:</span> <span class="text-[14px] font-bold tabular text-text-primary">${esc(money(unitPrice, currency))}</span></p>
+            ${attrs}${allocs}
           </div>
           <div class="mt-auto flex items-end justify-between pt-2">
             ${stepper}
