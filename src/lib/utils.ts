@@ -16,7 +16,11 @@ export function formatMoney(
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: currencyCode,
-    // Snowboards are whole-dollar-ish; keep cents only when present.
+    // Render the currency's own symbol (৳, €, ¥, ₹, £) instead of the ISO code
+    // that en-US falls back to for non-US currencies (e.g. "BDT 520" → "৳520").
+    // Falls back to the code when a currency has no narrow symbol (e.g. AED).
+    currencyDisplay: 'narrowSymbol',
+    // Keep cents only when the amount actually has them.
     minimumFractionDigits: Number.isInteger(n) ? 0 : 2,
   }).format(n);
 }

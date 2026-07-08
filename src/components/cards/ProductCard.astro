@@ -215,8 +215,8 @@ const chooseAdd = product.availableForSale && product.requiresChoice;
         </a>
       )
     }
-    <div class="flex items-center justify-between border-t border-border pt-3">
-      <span class="text-[16px] font-bold tabular">
+    <div class="flex items-center justify-between gap-2 border-t border-border pt-3">
+      <span class="min-w-0 whitespace-nowrap text-[16px] font-bold tabular">
         {hasRange && <span class="mr-1 text-[10.5px] font-semibold uppercase tracking-[0.5px] text-text-muted">From</span>}
         {formatMoney(price.amount, price.currencyCode)}
         {
