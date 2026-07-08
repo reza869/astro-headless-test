@@ -57,6 +57,19 @@ interface RawLocalization {
   };
 }
 
+// Set of ISO alpha-2 codes the shop actually sells to, memoised per isolate.
+// Used to validate the country cookie / geo header before it reaches
+// @inContext — an unsupported country silently falls back to a wrong market
+// (not the shop default), so we reject it up front. Not cached on failure, so
+// a transient localization outage self-heals on the next request.
+let _marketCountries: Set<string> | null = null;
+export async function getMarketCountries(): Promise<Set<string>> {
+  if (_marketCountries) return _marketCountries;
+  const { localization: l } = await shopifyFetch<RawLocalization>(LOCALIZATION_QUERY, {}, TTL_STATIC);
+  _marketCountries = new Set(l.availableCountries.map((c) => c.isoCode));
+  return _marketCountries;
+}
+
 /** Active + available currencies and languages from the Storefront API. */
 export async function getLocalization(): Promise<Localization> {
   const { localization: l } = await shopifyFetch<RawLocalization>(LOCALIZATION_QUERY, {}, TTL_STATIC);
