@@ -1,0 +1,720 @@
+---
+// ============================================================
+//  CartView — the full-page shopping bag (vanilla island, no React).
+//  Wired to the REAL Shopify cart via the shared $cart nanostore.
+//  Hero stats + the empty/filled decision render server-side from the
+//  SSR cart (no flash); line list, summary, delivery, gift wrap and
+//  totals are painted on store changes. Persistent inputs (order note,
+//  promo code, gift message) live in the SSR markup and are never
+//  re-rendered. Markup/classes match the former React version.
+// ============================================================
+import Icon from '~/components/ui/Icon.astro';
+import { SITE } from '~/config/site';
+import { formatMoney } from '~/lib/utils';
+import type { Cart } from '~/lib/shopify/types';
+
+interface Props {
+  initialCart: Cart | null;
+  loggedIn?: boolean;
+}
+const { initialCart, loggedIn = false } = Astro.props;
+
+const DELIVERY = SITE.deliveryOptions;
+const money = (a: string | number, c: string) => formatMoney(a, c);
+
+// SSR-computed initial values (first paint has real numbers).
+const currency = initialCart?.cost?.subtotalAmount?.currencyCode ?? 'USD';
+const subtotal = Number(initialCart?.cost?.subtotalAmount?.amount ?? 0);
+const cartTotal = Number(initialCart?.cost?.totalAmount?.amount ?? subtotal);
+const discount = Math.max(0, subtotal - cartTotal);
+const itemCount = initialCart?.totalQuantity ?? 0;
+const empty = (initialCart?.lines?.length ?? 0) === 0;
+const threshold = SITE.freeShippingThreshold;
+const unlocked = subtotal >= threshold && subtotal > 0;
+
+const cartData = JSON.stringify(initialCart ?? null).replace(/</g, '\\u003c');
+---
+
+<section class="py-hero">
+  <div class="container-mag">
+    <span class="mag-label mb-[18px]">Shopping Bag · Issue N°02</span>
+    <div class="flex flex-col items-start justify-between gap-10 md:flex-row">
+      <h1 class="font-heading text-[clamp(54px,7.2vw,112px)] font-extrabold uppercase leading-[0.8] tracking-[-1.5px]">
+        Your <em class="not-italic text-coral">Bag.</em>
+      </h1>
+      <p class="max-w-[430px] pt-3 text-base leading-[1.65] text-text-secondary">
+        Review your selection, apply a code and choose how it ships. Everything updates live — no
+        surprises at checkout.
+      </p>
+    </div>
+    <div class="mt-[34px] flex flex-wrap items-start gap-[18px]">
+      <div class="border-r border-border pr-[18px]">
+        <b data-hero-items class="block font-heading text-[34px] font-extrabold leading-[0.9]">{itemCount}</b>
+        <span class="mt-[7px] block text-[10.5px] font-semibold uppercase tracking-[1.4px] text-text-muted">Items</span>
+      </div>
+      <div class="border-r border-border pr-[18px]">
+        <b data-hero-subtotal class="block font-heading text-[34px] font-extrabold leading-[0.9]">{money(subtotal, currency)}</b>
+        <span class="mt-[7px] block text-[10.5px] font-semibold uppercase tracking-[1.4px] text-text-muted">Subtotal</span>
+      </div>
+      <div class="border-r border-border pr-[18px]">
+        <b data-hero-shipping class="block font-heading text-[34px] font-extrabold leading-[0.9]">{empty ? '—' : unlocked ? 'Free' : '—'}</b>
+        <span class="mt-[7px] block text-[10.5px] font-semibold uppercase tracking-[1.4px] text-text-muted">Shipping</span>
+      </div>
+      <div class="pr-[18px]">
+        <b data-hero-save class="block font-heading text-[34px] font-extrabold leading-[0.9]">{money(discount, currency)}</b>
+        <span class="mt-[7px] block text-[10.5px] font-semibold uppercase tracking-[1.4px] text-text-muted">You Save</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="bg-surface pb-section-sm pt-section-sm" data-cartview data-cart={cartData} data-logged-in={loggedIn ? '1' : '0'}>
+  <div class="container-mag">
+    {/* EMPTY */}
+    <div data-cart-empty class:list={['rounded-xl bg-surface px-6 py-[70px] text-center shadow-xs ring-1 ring-inset ring-border', !empty && 'hidden']}>
+      <Icon name="bag" size={54} strokeWidth={1.3} class="mx-auto text-text-muted" />
+      <h3 class="mb-2 mt-3.5 font-heading text-[38px] font-extrabold">Your bag is empty</h3>
+      <p class="mb-[22px] text-sm text-text-secondary">Looks like you haven't added anything yet — explore the latest edit.</p>
+      <a href="/products" class="btn inline-flex h-[52px] items-center gap-2 rounded-sm bg-coral px-7 text-white transition-fluid hover:bg-coral-hover">
+        Start Shopping <Icon name="arrowRight" size={16} strokeWidth={2} />
+      </a>
+      {
+        !loggedIn && (
+          <p class="mt-5 text-[13px] text-text-secondary">
+            Have an account?{' '}
+            <a href="/account/login?return_to=/cart" class="inline-flex items-center gap-1 font-bold text-text-primary transition-fluid hover:text-coral">
+              <Icon name="login" size={14} strokeWidth={1.8} /> Sign in
+            </a>{' '}
+            for faster checkout.
+          </p>
+        )
+      }
+    </div>
+
+    {/* FILLED */}
+    <div data-cart-filled class:list={['grid grid-cols-1 items-start gap-[30px] lg:grid-cols-[1.55fr_0.85fr] lg:gap-[46px]', empty && 'hidden']}>
+      {/* MAIN */}
+      <div>
+        {/* Free-shipping progress */}
+        <div class="mb-[22px] flex items-center gap-[18px] rounded-lg bg-surface p-[18px_22px] shadow-xs ring-1 ring-inset ring-border">
+          <span class="flex h-[42px] w-[42px] flex-none items-center justify-center rounded-pill bg-green-soft text-green">
+            <Icon name="truck" size={20} strokeWidth={1.7} />
+          </span>
+          <div class="flex-1">
+            <p data-progress-text class="mb-2 text-[13px] text-text-secondary"></p>
+            <div data-progress-track class="h-[7px] overflow-hidden rounded-pill bg-surface-cool">
+              <div data-progress-bar class="h-full rounded-pill bg-green transition-[width] duration-500 ease-[var(--ease-out-soft)]" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* List head */}
+        <div class="mb-0.5 flex items-end justify-between border-b border-border px-1 pb-3.5">
+          <h2 class="font-heading text-[30px] font-extrabold">Shopping Bag</h2>
+          <span data-listhead class="text-[12.5px] font-semibold text-text-secondary"></span>
+        </div>
+
+        {/* Lines */}
+        <div data-cart-lines class="flex flex-col"></div>
+
+        {/* Tools */}
+        <div class="flex flex-wrap items-center justify-between gap-4 px-1 pt-[22px]">
+          <a href="/products" class="inline-flex items-center gap-2 text-[13px] font-bold text-text-primary transition-fluid hover:text-coral">
+            <Icon name="arrowLeft" size={16} strokeWidth={1.8} /> Continue Shopping
+          </a>
+          <button type="button" data-empty-bag class="inline-flex items-center gap-2 text-[13px] font-bold text-text-muted transition-fluid hover:text-coral">
+            <Icon name="trash" size={16} strokeWidth={1.8} /> Empty bag
+          </button>
+        </div>
+
+        {/* Order notes (persistent) */}
+        <div class="mt-[26px] rounded-lg bg-surface p-[22px] shadow-xs ring-1 ring-inset ring-border">
+          <h6 class="mb-3 flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[1.6px]">
+            <Icon name="pencil" size={16} strokeWidth={1.8} /> Order Notes
+          </h6>
+          <textarea
+            data-note-input
+            placeholder="Add delivery instructions or a gift message (optional)…"
+            class="min-h-[84px] w-full resize-y rounded-sm bg-bg-light px-[15px] py-[13px] text-sm leading-[1.6] outline-none ring-1 ring-inset ring-border transition-shadow focus:ring-2 focus:ring-coral"
+          ></textarea>
+        </div>
+
+        {/* Saved for later */}
+        <div data-saved-wrap class="mt-[30px] hidden">
+          <h6 data-saved-head class="mb-3.5 text-[11px] font-extrabold uppercase tracking-[1.6px] text-text-secondary"></h6>
+          <div data-saved-list class="flex flex-col gap-3"></div>
+        </div>
+      </div>
+
+      {/* SUMMARY */}
+      <aside data-summary class="overflow-hidden rounded-xl bg-surface shadow-sm ring-1 ring-inset ring-border lg:sticky lg:top-[96px]">
+        <div class="p-[28px_26px]">
+          <h3 class="mb-5 font-heading text-[26px] font-extrabold">Order Summary</h3>
+
+          {/* Coupon (persistent input) */}
+          <div class="mb-2.5 flex gap-2">
+            <input
+              data-coupon-input
+              type="text"
+              placeholder="Promo code"
+              aria-label="Promo code"
+              class="h-[46px] min-w-0 flex-1 rounded-sm bg-bg-light px-3.5 text-[13px] uppercase tracking-[1px] outline-none ring-1 ring-inset ring-border transition-shadow focus:ring-2 focus:ring-coral"
+            />
+            <button type="button" data-coupon-apply class="h-[46px] flex-none rounded-sm bg-dark px-[18px] text-[11.5px] font-extrabold uppercase tracking-[1px] text-white transition-colors duration-300 hover:bg-dark-hover disabled:opacity-60">
+              Apply
+            </button>
+          </div>
+          <div data-coupon-note class="mb-3.5 hidden min-h-[14px] text-xs font-semibold"></div>
+
+          {/* Applied codes (painted) */}
+          <div data-applied-codes></div>
+
+          {/* Delivery */}
+          <div class="mb-[18px] border-t border-border pt-[18px]">
+            <div class="mb-3 flex items-center justify-between">
+              <h6 class="text-[10.5px] font-extrabold uppercase tracking-[1.6px]">Delivery</h6>
+              <span class="text-[9.5px] font-bold uppercase tracking-[1.2px] text-text-muted">Estimated</span>
+            </div>
+            {
+              DELIVERY.map((m) => (
+                <button
+                  type="button"
+                  data-ship={m.key}
+                  class="mb-[9px] flex w-full items-center gap-[11px] rounded-sm px-[13px] py-[11px] text-left ring-1 ring-inset ring-border transition-fluid hover:ring-text-muted"
+                >
+                  <span data-ship-dot class="h-[18px] w-[18px] flex-none rounded-pill ring-2 ring-inset ring-border"></span>
+                  <span class="flex-1">
+                    <b class="block text-[13px] font-bold">{m.label}</b>
+                    <span class="text-[11.5px] text-text-muted">{m.eta}</span>
+                  </span>
+                  <span data-ship-price class="text-[10.5px] font-semibold text-text-muted">At checkout</span>
+                </button>
+              ))
+            }
+            <p class="text-[11px] text-text-muted">Final shipping is calculated at checkout.</p>
+          </div>
+
+          {/* Gift wrap */}
+          {
+            SITE.giftWrap.enabled && (
+              <div class="mb-[18px] border-t border-border pt-[18px]">
+                <button
+                  type="button"
+                  data-gift-toggle
+                  aria-pressed="false"
+                  class="flex w-full items-center gap-3 rounded-sm p-[13px] text-left ring-1 ring-inset ring-border transition-fluid disabled:opacity-60"
+                >
+                  <Icon name="gift" size={22} strokeWidth={1.7} class="text-green" />
+                  <span class="flex-1">
+                    <b class="block text-[13px] font-bold">{SITE.giftWrap.label}</b>
+                    <span class="text-[11.5px] text-text-muted">
+                      {SITE.giftWrap.note}
+                      {!SITE.giftWrap.variantId && ' · Complimentary'}
+                    </span>
+                  </span>
+                  <span data-gift-track class="relative h-[22px] w-[38px] flex-none rounded-pill bg-border transition-colors duration-200">
+                    <span data-gift-knob class="absolute left-0.5 top-0.5 h-[18px] w-[18px] rounded-full bg-white transition-[left] duration-200"></span>
+                  </span>
+                </button>
+              </div>
+            )
+          }
+
+          {/* Gift message (persistent, shown only with gift wrap) */}
+          {
+            SITE.giftWrap.enabled && (
+              <div data-gift-msg-wrap class="mb-[18px] hidden">
+                <label for="cart-gift-message" class="mb-2 flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[1.6px] text-text-secondary">
+                  <Icon name="gift" size={14} strokeWidth={1.8} /> Gift message
+                </label>
+                <textarea
+                  id="cart-gift-message"
+                  data-gift-msg
+                  placeholder="Add a personal note for the recipient (optional)…"
+                  rows="3"
+                  maxlength="300"
+                  class="w-full resize-y rounded-sm bg-bg-light px-[15px] py-[13px] text-sm leading-[1.6] outline-none ring-1 ring-inset ring-border transition-shadow focus:ring-2 focus:ring-coral"
+                ></textarea>
+              </div>
+            )
+          }
+
+          {/* Rows */}
+          <div class="border-t border-border pt-[18px]">
+            <div class="mb-[11px] flex items-center justify-between text-[13.5px] text-text-secondary">
+              <span>Subtotal</span><b data-row-subtotal class="font-semibold text-text-primary"></b>
+            </div>
+            <div data-row-discount class="mb-[11px] hidden items-center justify-between text-[13.5px] text-green">
+              <span data-row-discount-label>Discount</span><b data-row-discount-value class="font-semibold text-green"></b>
+            </div>
+            <div class="mb-[11px] flex items-center justify-between text-[13.5px] text-text-secondary">
+              <span>Shipping</span><b data-row-shipping class="font-semibold text-text-primary"></b>
+            </div>
+            <div class="mb-[11px] flex items-center justify-between text-[13.5px] text-text-secondary">
+              <span>Taxes</span><b class="font-semibold text-text-primary">Calculated at checkout</b>
+            </div>
+          </div>
+
+          {/* Total */}
+          <div class="mt-1.5 flex items-end justify-between border-t border-border pt-4">
+            <span class="text-[13px] font-bold uppercase tracking-[0.5px]">Total</span>
+            <div class="text-right">
+              <b data-cart-total class="block font-heading text-[34px] font-extrabold leading-[0.9]"></b>
+              <span class="mt-1 block text-[11px] text-text-muted">Shipping &amp; taxes at checkout</span>
+            </div>
+          </div>
+
+          <button type="button" data-checkout class="mt-[18px] flex h-14 w-full items-center justify-center gap-2.5 rounded-sm bg-coral text-[13px] font-extrabold uppercase tracking-[1.2px] text-white transition-colors duration-300 hover:bg-coral-hover disabled:opacity-60">
+            Proceed to Checkout <Icon name="lock" size={16} strokeWidth={2} />
+          </button>
+
+          <div class="mt-3.5 flex items-center justify-center gap-[7px] text-xs text-text-muted">
+            <Icon name="sealCheck" size={15} strokeWidth={1.8} /> Secure 256-bit SSL checkout
+          </div>
+          <div class="mt-3.5 flex flex-wrap justify-center gap-2">
+            {
+              ['VISA', 'MASTERCARD', 'AMEX', 'PAYPAL', 'APPLE PAY'].map((p) => (
+                <span class="rounded-xs bg-surface-cool px-2.5 py-1.5 text-[9.5px] font-extrabold tracking-[0.5px] text-text-muted">{p}</span>
+              ))
+            }
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+{/* Mobile sticky checkout bar */}
+<div
+  data-sticky
+  class="fixed inset-x-0 bottom-[calc(58px_+_env(safe-area-inset-bottom))] z-40 translate-y-[135%] border-t border-border bg-surface/95 px-4 py-3 shadow-[0_-4px_20px_rgba(9,10,11,0.08)] backdrop-blur-md transition-transform duration-300 md:bottom-0 lg:hidden"
+  aria-hidden="true"
+>
+  <div class="container-mag flex items-center justify-between gap-3">
+    <div class="min-w-0">
+      <span class="block text-[9.5px] font-bold uppercase tracking-[1.4px] text-text-muted">Total</span>
+      <b data-sticky-total class="font-heading text-[22px] font-extrabold leading-none tabular"></b>
+    </div>
+    <button type="button" data-sticky-checkout class="flex h-12 max-w-[240px] flex-1 items-center justify-center gap-2 rounded-sm bg-coral text-[12.5px] font-extrabold uppercase tracking-[1px] text-white transition-fluid hover:bg-coral-hover disabled:opacity-60">
+      Checkout <Icon name="arrowRight" size={16} strokeWidth={2} />
+    </button>
+  </div>
+</div>
+
+<script>
+  import {
+    $cart,
+    $busyLines,
+    $cartBusy,
+    initCart,
+    updateItem,
+    removeItem,
+    addItem,
+    applyDiscountCode,
+    setCartAttributes,
+    setNote,
+    checkout,
+  } from '~/stores/cart';
+  import type { Cart, CartLine } from '~/lib/shopify/types';
+  import { formatMoney } from '~/lib/utils';
+  import { lineDiscount, lineMaxQty, lineLowStock, isFileUpload } from '~/lib/cart-pricing';
+  import { SITE } from '~/config/site';
+
+  const GIFT_WRAP_KEY = 'Gift wrap';
+  const GIFT_MESSAGE_KEY = 'Gift message';
+  const DELIVERY_KEY = 'Delivery preference';
+  const SAVED_KEY = 'tailored:saved-for-later';
+  const DELIVERY = SITE.deliveryOptions;
+
+  interface SavedItem { merchandiseId: string; title: string; meta: string; image: string | null; amount: string; currency: string }
+
+  const esc = (s: string) =>
+    String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+  const ic = (paths: string, size: number, sw = 1.8) =>
+    `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+  const G = {
+    trash: '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/>',
+    minus: '<path d="M5 12h14"/>', plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+    x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+    percent: '<line x1="19" x2="5" y1="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',
+    check: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+    bookmark: '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
+    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>',
+  };
+
+  function optionText(line: CartLine): string {
+    return line.merchandise.selectedOptions.filter((o) => o.value !== 'Default Title').map((o) => o.value).join(' · ');
+  }
+  const methodFree = (m: (typeof DELIVERY)[number], subtotal: number) => {
+    const o = m as { free?: boolean; freeOverThreshold?: boolean };
+    return o.free === true || (o.freeOverThreshold === true && subtotal >= SITE.freeShippingThreshold);
+  };
+
+  function initCartView(): void {
+    const root = document.querySelector<HTMLElement>('[data-cartview]');
+    if (!root || root.dataset.bound) return;
+    root.dataset.bound = 'true';
+
+    const money = (a: string | number, c: string) => formatMoney(a, c);
+    const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector<T>(s);
+
+    // Seed the store from the SSR cart, then hydrate.
+    try {
+      const seed = JSON.parse(root.dataset.cart || 'null') as Cart | null;
+      if (seed && !$cart.get()) $cart.set(seed);
+    } catch { /* ignore */ }
+    initCart();
+
+    const emptyEl = root.querySelector<HTMLElement>('[data-cart-empty]')!;
+    const filledEl = root.querySelector<HTMLElement>('[data-cart-filled]')!;
+    const linesEl = root.querySelector<HTMLElement>('[data-cart-lines]')!;
+    const noteInput = root.querySelector<HTMLTextAreaElement>('[data-note-input]')!;
+    const couponInput = root.querySelector<HTMLInputElement>('[data-coupon-input]')!;
+    const couponApply = root.querySelector<HTMLButtonElement>('[data-coupon-apply]')!;
+    const couponNote = root.querySelector<HTMLElement>('[data-coupon-note]')!;
+    const appliedEl = root.querySelector<HTMLElement>('[data-applied-codes]')!;
+    const savedWrap = root.querySelector<HTMLElement>('[data-saved-wrap]')!;
+    const savedHead = root.querySelector<HTMLElement>('[data-saved-head]')!;
+    const savedList = root.querySelector<HTMLElement>('[data-saved-list]')!;
+    const giftMsgWrap = root.querySelector<HTMLElement>('[data-gift-msg-wrap]');
+    const giftMsgInput = root.querySelector<HTMLTextAreaElement>('[data-gift-msg]');
+    const giftToggle = root.querySelector<HTMLButtonElement>('[data-gift-toggle]');
+    const summary = root.querySelector<HTMLElement>('[data-summary]')!;
+    const sticky = $<HTMLElement>('[data-sticky]');
+    const totalEl = root.querySelector<HTMLElement>('[data-cart-total]')!;
+
+    const giftVariantId = SITE.giftWrap.variantId;
+
+    // ── attribute helpers ──
+    const applyAttrs = (updates: Record<string, string | null>) => {
+      const cart = $cart.get();
+      const rest = (cart?.attributes ?? []).filter((a) => !(a.key in updates));
+      const added = Object.entries(updates).filter(([, v]) => v).map(([key, value]) => ({ key, value: value as string }));
+      return setCartAttributes([...rest, ...added]);
+    };
+    const mergeAttr = (key: string, value: string | null) => applyAttrs({ [key]: value });
+
+    // ── saved for later (localStorage) ──
+    let saved: SavedItem[] = [];
+    try { saved = JSON.parse(localStorage.getItem(SAVED_KEY) || '[]'); } catch { saved = []; }
+    const persistSaved = (next: SavedItem[]) => {
+      saved = next;
+      try { localStorage.setItem(SAVED_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      renderSaved();
+    };
+    function renderSaved(): void {
+      savedWrap.classList.toggle('hidden', saved.length === 0);
+      savedHead.textContent = `Saved for later (${saved.length})`;
+      savedList.innerHTML = saved
+        .map(
+          (item) =>
+            `<div class="flex items-center gap-4 rounded-md bg-surface p-[12px_16px] shadow-xs ring-1 ring-inset ring-border">${
+              item.image ? `<img src="${item.image}" alt="${esc(item.title)}" class="h-16 w-[54px] flex-none rounded-xs object-cover">` : ''
+            }<div class="min-w-0 flex-1"><b class="block text-sm font-bold">${esc(item.title)}</b><span class="text-xs text-text-muted">${esc(item.meta)}</span></div><span class="font-heading text-[18px] font-extrabold">${esc(money(item.amount, item.currency))}</span><button type="button" data-saved-move="${esc(item.merchandiseId)}" class="whitespace-nowrap text-xs font-bold text-coral hover:underline">Move to bag</button><button type="button" data-saved-remove="${esc(item.merchandiseId)}" aria-label="Remove ${esc(item.title)}" class="text-text-muted transition-fluid hover:text-coral">${ic(G.x, 16)}</button></div>`,
+        )
+        .join('');
+    }
+
+    // ── count-up total ──
+    let lastTotal: number | null = null;
+    let raf = 0;
+    function animateTotal(to: number, cur: string): void {
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.cancelAnimationFrame(raf);
+      if (lastTotal === null || reduce || lastTotal === to) { lastTotal = to; totalEl.textContent = money(to, cur); return; }
+      const from = lastTotal; lastTotal = to; const start = performance.now();
+      const tick = (now: number) => {
+        const p = Math.min(1, (now - start) / 420); const e = 1 - Math.pow(1 - p, 3);
+        totalEl.textContent = money(from + (to - from) * e, cur);
+        if (p < 1) raf = window.requestAnimationFrame(tick);
+      };
+      raf = window.requestAnimationFrame(tick);
+    }
+
+    // ── line row ──
+    function cartRow(line: CartLine, currency: string, busy: boolean): string {
+      const m = line.merchandise;
+      const image = (m.image ?? m.product.featuredImage)?.url ?? null;
+      const meta = optionText(line);
+      const unit = line.cost.amountPerQuantity?.amount ?? m.price.amount;
+      const dp = lineDiscount(line);
+      const maxQty = lineMaxQty(line);
+      const lowStock = lineLowStock(line);
+      const atMax = line.quantity >= maxQty;
+      const attrs = (line.attributes ?? []).length
+        ? `<ul class="space-y-0.5">${line.attributes!.map((a) => `<li class="text-[12px] text-text-muted"><span class="font-semibold">${esc(a.key)}:</span> ${isFileUpload(a.value) ? `<a href="${a.value}" target="_blank" rel="noopener noreferrer" download class="inline-flex items-center gap-1 font-semibold text-coral hover:underline">${ic(G.download, 12, 2)} Download</a>` : esc(a.value)}</li>`).join('')}</ul>`
+        : '';
+      const allocs = dp.allocations.length
+        ? `<ul class="space-y-0.5">${dp.allocations.map((a) => `<li class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-coral">${ic(G.percent, 12, 2)} ${esc(a.label)} −${esc(money(a.amount, a.currency))}</li>`).join('')}</ul>`
+        : '';
+      const stockLine = `<div class="inline-flex items-center gap-1.5 text-xs font-semibold ${lowStock ? 'text-coral' : 'text-green'}">${ic(G.check, 14, 1.9)}${lowStock ? `Only ${lowStock} left` : m.availableForSale ? 'In stock' : 'Made to order'}</div>`;
+      return `<div data-line-id="${esc(line.id)}" data-qty="${line.quantity}" data-max="${maxQty}" class="grid grid-cols-[80px_1fr] gap-[14px] border-b border-border px-1 py-6 sm:grid-cols-[104px_1fr_auto] sm:gap-5 ${busy ? 'opacity-60' : ''}">
+        <a href="/products/${esc(m.product.handle)}" class="block aspect-[3/4] overflow-hidden rounded-md bg-surface-cool">${image ? `<img src="${image}" alt="${esc(m.product.title)}" class="h-full w-full object-cover">` : ''}</a>
+        <div class="flex min-w-0 flex-col gap-1.5">
+          <span class="text-[10.5px] font-extrabold uppercase tracking-[1.6px] text-coral">TAILORED</span>
+          <a href="/products/${esc(m.product.handle)}" class="font-heading text-[22px] font-bold leading-none transition-fluid hover:text-coral">${esc(m.product.title)}</a>
+          ${meta ? `<div class="text-[12.5px] text-text-muted">${esc(meta)}</div>` : ''}${attrs}${allocs}${stockLine}
+          <div class="mt-auto flex gap-4 pt-2">
+            <button type="button" data-save class="inline-flex items-center gap-1.5 text-xs font-semibold text-text-secondary transition-fluid hover:text-coral disabled:opacity-50" ${busy ? 'disabled' : ''}>${ic(G.bookmark, 14)} Save for later</button>
+            <button type="button" data-remove class="inline-flex items-center gap-1.5 text-xs font-semibold text-text-secondary transition-fluid hover:text-coral disabled:opacity-50" ${busy ? 'disabled' : ''}>${ic(G.x, 14)} Remove</button>
+          </div>
+        </div>
+        <div class="col-span-2 flex flex-row items-center justify-between gap-3.5 sm:col-span-1 sm:flex-col sm:items-end sm:justify-between">
+          <div class="text-right">${dp.hasStrike ? `<s class="block font-body text-[13px] font-medium text-text-muted">${esc(money(dp.original, currency))}</s>` : ''}<span class="font-heading text-[22px] font-extrabold ${dp.hasStrike ? 'text-coral' : ''}">${esc(money(dp.finalTotal, currency))}</span><span class="block font-body text-[11.5px] font-medium text-text-muted">${esc(money(unit, currency))} each</span></div>
+          <div class="inline-flex items-center rounded-sm bg-surface ring-1 ring-inset ring-border">
+            <button type="button" data-qty-dec class="flex h-10 w-9 items-center justify-center text-[17px] disabled:opacity-40" ${busy || line.quantity <= 1 ? 'disabled' : ''} aria-label="Decrease quantity">${ic(G.minus, 15, 2)}</button>
+            <span class="min-w-[30px] text-center text-sm font-bold tabular">${line.quantity}</span>
+            <button type="button" data-qty-inc class="flex h-10 w-9 items-center justify-center text-[17px] disabled:opacity-40" ${busy || atMax ? 'disabled' : ''} aria-label="Increase quantity"${atMax ? ' title="No more stock available"' : ''}>${ic(G.plus, 15, 2)}</button>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    // ── seeds ──
+    let noteSeeded: string | null = null;
+    let shipSeeded: string | null = null;
+    let giftMsgSeeded: string | null = null;
+    let shipSel = DELIVERY[0].key;
+
+    function paintDelivery(subtotal: number): void {
+      DELIVERY.forEach((m) => {
+        const btn = root!.querySelector<HTMLElement>(`[data-ship="${m.key}"]`);
+        if (!btn) return;
+        const on = m.key === shipSel;
+        btn.className = `mb-[9px] flex w-full items-center gap-[11px] rounded-sm px-[13px] py-[11px] text-left ring-inset transition-fluid ${on ? 'bg-coral-soft ring-2 ring-coral' : 'ring-1 ring-border hover:ring-text-muted'}`;
+        const dot = btn.querySelector<HTMLElement>('[data-ship-dot]')!;
+        dot.className = `h-[18px] w-[18px] flex-none rounded-pill ring-inset ${on ? 'ring-[5px] ring-coral' : 'ring-2 ring-border'}`;
+        const price = btn.querySelector<HTMLElement>('[data-ship-price]')!;
+        const free = methodFree(m, subtotal);
+        price.textContent = free ? 'Free' : 'At checkout';
+        price.className = free ? 'text-[13px] font-extrabold text-green' : 'text-[10.5px] font-semibold text-text-muted';
+      });
+    }
+
+    function paint(): void {
+      const cart = $cart.get();
+      const busyLines = $busyLines.get();
+      const lines = cart?.lines ?? [];
+      const currency = cart?.cost?.subtotalAmount?.currencyCode ?? 'USD';
+      const subtotal = Number(cart?.cost?.subtotalAmount?.amount ?? 0);
+      const cartTotal = Number(cart?.cost?.totalAmount?.amount ?? subtotal);
+      const discount = Math.max(0, subtotal - cartTotal);
+      const itemCount = cart?.totalQuantity ?? 0;
+      const applied = (cart?.discountCodes ?? []).filter((d) => d.applicable);
+      const threshold = SITE.freeShippingThreshold;
+      const unlocked = subtotal >= threshold && subtotal > 0;
+      const remaining = Math.max(0, threshold - subtotal);
+      const progress = Math.min(100, threshold > 0 ? (subtotal / threshold) * 100 : 0);
+
+      // Gift wrap state
+      const giftLine = giftVariantId ? lines.find((l) => l.merchandise.id === giftVariantId) : undefined;
+      const giftWrapOn = giftVariantId ? !!giftLine : (cart?.attributes ?? []).some((a) => a.key === GIFT_WRAP_KEY && a.value === 'Yes');
+      const visibleLines = giftLine ? lines.filter((l) => l.id !== giftLine.id) : lines;
+      const empty = lines.length === 0;
+
+      // Hero
+      root!.querySelector('[data-hero-items]')!.textContent = String(itemCount);
+      root!.querySelector('[data-hero-subtotal]')!.textContent = money(subtotal, currency);
+      root!.querySelector('[data-hero-shipping]')!.textContent = empty ? '—' : unlocked ? 'Free' : '—';
+      root!.querySelector('[data-hero-save]')!.textContent = money(discount, currency);
+
+      emptyEl.classList.toggle('hidden', !empty);
+      filledEl.classList.toggle('hidden', empty);
+      if (sticky) sticky.classList.toggle('hidden', empty);
+      if (empty) return;
+
+      // Progress
+      const pText = root!.querySelector<HTMLElement>('[data-progress-text]')!;
+      pText.innerHTML = remaining > 0
+        ? `Spend <b class="font-bold text-text-primary">${esc(money(remaining, currency))}</b> more to unlock <b class="font-bold text-text-primary">free standard shipping</b>`
+        : `<b class="font-bold text-text-primary">You've unlocked free standard shipping.</b>`;
+      root!.querySelector('[data-progress-track]')!.classList.toggle('cart-ship-unlocked', unlocked);
+      (root!.querySelector('[data-progress-bar]') as HTMLElement).style.width = `${progress}%`;
+
+      // List head + lines
+      root!.querySelector('[data-listhead]')!.textContent = `${itemCount} ${itemCount === 1 ? 'item' : 'items'}`;
+      linesEl.innerHTML = visibleLines.map((l) => cartRow(l, currency, !!busyLines[l.id])).join('');
+
+      // Applied codes
+      appliedEl.innerHTML = applied
+        .map((d) => `<div class="mb-[18px] flex items-center justify-between rounded-sm bg-green-soft px-[13px] py-[9px] text-[12.5px] font-bold text-green-hover"><span class="inline-flex items-center gap-[7px]">${ic(G.percent, 15, 1.9)} ${esc(d.code)} applied</span><button type="button" data-coupon-remove aria-label="Remove code">${ic(G.x, 15, 2)}</button></div>`)
+        .join('');
+
+      // Delivery
+      paintDelivery(subtotal);
+
+      // Gift toggle + message visibility
+      if (giftToggle) {
+        giftToggle.setAttribute('aria-pressed', String(giftWrapOn));
+        giftToggle.className = `flex w-full items-center gap-3 rounded-sm p-[13px] text-left ring-inset transition-fluid disabled:opacity-60 ${giftWrapOn ? 'bg-green-soft ring-2 ring-green' : 'ring-1 ring-border'}`;
+        const track = giftToggle.querySelector<HTMLElement>('[data-gift-track]')!;
+        const knob = giftToggle.querySelector<HTMLElement>('[data-gift-knob]')!;
+        track.className = `relative h-[22px] w-[38px] flex-none rounded-pill transition-colors duration-200 ${giftWrapOn ? 'bg-green' : 'bg-border'}`;
+        knob.className = `absolute top-0.5 h-[18px] w-[18px] rounded-full bg-white transition-[left] duration-200 ${giftWrapOn ? 'left-[18px]' : 'left-0.5'}`;
+      }
+      giftMsgWrap?.classList.toggle('hidden', !giftWrapOn);
+
+      // Rows
+      root!.querySelector('[data-row-subtotal]')!.textContent = money(subtotal, currency);
+      const dRow = root!.querySelector<HTMLElement>('[data-row-discount]')!;
+      dRow.classList.toggle('hidden', !(discount > 0));
+      dRow.classList.toggle('flex', discount > 0);
+      if (discount > 0) {
+        root!.querySelector('[data-row-discount-label]')!.textContent = applied[0] ? `${applied[0].code} discount` : 'Discount';
+        root!.querySelector('[data-row-discount-value]')!.textContent = `−${money(discount, currency)}`;
+      }
+      root!.querySelector('[data-row-shipping]')!.textContent = unlocked ? 'Free' : 'Calculated at checkout';
+
+      // Total + sticky
+      animateTotal(cartTotal, currency);
+      if (sticky) sticky.querySelector('[data-sticky-total]')!.textContent = money(cartTotal, currency);
+
+      // Seeds (once per cart id)
+      const id = cart?.id ?? null;
+      if (id && noteSeeded !== id) { noteSeeded = id; noteInput.value = cart?.note ?? ''; }
+      if (id && shipSeeded !== id) {
+        shipSeeded = id;
+        const pref = (cart?.attributes ?? []).find((a) => a.key === DELIVERY_KEY)?.value;
+        const match = pref ? DELIVERY.find((o) => o.label === pref) : undefined;
+        if (match) { shipSel = match.key; paintDelivery(subtotal); }
+      }
+      if (id && giftMsgSeeded !== id && giftMsgInput) {
+        giftMsgSeeded = id;
+        const sv = (cart?.attributes ?? []).find((a) => a.key === GIFT_MESSAGE_KEY)?.value;
+        if (sv) giftMsgInput.value = sv;
+      }
+    }
+
+    $cart.subscribe(paint);
+    $busyLines.subscribe(paint);
+    $cartBusy.subscribe((busy) => {
+      couponApply.disabled = busy;
+      root!.querySelectorAll<HTMLButtonElement>('[data-checkout],[data-sticky-checkout]').forEach((b) => (b.disabled = busy));
+    });
+
+    // ── interactions ──
+    root.querySelector('[data-checkout]')?.addEventListener('click', () => checkout());
+    sticky?.querySelector('[data-sticky-checkout]')?.addEventListener('click', () => checkout());
+    root.querySelector('[data-empty-bag]')?.addEventListener('click', async () => {
+      for (const line of $cart.get()?.lines ?? []) await removeItem(line.id);
+    });
+
+    // Lines (delegated)
+    linesEl.addEventListener('click', async (e) => {
+      const rowEl = (e.target as HTMLElement).closest<HTMLElement>('[data-line-id]');
+      if (!rowEl) return;
+      const id = rowEl.dataset.lineId!;
+      const cur = Number(rowEl.dataset.qty);
+      const max = Number(rowEl.dataset.max);
+      if ((e.target as HTMLElement).closest('[data-qty-dec]')) updateItem(id, Math.max(1, cur - 1));
+      else if ((e.target as HTMLElement).closest('[data-qty-inc]')) updateItem(id, Math.min(max, cur + 1));
+      else if ((e.target as HTMLElement).closest('[data-remove]')) removeItem(id, { trackUndo: true });
+      else if ((e.target as HTMLElement).closest('[data-save]')) {
+        const line = ($cart.get()?.lines ?? []).find((l) => l.id === id);
+        if (!line) return;
+        const m = line.merchandise;
+        persistSaved([...saved.filter((s) => s.merchandiseId !== m.id), {
+          merchandiseId: m.id, title: m.product.title, meta: optionText(line),
+          image: (m.image ?? m.product.featuredImage)?.url ?? null, amount: m.price.amount, currency: m.price.currencyCode,
+        }]);
+        await removeItem(line.id);
+      }
+    });
+
+    // Saved (delegated)
+    savedList.addEventListener('click', async (e) => {
+      const move = (e.target as HTMLElement).closest<HTMLElement>('[data-saved-move]');
+      const rm = (e.target as HTMLElement).closest<HTMLElement>('[data-saved-remove]');
+      if (move) {
+        const gid = move.dataset.savedMove!;
+        persistSaved(saved.filter((s) => s.merchandiseId !== gid));
+        await addItem(gid, 1, { open: false });
+      } else if (rm) {
+        persistSaved(saved.filter((s) => s.merchandiseId !== rm.dataset.savedRemove));
+      }
+    });
+
+    // Order note (debounced)
+    let noteTimer = 0;
+    noteInput.addEventListener('input', () => {
+      window.clearTimeout(noteTimer);
+      const v = noteInput.value;
+      noteTimer = window.setTimeout(() => setNote(v), 600);
+    });
+
+    // Coupon
+    const showCouponNote = (tone: 'ok' | 'err', text: string) => {
+      couponNote.textContent = text;
+      couponNote.className = `mb-3.5 min-h-[14px] text-xs font-semibold ${tone === 'ok' ? 'text-green' : 'text-coral'}`;
+      couponNote.classList.remove('hidden');
+    };
+    const applyCoupon = async () => {
+      const code = couponInput.value.trim().toUpperCase();
+      if (!code) { showCouponNote('err', 'Enter a promo code.'); return; }
+      const res = await applyDiscountCode([code], { open: false });
+      const ok = (res.cart?.discountCodes ?? []).some((d) => d.applicable && d.code.toUpperCase() === code);
+      if (ok) { showCouponNote('ok', 'Code applied — savings added below.'); couponInput.value = ''; }
+      else showCouponNote('err', "That code isn't valid for this bag.");
+    };
+    couponApply.addEventListener('click', applyCoupon);
+    couponInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); void applyCoupon(); } });
+    appliedEl.addEventListener('click', async (e) => {
+      if ((e.target as HTMLElement).closest('[data-coupon-remove]')) {
+        await applyDiscountCode([], { open: false });
+        couponNote.classList.add('hidden');
+      }
+    });
+
+    // Delivery select
+    root.querySelectorAll<HTMLButtonElement>('[data-ship]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        shipSel = btn.dataset.ship!;
+        const opt = DELIVERY.find((o) => o.key === shipSel);
+        paintDelivery(Number($cart.get()?.cost?.subtotalAmount?.amount ?? 0));
+        if (opt) void mergeAttr(DELIVERY_KEY, opt.label);
+      });
+    });
+
+    // Gift wrap toggle
+    giftToggle?.addEventListener('click', async () => {
+      const cart = $cart.get();
+      const giftLine = giftVariantId ? (cart?.lines ?? []).find((l) => l.merchandise.id === giftVariantId) : undefined;
+      const on = giftVariantId ? !!giftLine : (cart?.attributes ?? []).some((a) => a.key === GIFT_WRAP_KEY && a.value === 'Yes');
+      if (giftVariantId) {
+        if (giftLine) await removeItem(giftLine.id);
+        else await addItem(giftVariantId, 1, { open: false });
+        if (on && giftMsgInput?.value) { giftMsgInput.value = ''; await mergeAttr(GIFT_MESSAGE_KEY, null); }
+      } else if (on) {
+        if (giftMsgInput) giftMsgInput.value = '';
+        await applyAttrs({ [GIFT_WRAP_KEY]: null, [GIFT_MESSAGE_KEY]: null });
+      } else {
+        await mergeAttr(GIFT_WRAP_KEY, 'Yes');
+      }
+    });
+
+    // Gift message (debounced)
+    let giftTimer = 0;
+    giftMsgInput?.addEventListener('input', () => {
+      window.clearTimeout(giftTimer);
+      const v = giftMsgInput.value;
+      giftTimer = window.setTimeout(() => mergeAttr(GIFT_MESSAGE_KEY, v.trim() || null), 700);
+    });
+
+    // Mobile sticky bar reveal (hide while the summary is on screen)
+    if (sticky && summary && 'IntersectionObserver' in window) {
+      const io = new IntersectionObserver(([e]) => {
+        const inView = e.isIntersecting;
+        sticky.classList.toggle('translate-y-[135%]', inView);
+        sticky.classList.toggle('translate-y-0', !inView);
+        sticky.setAttribute('aria-hidden', String(inView));
+      }, { threshold: 0 });
+      io.observe(summary);
+    }
+
+    renderSaved();
+    paint();
+  }
+
+  initCartView();
+  document.addEventListener('astro:page-load', initCartView);
+</script>

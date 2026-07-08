@@ -8,7 +8,7 @@
 //  the first paint already shows the shopper's real lines.
 // ============================================================
 import BaseLayout from '~/layouts/BaseLayout.astro';
-import CartView from '~/components/react/CartView.tsx';
+import CartView from '~/components/cart/CartView.astro';
 import ProductCard from '~/components/cards/ProductCard.astro';
 import Cta from '~/components/sections/Cta.astro';
 import Icon from '~/components/ui/Icon.astro';
@@ -49,7 +49,7 @@ try {
   noindex
 >
   {/* Live hero + cart layout + summary (real Shopify cart) */}
-  <CartView client:load initialCart={cart} loggedIn={loggedIn} />
+  <CartView initialCart={cart} loggedIn={loggedIn} />
 
   {/* ===================== CROSS-SELL ===================== */}
   {

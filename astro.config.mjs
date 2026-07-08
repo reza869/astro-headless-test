@@ -1,7 +1,6 @@
 // @ts-check
 import { defineConfig, sessionDrivers } from "astro/config";
 import tailwindcss from "@tailwindcss/vite";
-import react from "@astrojs/react";
 import cloudflare from "@astrojs/cloudflare";
 import node from "@astrojs/node";
 import vercel from "@astrojs/vercel";
@@ -52,21 +51,15 @@ export default defineConfig({
   // sessionDrivers list just omits it — hence the suppression.)
   // @ts-expect-error — `null` no-op driver missing from Astro's typed list
   session: { driver: sessionDrivers.null() },
-  integrations: [react()],
+  // No UI framework: every interactive part is a vanilla Astro island (a
+  // component with its own <script> that subscribes to the nanostores), so the
+  // browser ships zero framework runtime.
   vite: {
     plugins: [tailwindcss()],
     // Allow a tunnel host to reach the dev server (otherwise Vite blocks
     // unknown Host headers). localhost is always allowed.
     server: {
       allowedHosts: true,
-    },
-    // Force Vite to pre-bundle React to ESM so islands get the named
-    // `createRoot` export, and dedupe to a single copy.
-    optimizeDeps: {
-      include: ["react", "react-dom", "react-dom/client", "react/jsx-runtime"],
-    },
-    resolve: {
-      dedupe: ["react", "react-dom"],
     },
   },
 });
