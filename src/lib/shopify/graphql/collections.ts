@@ -84,6 +84,20 @@ export const COLLECTION_BY_HANDLE_QUERY = /* GraphQL */ `
   }
 `;
 
+/** Lightweight product-count for a collection (ids only). The Storefront API
+ *  has no total-count field, so we count one max-size page: exact for stores up
+ *  to 250 products in the collection, and `hasMore` flags "250+" beyond that. */
+export const COLLECTION_COUNT_QUERY = /* GraphQL */ `
+  query CollectionCount($handle: String!) {
+    collection(handle: $handle) {
+      products(first: 250) {
+        edges { node { id } }
+        pageInfo { hasNextPage }
+      }
+    }
+  }
+`;
+
 /** All collections — for nav / collection index. */
 export const COLLECTIONS_QUERY = /* GraphQL */ `
   ${IMAGE_FRAGMENT}

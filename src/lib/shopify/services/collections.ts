@@ -2,7 +2,11 @@
 //  Collection services — fetch + transform
 // ============================================================
 import { shopifyFetch } from '../client';
-import { COLLECTION_BY_HANDLE_QUERY, COLLECTIONS_QUERY } from '../graphql/collections';
+import {
+  COLLECTION_BY_HANDLE_QUERY,
+  COLLECTION_COUNT_QUERY,
+  COLLECTIONS_QUERY,
+} from '../graphql/collections';
 import { cursorVars } from '../pagination';
 import { mapCollection, mapProductCard, paginate } from '../transforms';
 import type { Collection, CollectionWithProducts } from '../types';
@@ -43,6 +47,21 @@ export async function getCollection(
     ...mapCollection(data.collection),
     products,
     filters: data.collection.products?.filters ?? [],
+  };
+}
+
+/** Real product count for a collection (null when the handle doesn't resolve).
+ *  `more` is true when the collection has 250+ products (display as "250+"). */
+export async function getCollectionCount(
+  handle: string,
+): Promise<{ count: number; more: boolean } | null> {
+  const data = await shopifyFetch<{
+    collection: { products: { edges: unknown[]; pageInfo: { hasNextPage: boolean } } } | null;
+  }>(COLLECTION_COUNT_QUERY, { handle }, TTL_STATIC);
+  if (!data.collection) return null;
+  return {
+    count: data.collection.products.edges.length,
+    more: data.collection.products.pageInfo.hasNextPage,
   };
 }
 

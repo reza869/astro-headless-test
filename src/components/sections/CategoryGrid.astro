@@ -8,9 +8,18 @@
 // ============================================================
 import Icon from '~/components/ui/Icon.astro';
 import { SITE } from '~/config/site';
+import { getCollectionCount } from '~/lib/shopify';
 
-// Real Shopify collections, single-sourced from config (see SITE.categories).
-const categories = SITE.categories;
+// Real product counts per collection (parallel, edge-cached). A missing handle
+// (e.g. a fresh buyer store) → null, and the tile falls back to the config's
+// illustrative figure only in demo. Real counts always show, static never does.
+const counts = await Promise.all(
+  SITE.categories.map((c) => getCollectionCount(c.handle).catch(() => null)),
+);
+const categories = SITE.categories.map((c, i) => {
+  const real = counts[i];
+  return { ...c, realCount: real ? (real.more ? '250+' : String(real.count)) : null };
+});
 ---
 
 <section id="category" class="cat-section">
@@ -32,7 +41,13 @@ const categories = SITE.categories;
               <span class="cv-no">N°0{i + 1}</span>
             </div>
             <div class="cv-bot">
-              {SITE.demoContent && <div class="cv-count">{c.count} Pieces</div>}
+              {
+                c.realCount != null ? (
+                  <div class="cv-count">{c.realCount} {c.realCount === '1' ? 'Piece' : 'Pieces'}</div>
+                ) : (
+                  SITE.demoContent && <div class="cv-count">{c.count} Pieces</div>
+                )
+              }
               <div class="cv-name">{c.name}</div>
               <span class="cv-enter">
                 Enter
