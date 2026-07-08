@@ -11,7 +11,7 @@
 import Cta from '~/components/sections/Cta.astro';
 import ShopHero from '~/components/shop/ShopHero.astro';
 import ShopDeck from '~/components/shop/ShopDeck.astro';
-import { SITE } from '~/config/site';
+import { SITE, freeShipThreshold } from '~/config/site';
 import '~/styles/shop-clone.css';
 import type { ShopItem } from '~/lib/shop-catalogue';
 
@@ -48,7 +48,7 @@ const {
 // Escape `<` so a product title containing "</script>" can't break out.
 // `demo` gates the illustrative promo tile so a production store never shows a
 // fabricated "40% off" banner in the grid.
-const shopData = JSON.stringify({ items, currency, initialCat, demo: SITE.demoContent }).replace(
+const shopData = JSON.stringify({ items, currency, initialCat, demo: SITE.demoContent, freeShip: freeShipThreshold(currency) }).replace(
   /</g,
   '\\u003c',
 );
@@ -104,7 +104,7 @@ const shopData = JSON.stringify({ items, currency, initialCat, demo: SITE.demoCo
   const dataEl = document.getElementById('shopData');
   if (dataEl) {
     const DATA = JSON.parse(dataEl.textContent || '{}') as {
-      items: ShopItem[]; currency: string; initialCat?: string | null; demo?: boolean;
+      items: ShopItem[]; currency: string; initialCat?: string | null; demo?: boolean; freeShip?: number | null;
     };
     const items: ShopItem[] = DATA.items || [];
     const CURRENCY = DATA.currency || 'USD';
@@ -122,7 +122,10 @@ const shopData = JSON.stringify({ items, currency, initialCat, demo: SITE.demoCo
     const prices = items.map((p) => p.price);
     const MINP = 0;
     const MAXP = Math.max(100, Math.ceil((Math.max(...prices, 0) || 100) / 50) * 50);
-    const FREE_SHIP = 150;
+    // Market-aware free-ship qualifier for the "Free Ship" facet. Null (no
+    // threshold for this currency) → 0, so the facet stops filtering instead of
+    // comparing prices against a foreign-currency number.
+    const FREE_SHIP = DATA.freeShip ?? 0;
     const q = Math.round(MAXP / 4 / 10) * 10 || 1;
     const PRICE_BUCKETS = [
       { label: `Under ${money(q)}`, min: 0, max: q },

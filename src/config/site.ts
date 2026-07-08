@@ -6,8 +6,34 @@
 export const SITE = {
   name: 'TAILORED',
   tagline: 'Modern Fashion & Everyday Luxury',
-  /** Free-shipping threshold (matches the value in `announcements`). */
+  /**
+   * Free-shipping threshold in the shop's BASE currency (USD). Used for
+   * base-currency policy copy (terms, shipping & returns, FAQ). For the live
+   * cart meter — which runs in the shopper's presentment currency — use
+   * `freeShipThreshold(currency)` instead, so a JPY cart isn't measured against
+   * a USD number.
+   */
   freeShippingThreshold: 150,
+  /**
+   * Free-shipping thresholds per PRESENTMENT currency. Shopify Markets converts
+   * a single shipping rule per market, so the qualifying amount differs by
+   * currency — a flat 150 would read as "unlocked" the instant a ¥ cart opens.
+   * The cart meter reads the active currency here; a currency absent from this
+   * map has no honest threshold, so the meter hides rather than lie. Keep these
+   * aligned with the free-shipping rules in your Shopify Markets settings.
+   */
+  freeShippingThresholds: {
+    USD: 150,
+    EUR: 150,
+    GBP: 130,
+    CAD: 210,
+    AUD: 230,
+    JPY: 22000,
+    CHF: 140,
+    CNY: 1100,
+    INR: 12500,
+    AED: 550,
+  } as Record<string, number>,
   /**
    * Gift wrapping. When `variantId` is a real ProductVariant gid, toggling gift
    * wrap adds/removes that line so it's actually charged (its real price shows
@@ -169,7 +195,7 @@ export const SITE = {
   ],
   // Rotating announcement bar (top ticker).
   announcements: [
-    'Free carbon-neutral shipping over $150',
+    'Free carbon-neutral shipping on qualifying orders',
     'Easy 30-day returns',
     'New season — Drop 01 out now',
   ],
@@ -186,7 +212,7 @@ export const SITE = {
     {
       icon: 'truck' as const,
       title: 'Free shipping',
-      body: 'Carbon-neutral delivery on every order over $150.',
+      body: 'Carbon-neutral delivery on every qualifying order.',
     },
     {
       icon: 'rotate' as const,
@@ -233,6 +259,19 @@ export const SITE = {
     },
   ],
 } as const;
+
+/**
+ * Free-shipping qualifying amount for a PRESENTMENT currency, or `null` when
+ * that currency has no configured threshold. Callers showing a live cart meter
+ * must treat `null` as "no meter" rather than fall back to the base number —
+ * comparing a presentment subtotal against a USD 150 would misfire in every
+ * other currency. See `SITE.freeShippingThresholds`.
+ */
+export function freeShipThreshold(currency: string | null | undefined): number | null {
+  if (!currency) return null;
+  const t = SITE.freeShippingThresholds[currency.toUpperCase()];
+  return typeof t === 'number' ? t : null;
+}
 
 /**
  * Header navigation source.

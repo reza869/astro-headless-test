@@ -12,7 +12,7 @@
 import Icon from '~/components/ui/Icon.astro';
 import ProductCard from '~/components/cards/ProductCard.astro';
 import SizeGuide from '~/components/global/SizeGuide.astro';
-import { SITE } from '~/config/site';
+import { SITE, freeShipThreshold } from '~/config/site';
 import { formatMoney, discountPercent, parseGid } from '~/lib/utils';
 import type { Product, ProductCard as TProductCard } from '~/lib/shopify/types';
 import type { JudgeMeData } from '~/lib/judgeme';
@@ -176,8 +176,11 @@ const specMetaRows = (mf.specification ?? '')
   .map((pair) => [pair[0], pair[1]] as [string, string]);
 // Whole "Materials & Care" accordion shows if we have any spec row or a SKU.
 const hasSpecs = specRows.length > 0 || specMetaRows.length > 0 || Boolean(sku);
-// Free-shipping threshold — single source of truth (SITE), shown in shop currency.
-const freeShip = formatMoney(SITE.freeShippingThreshold, currency);
+// Free-shipping threshold in the shopper's presentment currency. `null` (no
+// threshold configured for this currency) drops the "over X" qualifier rather
+// than formatting a USD number as if it were local.
+const freeShipAmount = freeShipThreshold(currency);
+const freeShip = freeShipAmount !== null ? formatMoney(freeShipAmount, currency) : '';
 
 // Gallery images (fall back to the featured image).
 const images =
@@ -459,7 +462,7 @@ const addPriceLabel = formatMoney(
             <span class="was" data-price-was hidden={!priceWas}>{priceWas}</span>
             <span class="off" data-price-off hidden={!off}>{off ? `Save ${off}%` : ''}</span>
           </div>
-          <p class="pdp-tax">Import duties included · <b>Free shipping</b> over {freeShip}</p>
+          <p class="pdp-tax">Import duties included · <b>Free shipping</b>{freeShip ? ` over ${freeShip}` : ''}</p>
 
           {countdownIso && (
             <div class="pdp-countdown" data-countdown data-end={countdownIso}>
@@ -594,7 +597,7 @@ const addPriceLabel = formatMoney(
 
           <div class="pdp-trust">
             <div class="trust-i">
-              <Icon name="truck" size={22} /><b>Free Delivery</b><span>2–4 days, orders over {freeShip}</span>
+              <Icon name="truck" size={22} /><b>Free Delivery</b><span>2–4 days{freeShip ? `, orders over ${freeShip}` : ''}</span>
             </div>
             <div class="trust-i">
               <Icon name="rotate" size={22} /><b>30-Day Returns</b><span>Free &amp; easy returns</span>
@@ -652,7 +655,7 @@ const addPriceLabel = formatMoney(
               <button class="acc-head" aria-expanded="false">Shipping &amp; Returns <Icon name="plus" size={20} /></button>
               <div class="acc-body">
                 <div class="inner">
-                  Complimentary express shipping on all orders over {freeShip}, delivered in 2–4 business
+                  Complimentary express shipping on all orders{freeShip ? ` over ${freeShip}` : ''}, delivered in 2–4 business
                   days. Enjoy 30 days to return unworn pieces with tags attached — returns are free
                   and fully refunded. Same-day click &amp; collect available at our {SITE.flagshipName}.
                 </div>

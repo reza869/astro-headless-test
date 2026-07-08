@@ -2,17 +2,15 @@
 // ============================================================
 //  Announcement — the designer's dark `.util` bar.
 //  3 zones: info (date · location) · rotating ticker · selectors
-//  (currency · language · track order). Side zones hide < md.
+//  (currency · track order). Side zones hide < md.
 //  Ticker shows ONE message at a time, auto-fading every ~4.5s.
-//  Currency + language are REAL: picking one sets a cookie and reloads,
-//  so prices (country) and translated content (language) re-render via
-//  Storefront @inContext. Language is a no-op on a store without
-//  Translate & Adapt translations configured.
+//  Currency is REAL: picking one sets a country cookie and reloads, so
+//  every price re-renders in that currency via Storefront @inContext.
 // ============================================================
 import Icon from '~/components/ui/Icon.astro';
 import { SITE } from '~/config/site';
 import { getLocalization } from '~/lib/shopify';
-import type { CurrencyOption, LanguageOption } from '~/lib/shopify';
+import type { CurrencyOption } from '~/lib/shopify';
 
 const items = SITE.announcements;
 
@@ -38,25 +36,14 @@ let currencies: CurrencyOption[] = [
   { iso: 'INR', code: 'INR ₹', label: 'Indian Rupee', sym: '₹', country: 'IN' },
   { iso: 'AED', code: 'AED د.إ', label: 'UAE Dirham', sym: 'د.إ', country: 'AE' },
 ];
-let languages: LanguageOption[] = [
-  { code: 'EN', label: 'English' },
-  { code: 'FR', label: 'Français' },
-  { code: 'IT', label: 'Italiano' },
-  { code: 'DE', label: 'Deutsch' },
-  { code: 'ES', label: 'Español' },
-  { code: 'JP', label: '日本語' },
-];
 let activeCurrency = 'USD $';
-let activeLanguage = 'EN';
 
 try {
   const loc = await getLocalization();
-  // Only adopt Shopify's lists when they carry real choice (>1); a
+  // Only adopt Shopify's list when it carries real choice (>1); a
   // single-market store would otherwise collapse the switcher to one row.
   if (loc.currencies.length > 1) currencies = loc.currencies;
-  if (loc.languages.length > 1) languages = loc.languages;
   if (loc.activeCurrency) activeCurrency = loc.activeCurrency;
-  if (loc.activeLanguage) activeLanguage = loc.activeLanguage;
 } catch (err) {
   console.error('[announcement] localization load failed:', (err as Error).message);
 }
@@ -114,37 +101,6 @@ try {
               >
                 <span>{c.label}</span>
                 <span class="font-medium text-text-muted">{c.sym}</span>
-              </button>
-            ))
-          }
-        </div>
-      </div>
-
-      {/* Language */}
-      <div class="disclosure relative">
-        <button
-          type="button"
-          class="disclosure__btn flex items-center gap-1.5 rounded-xs px-2.5 py-2 text-[11px] font-semibold text-white transition-fluid hover:bg-white/10"
-          aria-expanded="false"
-          aria-haspopup="true"
-        >
-          <Icon name="globe" size={13} />
-          <span class="disclosure__label">{activeLanguage}</span>
-          <Icon name="chevronDown" size={11} class="disclosure__caret transition-fluid" />
-        </button>
-        <div
-          class="disclosure__menu custom-scrollbar invisible absolute right-0 top-[calc(100%+8px)] z-[70] max-h-[280px] min-w-[170px] -translate-y-1.5 overflow-y-auto overscroll-contain rounded-sm bg-surface p-1.5 text-text-primary opacity-0 shadow-lg transition-fluid"
-        >
-          {
-            languages.map((l) => (
-              <button
-                type="button"
-                data-value={l.code}
-                data-lang={l.code}
-                class="flex w-full items-center justify-between gap-3.5 rounded-xs px-2.5 py-2 text-[12.5px] font-semibold transition-fluid hover:bg-surface-cool"
-              >
-                <span>{l.label}</span>
-                <span class="font-medium text-text-muted">{l.code}</span>
               </button>
             ))
           }
@@ -260,17 +216,6 @@ try {
           const country = opt.dataset.country;
           if (country) {
             document.cookie = `tailored_country=${encodeURIComponent(country)}; path=/; max-age=31536000; samesite=lax`;
-            if (label && opt.dataset.value) label.textContent = opt.dataset.value;
-            btn.setAttribute('aria-expanded', 'false');
-            window.location.reload();
-            return;
-          }
-          // Language options persist a language cookie and reload so translated
-          // content re-renders (@inContext language) — no-op visually on a store
-          // without Translate & Adapt translations.
-          const lang = opt.dataset.lang;
-          if (lang) {
-            document.cookie = `tailored_language=${encodeURIComponent(lang)}; path=/; max-age=31536000; samesite=lax`;
             if (label && opt.dataset.value) label.textContent = opt.dataset.value;
             btn.setAttribute('aria-expanded', 'false');
             window.location.reload();

@@ -9,7 +9,7 @@
 //  re-rendered. Markup/classes match the former React version.
 // ============================================================
 import Icon from '~/components/ui/Icon.astro';
-import { SITE } from '~/config/site';
+import { SITE, freeShipThreshold } from '~/config/site';
 import { formatMoney } from '~/lib/utils';
 import type { Cart } from '~/lib/shopify/types';
 
@@ -29,8 +29,9 @@ const cartTotal = Number(initialCart?.cost?.totalAmount?.amount ?? subtotal);
 const discount = Math.max(0, subtotal - cartTotal);
 const itemCount = initialCart?.totalQuantity ?? 0;
 const empty = (initialCart?.lines?.length ?? 0) === 0;
-const threshold = SITE.freeShippingThreshold;
-const unlocked = subtotal >= threshold && subtotal > 0;
+const threshold = freeShipThreshold(currency);
+const hasMeter = threshold !== null && threshold > 0;
+const unlocked = hasMeter && subtotal >= threshold && subtotal > 0;
 
 const cartData = JSON.stringify(initialCart ?? null).replace(/</g, '\\u003c');
 ---
@@ -95,8 +96,9 @@ const cartData = JSON.stringify(initialCart ?? null).replace(/</g, '\\u003c');
     <div data-cart-filled class:list={['grid grid-cols-1 items-start gap-[30px] lg:grid-cols-[1.55fr_0.85fr] lg:gap-[46px]', empty && 'hidden']}>
       {/* MAIN */}
       <div>
-        {/* Free-shipping progress */}
-        <div class="mb-[22px] flex items-center gap-[18px] rounded-lg bg-surface p-[18px_22px] shadow-xs ring-1 ring-inset ring-border">
+        {/* Free-shipping progress — hidden when the active currency has no
+            configured threshold (freeShipThreshold → null). */}
+        <div data-progress-card class:list={['mb-[22px] flex items-center gap-[18px] rounded-lg bg-surface p-[18px_22px] shadow-xs ring-1 ring-inset ring-border', !hasMeter && 'hidden']}>
           <span class="flex h-[42px] w-[42px] flex-none items-center justify-center rounded-pill bg-green-soft text-green">
             <Icon name="truck" size={20} strokeWidth={1.7} />
           </span>
@@ -318,7 +320,7 @@ const cartData = JSON.stringify(initialCart ?? null).replace(/</g, '\\u003c');
   import type { Cart, CartLine } from '~/lib/shopify/types';
   import { formatMoney } from '~/lib/utils';
   import { lineDiscount, lineMaxQty, lineLowStock, isFileUpload } from '~/lib/cart-pricing';
-  import { SITE } from '~/config/site';
+  import { SITE, freeShipThreshold } from '~/config/site';
 
   const GIFT_WRAP_KEY = 'Gift wrap';
   const GIFT_MESSAGE_KEY = 'Gift message';
@@ -345,9 +347,9 @@ const cartData = JSON.stringify(initialCart ?? null).replace(/</g, '\\u003c');
   function optionText(line: CartLine): string {
     return line.merchandise.selectedOptions.filter((o) => o.value !== 'Default Title').map((o) => o.value).join(' · ');
   }
-  const methodFree = (m: (typeof DELIVERY)[number], subtotal: number) => {
+  const methodFree = (m: (typeof DELIVERY)[number], subtotal: number, threshold: number | null) => {
     const o = m as { free?: boolean; freeOverThreshold?: boolean };
-    return o.free === true || (o.freeOverThreshold === true && subtotal >= SITE.freeShippingThreshold);
+    return o.free === true || (o.freeOverThreshold === true && threshold !== null && subtotal >= threshold);
   };
 
   function initCartView(): void {
@@ -477,6 +479,8 @@ const cartData = JSON.stringify(initialCart ?? null).replace(/</g, '\\u003c');
     let shipSel = DELIVERY[0].key;
 
     function paintDelivery(subtotal: number): void {
+      const currency = $cart.get()?.cost?.subtotalAmount?.currencyCode ?? 'USD';
+      const threshold = freeShipThreshold(currency);
       DELIVERY.forEach((m) => {
         const btn = root!.querySelector<HTMLElement>(`[data-ship="${m.key}"]`);
         if (!btn) return;
@@ -485,7 +489,7 @@ const cartData = JSON.stringify(initialCart ?? null).replace(/</g, '\\u003c');
         const dot = btn.querySelector<HTMLElement>('[data-ship-dot]')!;
         dot.className = `h-[18px] w-[18px] flex-none rounded-pill ring-inset ${on ? 'ring-[5px] ring-coral' : 'ring-2 ring-border'}`;
         const price = btn.querySelector<HTMLElement>('[data-ship-price]')!;
-        const free = methodFree(m, subtotal);
+        const free = methodFree(m, subtotal, threshold);
         price.textContent = free ? 'Free' : 'At checkout';
         price.className = free ? 'text-[13px] font-extrabold text-green' : 'text-[10.5px] font-semibold text-text-muted';
       });
@@ -501,10 +505,11 @@ const cartData = JSON.stringify(initialCart ?? null).replace(/</g, '\\u003c');
       const discount = Math.max(0, subtotal - cartTotal);
       const itemCount = cart?.totalQuantity ?? 0;
       const applied = (cart?.discountCodes ?? []).filter((d) => d.applicable);
-      const threshold = SITE.freeShippingThreshold;
-      const unlocked = subtotal >= threshold && subtotal > 0;
-      const remaining = Math.max(0, threshold - subtotal);
-      const progress = Math.min(100, threshold > 0 ? (subtotal / threshold) * 100 : 0);
+      const threshold = freeShipThreshold(currency);
+      const hasMeter = threshold !== null && threshold > 0;
+      const unlocked = hasMeter && subtotal >= threshold && subtotal > 0;
+      const remaining = hasMeter ? Math.max(0, threshold - subtotal) : 0;
+      const progress = hasMeter ? Math.min(100, (subtotal / threshold) * 100) : 0;
 
       // Gift wrap state
       const giftLine = giftVariantId ? lines.find((l) => l.merchandise.id === giftVariantId) : undefined;
@@ -523,13 +528,17 @@ const cartData = JSON.stringify(initialCart ?? null).replace(/</g, '\\u003c');
       if (sticky) sticky.classList.toggle('hidden', empty);
       if (empty) return;
 
-      // Progress
-      const pText = root!.querySelector<HTMLElement>('[data-progress-text]')!;
-      pText.innerHTML = remaining > 0
-        ? `Spend <b class="font-bold text-text-primary">${esc(money(remaining, currency))}</b> more to unlock <b class="font-bold text-text-primary">free standard shipping</b>`
-        : `<b class="font-bold text-text-primary">You've unlocked free standard shipping.</b>`;
-      root!.querySelector('[data-progress-track]')!.classList.toggle('cart-ship-unlocked', unlocked);
-      (root!.querySelector('[data-progress-bar]') as HTMLElement).style.width = `${progress}%`;
+      // Progress — hide the whole card when the active currency has no
+      // configured threshold (no honest meter to draw).
+      root!.querySelector('[data-progress-card]')!.classList.toggle('hidden', !hasMeter);
+      if (hasMeter) {
+        const pText = root!.querySelector<HTMLElement>('[data-progress-text]')!;
+        pText.innerHTML = remaining > 0
+          ? `Spend <b class="font-bold text-text-primary">${esc(money(remaining, currency))}</b> more to unlock <b class="font-bold text-text-primary">free standard shipping</b>`
+          : `<b class="font-bold text-text-primary">You've unlocked free standard shipping.</b>`;
+        root!.querySelector('[data-progress-track]')!.classList.toggle('cart-ship-unlocked', unlocked);
+        (root!.querySelector('[data-progress-bar]') as HTMLElement).style.width = `${progress}%`;
+      }
 
       // List head + lines
       root!.querySelector('[data-listhead]')!.textContent = `${itemCount} ${itemCount === 1 ? 'item' : 'items'}`;

@@ -251,7 +251,7 @@ const { loggedIn = false } = Astro.props;
   import { formatMoney } from '~/lib/utils';
   import { lineDiscount, lineMaxQty, isFileUpload } from '~/lib/cart-pricing';
   import { lockScroll, unlockScroll } from '~/lib/scroll-lock';
-  import { SITE } from '~/config/site';
+  import { freeShipThreshold } from '~/config/site';
 
   const esc = (s: string) =>
     String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -437,13 +437,16 @@ const { loggedIn = false } = Astro.props;
       emptyEl.classList.toggle('hidden', !empty);
       filledEl.classList.toggle('hidden', empty);
 
-      // Free-ship meter
-      const threshold = SITE.freeShippingThreshold;
-      const remaining = Math.max(0, threshold - subtotal);
-      const unlocked = remaining <= 0 && subtotal > 0;
-      const progress = threshold > 0 ? Math.min(100, (subtotal / threshold) * 100) : 100;
-      meter.classList.toggle('hidden', empty);
-      if (!empty) {
+      // Free-ship meter — market-aware. A currency with no configured
+      // threshold has no honest bar to draw, so the meter hides rather than
+      // measure a presentment subtotal against a foreign number.
+      const threshold = freeShipThreshold(currency);
+      const hasMeter = threshold !== null && threshold > 0;
+      const remaining = hasMeter ? Math.max(0, threshold - subtotal) : 0;
+      const unlocked = hasMeter && remaining <= 0 && subtotal > 0;
+      const progress = hasMeter ? Math.min(100, (subtotal / threshold) * 100) : 0;
+      meter.classList.toggle('hidden', empty || !hasMeter);
+      if (!empty && hasMeter) {
         meterText.textContent = unlocked ? "You've unlocked free shipping!" : '';
         if (!unlocked) {
           meterText.innerHTML = `You're <span class="tabular text-text-primary">${esc(money(remaining, currency))}</span> away from free shipping.`;
