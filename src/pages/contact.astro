@@ -11,7 +11,11 @@ import BaseLayout from '~/layouts/BaseLayout.astro';
 import Icon from '~/components/ui/Icon.astro';
 import { SITE } from '~/config/site';
 
-const methods = [
+// WhatsApp deep-link built from the store phone (digits only) — a real link a
+// buyer inherits by editing SITE.phoneHref, not a dead "#".
+const waNumber = SITE.phoneHref.replace(/[^\d]/g, '');
+
+const allMethods = [
   {
     icon: 'arrowUpRight',
     tone: 'coral',
@@ -19,6 +23,7 @@ const methods = [
     value: 'care@tailored.com',
     sub: 'Replies within 24 hours',
     href: 'mailto:care@tailored.com',
+    demoOnly: false,
   },
   {
     icon: 'arrowUpRight',
@@ -27,6 +32,7 @@ const methods = [
     value: SITE.phone,
     sub: 'Mon–Sat, 9am–8pm',
     href: `tel:${SITE.phoneHref}`,
+    demoOnly: false,
   },
   {
     icon: 'arrowUpRight',
@@ -34,17 +40,23 @@ const methods = [
     label: 'WhatsApp',
     value: 'Message us',
     sub: 'Typically instant',
-    href: '#',
+    href: waNumber ? `https://wa.me/${waNumber}` : '#',
+    demoOnly: false,
   },
   {
+    // Live chat needs a real widget (Tidio/Intercom/etc.) — the theme ships
+    // none, so this aspirational card (and its "Online now" claim) is demo-only.
     icon: 'arrowUpRight',
     tone: 'blue',
     label: 'Live Chat',
     value: 'Chat with a stylist',
     sub: 'Online now',
     href: '#',
+    demoOnly: true,
   },
 ] as const;
+
+const methods = allMethods.filter((m) => SITE.demoContent || !m.demoOnly);
 
 const toneClass: Record<string, string> = {
   coral: 'bg-coral-soft text-coral',
@@ -71,6 +83,11 @@ const socials = [
   { name: 'tiktok', label: 'TikTok' },
   { name: 'youtube', label: 'YouTube' },
 ] as const;
+
+// Resolve each social to its REAL url from SITE.social (single source of truth)
+// so these aren't dead "#" links; fall back to "#" only if unconfigured.
+const socialHref = (name: string): string =>
+  SITE.social.find((s) => s.icon === name)?.href ?? '#';
 
 // Chip label → matching <option> value in the Subject select below.
 const subjects = [
@@ -132,9 +149,10 @@ const faqs = [
           client team is here to help — we reply to every message.
         </p>
       </div>
-      <div class="mt-[34px] flex flex-wrap items-start gap-[18px]">
-        {
-          [
+      {/* Illustrative service figures — demo only (nothing unverifiable ships). */}
+      {SITE.demoContent && (
+        <div class="mt-[34px] flex flex-wrap items-start gap-[18px]">
+          {[
             { b: '<24h', s: 'Avg. Response' },
             { b: '7 Days', s: 'Support' },
             { b: '4', s: 'Languages' },
@@ -146,9 +164,9 @@ const faqs = [
                 {st.s}
               </span>
             </div>
-          ))
-        }
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   </section>
 
@@ -160,6 +178,8 @@ const faqs = [
           methods.map((m) => (
             <a
               href={m.href}
+              target={m.href.startsWith('http') ? '_blank' : undefined}
+              rel={m.href.startsWith('http') ? 'noopener' : undefined}
               class="group block rounded-lg bg-surface p-6 shadow-xs ring-1 ring-inset ring-border transition-fluid hover:-translate-y-1 hover:shadow-md"
             >
               <div
@@ -415,7 +435,9 @@ const faqs = [
               {
                 socials.map((s) => (
                   <a
-                    href="#"
+                    href={socialHref(s.name)}
+                    target="_blank"
+                    rel="noopener"
                     aria-label={s.label}
                     class="flex h-10 w-10 items-center justify-center rounded-pill bg-surface-cool text-text-primary transition-fluid hover:bg-coral hover:text-white"
                   >
@@ -492,7 +514,7 @@ const faqs = [
             ))
           }
           <a
-            href="#"
+            href="#contactForm"
             class="btn mt-[18px] inline-flex items-center gap-2 rounded-sm bg-dark px-6 py-[15px] text-white transition-fluid hover:bg-dark-hover"
           >
             Book an Appointment <Icon name="calendar" size={15} />
