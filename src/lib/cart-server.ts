@@ -9,6 +9,7 @@ import {
   applyDiscountCodes,
   createCart,
   getCart,
+  getMarketCurrency,
   removeCartLines,
   updateCartLines,
   updateCartNote,
@@ -23,14 +24,70 @@ import {
 import { currentCountry } from '~/lib/shopify/context';
 import { clearCartId, getCartId, setCartId } from './cart-cookie';
 
-/** Re-price a cart into the active market when it differs (a fresh cart created
- *  in that market already matches, so this is a no-op then). Keeps the cart's
- *  currency in step with the currency the shopper is browsing in. */
-async function repriceToMarket(cart: Cart | null, buyerIp?: string): Promise<Cart | null> {
+/**
+ * Recreate a cart in the active market, carrying its lines, note, attributes and
+ * discount codes across. `createCart` prices the new cart in the current market
+ * (buyerIdentity.countryCode) at creation, so its currency is correct — unlike
+ * updating an existing cart, whose presentment currency Shopify fixes at
+ * creation and won't change afterwards. Updates the cart-id cookie to the new
+ * cart. Best-effort: if creation fails, the original cart is kept.
+ */
+async function recreateInMarket(
+  old: Cart,
+  cookies: AstroCookies,
+  buyerIp?: string,
+): Promise<Cart> {
+  const lines: CartLineInput[] = old.lines.map((l) => ({
+    merchandiseId: l.merchandise.id,
+    quantity: l.quantity,
+    ...(l.attributes?.length ? { attributes: l.attributes } : {}),
+  }));
+  if (!lines.length) return old; // empty cart — its currency is never shown
+
+  const created = await createCart(lines, { buyerIp });
+  const fresh = created.cart;
+  if (!fresh) return old; // creation failed — leave the shopper's cart intact
+
+  setCartId(cookies, fresh.id);
+
+  // Carry over note / attributes / discount codes (best-effort — a failure here
+  // must not lose the repriced cart the shopper can now see).
+  let result = fresh;
+  try {
+    const note = old.note?.trim();
+    if (note) result = (await updateCartNote(fresh.id, note, { buyerIp })).cart ?? result;
+    // `source` is re-added by createCart; don't duplicate it.
+    const attrs = (old.attributes ?? []).filter((a) => a.key !== 'source');
+    if (attrs.length) result = (await updateCartAttributes(fresh.id, attrs, { buyerIp })).cart ?? result;
+    const codes = (old.discountCodes ?? []).filter((d) => d.applicable).map((d) => d.code);
+    if (codes.length) result = (await applyDiscountCodes(fresh.id, codes, { buyerIp })).cart ?? result;
+  } catch (err) {
+    console.error('[cart] carry-over after reprice failed:', (err as Error).message);
+  }
+  return result;
+}
+
+/** Keep the cart's currency in step with the market the shopper is browsing.
+ *  No-op when no market is selected or the currency already matches (the common
+ *  path). On a drift, first try the cheap in-place buyer-identity update (which
+ *  keeps the checkout URL, discounts and note); only if that can't re-price the
+ *  cart — some Markets configs won't change an existing cart's currency — fall
+ *  back to recreating it fresh in the active market. */
+async function repriceToMarket(
+  cart: Cart | null,
+  cookies: AstroCookies,
+  buyerIp?: string,
+): Promise<Cart | null> {
   const country = currentCountry();
-  if (!cart || !country || (cart.countryCode ?? '') === country) return cart;
-  const updated = await updateCartBuyerIdentityCountry(cart.id, country, { buyerIp });
-  return updated.cart ?? cart;
+  if (!cart || !country) return cart;
+  const want = await getMarketCurrency(country);
+  const have = cart.cost?.subtotalAmount?.currencyCode;
+  // Unknown market (want null) → don't churn; already-correct → no-op.
+  if (!want || have === want) return cart;
+
+  const updated = (await updateCartBuyerIdentityCountry(cart.id, country, { buyerIp })).cart;
+  if (updated?.cost?.subtotalAmount?.currencyCode === want) return updated;
+  return recreateInMarket(updated ?? cart, cookies, buyerIp);
 }
 
 export function json(data: unknown, status = 200): Response {
@@ -115,7 +172,7 @@ export async function readCart(cookies: AstroCookies, buyerIp?: string): Promise
     clearCartId(cookies); // expired / invalid — forget it
     return { cart: null, userErrors: [] };
   }
-  return { cart: await repriceToMarket(cart, buyerIp), userErrors: [] };
+  return { cart: await repriceToMarket(cart, cookies, buyerIp), userErrors: [] };
 }
 
 /**
@@ -131,7 +188,7 @@ export async function addLines(
   if (id) {
     const res = await addCartLines(id, lines, { buyerIp });
     // Keep an existing cart's currency in step with the browsing market.
-    if (res.cart) return { ...res, cart: await repriceToMarket(res.cart, buyerIp) };
+    if (res.cart) return { ...res, cart: await repriceToMarket(res.cart, cookies, buyerIp) };
     // Stored cart vanished — fall through and start a fresh one.
     clearCartId(cookies);
   }

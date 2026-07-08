@@ -35,6 +35,15 @@ export const SITE = {
     AED: 550,
   } as Record<string, number>,
   /**
+   * Newsletter email-capture popup (modal + backdrop). `enabled` toggles it
+   * site-wide; `delaySeconds` is how long after load it appears (it also opens
+   * on desktop exit-intent, whichever comes first); `remindDays` is how long a
+   * dismissal is remembered before it may show again. The "10% off" discount
+   * claim only renders in demo mode (SITE.demoContent) so nothing unbacked
+   * ships to a production store — same convention as the Cta newsletter band.
+   */
+  newsletterPopup: { enabled: true, delaySeconds: 8, remindDays: 30 },
+  /**
    * Gift wrapping. When `variantId` is a real ProductVariant gid, toggling gift
    * wrap adds/removes that line so it's actually charged (its real price shows
    * in the subtotal). Otherwise it records a `Gift wrap` cart attribute

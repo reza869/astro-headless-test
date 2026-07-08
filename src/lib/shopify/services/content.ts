@@ -70,6 +70,21 @@ export async function getMarketCountries(): Promise<Set<string>> {
   return _marketCountries;
 }
 
+// Market country → its ISO currency (e.g. 'BD' → 'BDT'), memoised per isolate.
+// `availableCountries` lists every market's native currency regardless of the
+// active @inContext, so this map is context-independent and safe to cache once.
+let _countryCurrency: Map<string, string> | null = null;
+/** The currency a market country prices in, or null when it isn't a shop
+ *  market. Used to detect when a cart's currency has drifted from the market
+ *  the shopper is browsing. */
+export async function getMarketCurrency(country: string): Promise<string | null> {
+  if (!_countryCurrency) {
+    const { localization: l } = await shopifyFetch<RawLocalization>(LOCALIZATION_QUERY, {}, TTL_STATIC);
+    _countryCurrency = new Map(l.availableCountries.map((c) => [c.isoCode, c.currency.isoCode]));
+  }
+  return _countryCurrency.get(country) ?? null;
+}
+
 /** Active + available currencies and languages from the Storefront API. */
 export async function getLocalization(): Promise<Localization> {
   const { localization: l } = await shopifyFetch<RawLocalization>(LOCALIZATION_QUERY, {}, TTL_STATIC);

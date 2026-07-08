@@ -1,0 +1,352 @@
+---
+// ============================================================
+//  NewsletterPopup — global email-capture modal (vanilla island).
+//  A two-column editorial popup (image + form) with a dimmed
+//  backdrop, opened once per visitor after a short delay or on
+//  desktop exit-intent. Reuses the real /api/newsletter endpoint
+//  (Shopify customer + `newsletter` tag) and mirrors the Cta band's
+//  honeypot + inline-feedback wiring. The "10% off" claim renders
+//  only in demo mode (SITE.demoContent) so nothing unbacked ships.
+//
+//  Mounted once in BaseLayout. Modal shell (overlay/backdrop/panel,
+//  focus trap, scroll-lock, open/close) follows the QuickViewModal
+//  pattern so behaviour + a11y stay consistent across the theme.
+// ============================================================
+import Icon from '~/components/ui/Icon.astro';
+import { SITE } from '~/config/site';
+
+const popup = SITE.newsletterPopup;
+const demo = SITE.demoContent;
+---
+
+{
+  popup.enabled && (
+    <div
+      data-nl-overlay
+      data-delay={popup.delaySeconds}
+      data-remind-days={popup.remindDays}
+      class="pointer-events-none fixed inset-0 z-[190] flex items-center justify-center p-4"
+      aria-hidden="true"
+      inert
+    >
+      <div
+        data-nl-backdrop
+        class="absolute inset-0 bg-dark/55 opacity-0 backdrop-blur-[2px] transition-opacity duration-300"
+      />
+
+      <div
+        data-nl-panel
+        tabindex="-1"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="nl-heading"
+        class="relative grid w-full max-w-[880px] scale-95 grid-cols-1 overflow-hidden rounded-3xl bg-bg-light opacity-0 shadow-2xl outline-none transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] md:grid-cols-2"
+      >
+        <button
+          type="button"
+          data-nl-close
+          aria-label="Close"
+          class="absolute right-4 top-4 z-10 grid h-9 w-9 place-items-center rounded-full bg-surface/90 text-text-primary shadow-xs ring-1 ring-border transition-fluid hover:bg-dark hover:text-white"
+        >
+          <Icon name="close" size={17} strokeWidth={1.9} />
+        </button>
+
+        {/* ---------------- Media (left) ---------------- */}
+        <div class="relative hidden min-h-[240px] overflow-hidden md:block">
+          <img
+            src="/images/CTA Image.png"
+            alt=""
+            loading="lazy"
+            class="absolute inset-0 h-full w-full object-cover"
+          />
+          <div class="nl-scrim absolute inset-0" />
+          <div class="absolute bottom-7 left-7 right-7 z-[2]">
+            <p class="font-heading text-[22px] font-bold leading-[1.05] text-white">
+              “The only newsletter I actually open.”
+            </p>
+            <p class="mt-2 text-[10px] font-semibold uppercase tracking-[1.4px] text-white/70">
+              Members save first
+            </p>
+          </div>
+        </div>
+
+        {/* ---------------- Content (right) ---------------- */}
+        <div class="flex flex-col justify-center px-7 py-9 md:px-10 md:py-11">
+          <span class="mag-label mb-4">Limited offer</span>
+
+          <h2
+            id="nl-heading"
+            class="font-heading text-[clamp(30px,3.4vw,40px)] font-extrabold leading-[0.95] tracking-[-0.5px] text-text-primary"
+          >
+            {demo ? (
+              <>
+                Get <em class="not-italic text-coral">10% off</em> your first order.
+              </>
+            ) : (
+              <>
+                First access to <em class="not-italic text-coral">every drop.</em>
+              </>
+            )}
+          </h2>
+
+          <p class="mt-3.5 max-w-[380px] text-[14.5px] leading-[1.6] text-text-secondary">
+            {demo
+              ? "Drop your email below and we'll send your discount code instantly — no strings attached."
+              : 'New arrivals, members-only offers and editorial stories — straight to your inbox.'}
+          </p>
+
+          {/* Real Shopify sign-up — same endpoint + honeypot as the Cta band. */}
+          <form data-nl-form class="mt-6" aria-label="Newsletter sign-up">
+            <label for="nl-email" class="sr-only">
+              Your email address
+            </label>
+            <div class="relative">
+              <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-text-muted">
+                <Icon name="mail" size={17} strokeWidth={1.7} />
+              </span>
+              <input
+                type="email"
+                id="nl-email"
+                name="email"
+                required
+                placeholder="your@email.com"
+                autocomplete="email"
+                class="h-[54px] w-full rounded-xl border border-border bg-surface pl-11 pr-4 font-body text-[14px] text-text-primary outline-none transition-shadow placeholder:text-text-muted focus:border-coral focus:ring-2 focus:ring-coral/40"
+              />
+            </div>
+
+            {/* Honeypot — hidden from users; bots that fill it are dropped. */}
+            <input
+              type="text"
+              name="website"
+              tabindex="-1"
+              autocomplete="off"
+              aria-hidden="true"
+              class="absolute left-[-9999px] h-0 w-0 opacity-0"
+            />
+
+            <button
+              type="submit"
+              data-nl-submit
+              class="mt-3 flex h-[54px] w-full items-center justify-center gap-2 rounded-xl bg-coral text-[13px] font-bold uppercase tracking-[1.2px] text-white shadow-[0_10px_24px_rgba(217,88,70,0.32)] transition-fluid hover:bg-coral-hover disabled:opacity-60 data-[loading]:pointer-events-none"
+            >
+              <span data-nl-label class="inline-flex items-center gap-2">
+                {demo ? 'Claim my 10% off' : 'Sign me up'}
+                <Icon name="arrowRight" size={16} strokeWidth={2} />
+              </span>
+              <span data-nl-spin hidden>
+                <svg class="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-opacity="0.25" stroke-width="2.5" />
+                  <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+                </svg>
+              </span>
+            </button>
+          </form>
+
+          <p data-nl-msg role="status" aria-live="polite" class="mt-2.5 hidden text-[12.5px] font-medium" />
+
+          <button
+            type="button"
+            data-nl-dismiss
+            class="mt-4 text-center text-[12.5px] text-text-muted transition-fluid hover:text-text-primary"
+          >
+            No thanks,{' '}
+            <span class="underline underline-offset-2">
+              {demo ? "I'll pay full price" : 'maybe later'}
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+<style>
+  /* Soft dark scrim over the media so the white right-panel edge reads
+     cleanly against the image (echoes the Cta band's diagonal scrim). */
+  .nl-scrim {
+    background: linear-gradient(180deg, rgba(9, 10, 11, 0.15) 0%, rgba(9, 10, 11, 0.55) 100%);
+  }
+</style>
+
+<script>
+  import { lockScroll, unlockScroll } from '~/lib/scroll-lock';
+
+  const STORAGE_KEY = 'tailored:nl-popup';
+
+  interface PopupState {
+    at: number;
+    status: 'dismissed' | 'subscribed';
+  }
+
+  function readState(): PopupState | null {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? (JSON.parse(raw) as PopupState) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function writeState(status: PopupState['status']): void {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ at: Date.now(), status }));
+    } catch {
+      /* storage unavailable — non-critical */
+    }
+  }
+
+  function initNewsletterPopup(): void {
+    const overlay = document.querySelector<HTMLElement>('[data-nl-overlay]');
+    if (!overlay || overlay.dataset.bound) return;
+    overlay.dataset.bound = 'true';
+
+    const panel = overlay.querySelector<HTMLElement>('[data-nl-panel]')!;
+    const backdrop = overlay.querySelector<HTMLElement>('[data-nl-backdrop]')!;
+    const form = overlay.querySelector<HTMLFormElement>('[data-nl-form]')!;
+    const input = form.querySelector<HTMLInputElement>('input[name="email"]')!;
+    const submit = form.querySelector<HTMLButtonElement>('[data-nl-submit]')!;
+    const label = submit.querySelector<HTMLElement>('[data-nl-label]')!;
+    const spin = submit.querySelector<HTMLElement>('[data-nl-spin]')!;
+    const msg = overlay.querySelector<HTMLElement>('[data-nl-msg]')!;
+
+    const delayMs = Math.max(0, Number(overlay.dataset.delay) || 8) * 1000;
+    const remindDays = Math.max(1, Number(overlay.dataset.remindDays) || 30);
+
+    let opener: HTMLElement | null = null;
+    let opened = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    /** Whether the popup is allowed to show now, given prior dismissal/sign-up. */
+    function eligible(): boolean {
+      const s = readState();
+      if (!s) return true;
+      if (s.status === 'subscribed') return false; // already a subscriber — never nag
+      const days = (Date.now() - s.at) / 86_400_000;
+      return days >= remindDays;
+    }
+
+    const say = (text: string, ok: boolean) => {
+      msg.textContent = text;
+      msg.classList.remove('hidden');
+      msg.style.color = ok ? 'var(--color-green)' : 'var(--color-coral)';
+    };
+
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') {
+        close('dismissed');
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const items = Array.from(
+        panel.querySelectorAll<HTMLElement>(
+          'a[href],button:not([disabled]),input,[tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => el.offsetParent !== null);
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    function open(): void {
+      if (opened) return;
+      // Never stack on top of another open modal/drawer (they lock body scroll).
+      if (getComputedStyle(document.body).overflow === 'hidden') {
+        timer = setTimeout(open, 3000);
+        return;
+      }
+      opened = true;
+      clearScheduling();
+      opener = document.activeElement as HTMLElement;
+      overlay!.classList.remove('pointer-events-none');
+      overlay!.removeAttribute('aria-hidden');
+      overlay!.removeAttribute('inert');
+      backdrop.classList.replace('opacity-0', 'opacity-100');
+      panel.classList.replace('scale-95', 'scale-100');
+      panel.classList.replace('opacity-0', 'opacity-100');
+      lockScroll();
+      document.addEventListener('keydown', onKey);
+      panel.focus();
+    }
+
+    function close(reason?: PopupState['status']): void {
+      overlay!.classList.add('pointer-events-none');
+      overlay!.setAttribute('aria-hidden', 'true');
+      overlay!.setAttribute('inert', '');
+      backdrop.classList.replace('opacity-100', 'opacity-0');
+      panel.classList.replace('scale-100', 'scale-95');
+      panel.classList.replace('opacity-100', 'opacity-0');
+      unlockScroll();
+      document.removeEventListener('keydown', onKey);
+      if (reason) writeState(reason);
+      opener?.focus();
+    }
+
+    // ── Scheduling: delay timer + desktop exit-intent, whichever fires first ──
+    const onExitIntent = (e: MouseEvent): void => {
+      if (e.clientY <= 0 && !e.relatedTarget) open();
+    };
+    function clearScheduling(): void {
+      if (timer) clearTimeout(timer);
+      timer = null;
+      document.removeEventListener('mouseout', onExitIntent);
+    }
+
+    if (eligible()) {
+      timer = setTimeout(open, delayMs);
+      // Exit-intent only makes sense with a cursor (desktop).
+      if (window.matchMedia('(min-width: 768px) and (pointer: fine)').matches) {
+        document.addEventListener('mouseout', onExitIntent);
+      }
+    }
+
+    // ── Close paths ──
+    overlay.querySelector('[data-nl-close]')?.addEventListener('click', () => close('dismissed'));
+    overlay.querySelector('[data-nl-dismiss]')?.addEventListener('click', () => close('dismissed'));
+    backdrop.addEventListener('click', () => close('dismissed'));
+
+    // ── Submit → real Shopify sign-up ──
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (submit.hasAttribute('data-loading')) return;
+      const email = input.value.trim();
+      const website = form.querySelector<HTMLInputElement>('input[name="website"]')?.value ?? '';
+
+      submit.setAttribute('data-loading', '');
+      label.hidden = true;
+      spin.hidden = false;
+      try {
+        const res = await fetch('/api/newsletter', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ email, website }),
+        });
+        const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (res.ok && data.ok) {
+          form.reset();
+          say("You're in — check your inbox to confirm.", true);
+          writeState('subscribed');
+          setTimeout(() => close(), 1800); // state already saved
+        } else {
+          say(data.error ?? 'Something went wrong. Please try again.', false);
+        }
+      } catch {
+        say('Network error. Please try again.', false);
+      } finally {
+        submit.removeAttribute('data-loading');
+        label.hidden = false;
+        spin.hidden = true;
+      }
+    });
+  }
+
+  initNewsletterPopup();
+  document.addEventListener('astro:page-load', initNewsletterPopup);
+</script>

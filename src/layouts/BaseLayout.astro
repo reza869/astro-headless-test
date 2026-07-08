@@ -12,6 +12,7 @@ import Footer from '~/components/global/Footer.astro';
 import CartDrawer from '~/components/cart/CartDrawer.astro';
 import BottomNav from '~/components/cart/BottomNav.astro';
 import QuickViewModal from '~/components/cart/QuickViewModal.astro';
+import NewsletterPopup from '~/components/global/NewsletterPopup.astro';
 import { createCustomerClient, getPublicOrigin } from '~/lib/shopify/customer';
 
 interface Props {
@@ -129,6 +130,7 @@ const websiteJsonLd = {
     <CartDrawer loggedIn={loggedIn} />
     <BottomNav />
     <QuickViewModal />
+    <NewsletterPopup />
 
     {/* ========================================================
          Motion engine — FREE core GSAP + ScrollTrigger only.
