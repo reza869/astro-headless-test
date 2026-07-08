@@ -1,7 +1,7 @@
 {
   "name": "tailored",
   "type": "module",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Tailored — a headless Shopify storefront theme built with Astro and Tailwind CSS (zero UI framework — vanilla islands) for modern fashion and lifestyle commerce.",
   "keywords": [
