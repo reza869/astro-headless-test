@@ -11,7 +11,7 @@ import Header from '~/components/global/Header.astro';
 import Footer from '~/components/global/Footer.astro';
 import CartDrawer from '~/components/react/CartDrawer.tsx';
 import BottomNav from '~/components/cart/BottomNav.astro';
-import QuickViewModal from '~/components/react/QuickViewModal.tsx';
+import QuickViewModal from '~/components/cart/QuickViewModal.astro';
 import { createCustomerClient, getPublicOrigin } from '~/lib/shopify/customer';
 
 interface Props {
@@ -128,7 +128,7 @@ const websiteJsonLd = {
     {/* Persistent interactive islands */}
     <CartDrawer client:load loggedIn={loggedIn} />
     <BottomNav />
-    <QuickViewModal client:load />
+    <QuickViewModal />
 
     {/* ========================================================
          Motion engine — FREE core GSAP + ScrollTrigger only.
