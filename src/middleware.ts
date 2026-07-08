@@ -9,7 +9,13 @@
 // currency instead of the shop default). The request then runs inside
 // that country context so every localised Storefront read matches.
 import { defineMiddleware } from 'astro:middleware';
-import { COUNTRY_COOKIE, normaliseCountry, withCountry } from '~/lib/shopify/context';
+import {
+  COUNTRY_COOKIE,
+  LANGUAGE_COOKIE,
+  normaliseCountry,
+  normaliseLanguage,
+  withMarket,
+} from '~/lib/shopify/context';
 import { getMarketCountries } from '~/lib/shopify';
 
 export const onRequest = defineMiddleware(async (context, next) => {
@@ -30,6 +36,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
   }
 
+  const language = normaliseLanguage(context.cookies.get(LANGUAGE_COOKIE)?.value);
+
   context.locals.country = country;
-  return withCountry(country, () => next());
+  return withMarket({ country, language }, () => next());
 });

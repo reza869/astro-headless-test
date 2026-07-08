@@ -9,7 +9,7 @@
 // mutations) are retried with jittered backoff on transient errors
 // and GraphQL THROTTLED, and may be edge-cached via the Cloudflare
 // Cache API when a caller opts in with `cacheTtl`.
-import { currentCountry } from './context';
+import { currentCountry, currentLanguage } from './context';
 
 /** Read an env var from build-time inline (dev) or runtime process.env (prod node). */
 function env(key: string): string | undefined {
@@ -138,15 +138,23 @@ function unwrap<T>(res: Response, json: GraphQLResponse<T>): T {
  * localised safely (already localised, or not a recognisable `query …{` form —
  * e.g. an anonymous query). Mutations are never passed here.
  */
-function localiseQuery(query: string): string | null {
+function localiseQuery(query: string, hasCountry: boolean, hasLanguage: boolean): string | null {
   if (/@inContext/.test(query)) return query;
   const m = query.match(/query(\s+\w+)?\s*(\([^)]*\))?\s*\{/);
   if (!m) return null;
   const [full, name = '', vars] = m;
-  const newVars = vars
-    ? vars.replace(/\)\s*$/, ', $country: CountryCode)')
-    : '($country: CountryCode)';
-  return query.replace(full, `query${name} ${newVars} @inContext(country: $country) {`);
+  const decls: string[] = [];
+  const args: string[] = [];
+  if (hasCountry) {
+    decls.push('$country: CountryCode');
+    args.push('country: $country');
+  }
+  if (hasLanguage) {
+    decls.push('$language: LanguageCode');
+    args.push('language: $language');
+  }
+  const newVars = vars ? vars.replace(/\)\s*$/, `, ${decls.join(', ')})`) : `(${decls.join(', ')})`;
+  return query.replace(full, `query${name} ${newVars} @inContext(${args.join(', ')}) {`);
 }
 
 /**
@@ -173,11 +181,13 @@ export async function shopifyFetch<T>(
   // a null country does NOT fall back to the shop's primary market. The cache
   // key hashes the final body, so each currency caches separately.
   const country = currentCountry();
-  if (country && !mutation) {
-    const localised = localiseQuery(query);
+  const language = currentLanguage();
+  if ((country || language) && !mutation) {
+    const localised = localiseQuery(query, Boolean(country), Boolean(language));
     if (localised) {
       query = localised;
-      variables = { ...variables, country };
+      if (country) variables = { ...variables, country };
+      if (language) variables = { ...variables, language };
     }
   }
 

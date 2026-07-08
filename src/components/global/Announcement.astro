@@ -4,9 +4,10 @@
 //  3 zones: info (date · location) · rotating ticker · selectors
 //  (currency · language · track order). Side zones hide < md.
 //  Ticker shows ONE message at a time, auto-fading every ~4.5s.
-//  Currency is REAL: picking one sets the market country cookie and
-//  reloads, so every price re-renders via Storefront @inContext.
-//  Language stays a cosmetic disclosure for now.
+//  Currency + language are REAL: picking one sets a cookie and reloads,
+//  so prices (country) and translated content (language) re-render via
+//  Storefront @inContext. Language is a no-op on a store without
+//  Translate & Adapt translations configured.
 // ============================================================
 import Icon from '~/components/ui/Icon.astro';
 import { SITE } from '~/config/site';
@@ -139,6 +140,7 @@ try {
               <button
                 type="button"
                 data-value={l.code}
+                data-lang={l.code}
                 class="flex w-full items-center justify-between gap-3.5 rounded-xs px-2.5 py-2 text-[12.5px] font-semibold transition-fluid hover:bg-surface-cool"
               >
                 <span>{l.label}</span>
@@ -263,7 +265,18 @@ try {
             window.location.reload();
             return;
           }
-          // Language (cosmetic for now) — just reflect the choice.
+          // Language options persist a language cookie and reload so translated
+          // content re-renders (@inContext language) — no-op visually on a store
+          // without Translate & Adapt translations.
+          const lang = opt.dataset.lang;
+          if (lang) {
+            document.cookie = `tailored_language=${encodeURIComponent(lang)}; path=/; max-age=31536000; samesite=lax`;
+            if (label && opt.dataset.value) label.textContent = opt.dataset.value;
+            btn.setAttribute('aria-expanded', 'false');
+            window.location.reload();
+            return;
+          }
+          // Fallback — reflect the choice.
           if (label && opt.dataset.value) label.textContent = opt.dataset.value;
           btn.setAttribute('aria-expanded', 'false');
         });
