@@ -517,11 +517,17 @@ const cartData = JSON.stringify(initialCart ?? null).replace(/</g, '\\u003c');
       const visibleLines = giftLine ? lines.filter((l) => l.id !== giftLine.id) : lines;
       const empty = lines.length === 0;
 
-      // Hero
-      root!.querySelector('[data-hero-items]')!.textContent = String(itemCount);
-      root!.querySelector('[data-hero-subtotal]')!.textContent = money(subtotal, currency);
-      root!.querySelector('[data-hero-shipping]')!.textContent = empty ? '—' : unlocked ? 'Free' : '—';
-      root!.querySelector('[data-hero-save]')!.textContent = money(discount, currency);
+      // Hero — these stats live in the sibling <section class="py-hero">, which
+      // is OUTSIDE the [data-cartview] root, so they must be queried from the
+      // document (not root). Null-guarded so a missing node never aborts paint.
+      const setText = (sel: string, val: string) => {
+        const el = document.querySelector(sel);
+        if (el) el.textContent = val;
+      };
+      setText('[data-hero-items]', String(itemCount));
+      setText('[data-hero-subtotal]', money(subtotal, currency));
+      setText('[data-hero-shipping]', empty ? '—' : unlocked ? 'Free' : '—');
+      setText('[data-hero-save]', money(discount, currency));
 
       emptyEl.classList.toggle('hidden', !empty);
       filledEl.classList.toggle('hidden', empty);
