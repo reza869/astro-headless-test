@@ -4,8 +4,9 @@
 //  3 zones: info (date · location) · rotating ticker · selectors
 //  (currency · language · track order). Side zones hide < md.
 //  Ticker shows ONE message at a time, auto-fading every ~4.5s.
-//  Currency/language are COSMETIC disclosures (label persists,
-//  no real Shopify Markets switch) — accessible + dismissible.
+//  Currency is REAL: picking one sets the market country cookie and
+//  reloads, so every price re-renders via Storefront @inContext.
+//  Language stays a cosmetic disclosure for now.
 // ============================================================
 import Icon from '~/components/ui/Icon.astro';
 import { SITE } from '~/config/site';
@@ -25,16 +26,16 @@ const today = new Date().toLocaleDateString('en-GB', {
 // or Shopify is unreachable. The switcher is cosmetic, so a full list keeps
 // the UX intact; Shopify's list takes over only when it has multiple markets.
 let currencies: CurrencyOption[] = [
-  { iso: 'USD', code: 'USD $', label: 'US Dollar', sym: '$' },
-  { iso: 'EUR', code: 'EUR €', label: 'Euro', sym: '€' },
-  { iso: 'GBP', code: 'GBP £', label: 'British Pound', sym: '£' },
-  { iso: 'JPY', code: 'JPY ¥', label: 'Japanese Yen', sym: '¥' },
-  { iso: 'CAD', code: 'CAD $', label: 'Canadian Dollar', sym: '$' },
-  { iso: 'AUD', code: 'AUD $', label: 'Australian Dollar', sym: '$' },
-  { iso: 'CHF', code: 'CHF ₣', label: 'Swiss Franc', sym: '₣' },
-  { iso: 'CNY', code: 'CNY ¥', label: 'Chinese Yuan', sym: '¥' },
-  { iso: 'INR', code: 'INR ₹', label: 'Indian Rupee', sym: '₹' },
-  { iso: 'AED', code: 'AED د.إ', label: 'UAE Dirham', sym: 'د.إ' },
+  { iso: 'USD', code: 'USD $', label: 'US Dollar', sym: '$', country: 'US' },
+  { iso: 'EUR', code: 'EUR €', label: 'Euro', sym: '€', country: 'DE' },
+  { iso: 'GBP', code: 'GBP £', label: 'British Pound', sym: '£', country: 'GB' },
+  { iso: 'JPY', code: 'JPY ¥', label: 'Japanese Yen', sym: '¥', country: 'JP' },
+  { iso: 'CAD', code: 'CAD $', label: 'Canadian Dollar', sym: '$', country: 'CA' },
+  { iso: 'AUD', code: 'AUD $', label: 'Australian Dollar', sym: '$', country: 'AU' },
+  { iso: 'CHF', code: 'CHF ₣', label: 'Swiss Franc', sym: '₣', country: 'CH' },
+  { iso: 'CNY', code: 'CNY ¥', label: 'Chinese Yuan', sym: '¥', country: 'CN' },
+  { iso: 'INR', code: 'INR ₹', label: 'Indian Rupee', sym: '₹', country: 'IN' },
+  { iso: 'AED', code: 'AED د.إ', label: 'UAE Dirham', sym: 'د.إ', country: 'AE' },
 ];
 let languages: LanguageOption[] = [
   { code: 'EN', label: 'English' },
@@ -107,6 +108,7 @@ try {
               <button
                 type="button"
                 data-value={c.code}
+                data-country={c.country}
                 class="flex w-full items-center justify-between gap-3.5 rounded-xs px-2.5 py-2 text-[12.5px] font-semibold transition-fluid hover:bg-surface-cool"
               >
                 <span>{c.label}</span>
@@ -251,6 +253,17 @@ try {
 
       group.querySelectorAll<HTMLButtonElement>('.disclosure__menu button').forEach((opt) => {
         opt.addEventListener('click', () => {
+          // Currency options carry a market country → persist it and reload so
+          // every price re-renders in that currency (@inContext, server-side).
+          const country = opt.dataset.country;
+          if (country) {
+            document.cookie = `tailored_country=${encodeURIComponent(country)}; path=/; max-age=31536000; samesite=lax`;
+            if (label && opt.dataset.value) label.textContent = opt.dataset.value;
+            btn.setAttribute('aria-expanded', 'false');
+            window.location.reload();
+            return;
+          }
+          // Language (cosmetic for now) — just reflect the choice.
           if (label && opt.dataset.value) label.textContent = opt.dataset.value;
           btn.setAttribute('aria-expanded', 'false');
         });

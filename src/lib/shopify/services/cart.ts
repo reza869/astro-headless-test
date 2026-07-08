@@ -2,6 +2,7 @@
 //  Cart services — the Cart API is the checkout (2026-04)
 // ============================================================
 import { shopifyFetch, type ShopifyFetchOptions } from '../client';
+import { currentCountry } from '../context';
 import {
   CART_CREATE_MUTATION,
   CART_QUERY,
@@ -11,6 +12,7 @@ import {
   CART_DISCOUNT_CODES_UPDATE_MUTATION,
   CART_NOTE_UPDATE_MUTATION,
   CART_ATTRIBUTES_UPDATE_MUTATION,
+  CART_BUYER_IDENTITY_UPDATE_MUTATION,
 } from '../graphql/cart';
 import { mapCart } from '../transforms';
 import type { Cart } from '../types';
@@ -50,22 +52,35 @@ function result(mutationPayload: any): CartResult {
   };
 }
 
-/** Create a cart, optionally with initial lines. */
+/** Create a cart, optionally with initial lines. Prices it in the active
+ *  market (buyerIdentity.countryCode) so a cart started while browsing a
+ *  currency matches that currency through checkout. */
 export async function createCart(
   lines: CartLineInput[] = [],
   opts: ShopifyFetchOptions = {},
 ): Promise<CartResult> {
-  const data = await shopifyFetch<{ cartCreate: any }>(
-    CART_CREATE_MUTATION,
-    {
-      input: {
-        lines,
-        attributes: [{ key: 'source', value: 'astro-storefront' }],
-      },
-    },
+  const country = currentCountry();
+  const input: Record<string, unknown> = {
+    lines,
+    attributes: [{ key: 'source', value: 'astro-storefront' }],
+  };
+  if (country) input.buyerIdentity = { countryCode: country };
+  const data = await shopifyFetch<{ cartCreate: any }>(CART_CREATE_MUTATION, { input }, opts);
+  return result(data.cartCreate);
+}
+
+/** Re-price an existing cart into the given market (ISO alpha-2 country). */
+export async function updateCartBuyerIdentityCountry(
+  cartId: string,
+  countryCode: string,
+  opts: ShopifyFetchOptions = {},
+): Promise<CartResult> {
+  const data = await shopifyFetch<{ cartBuyerIdentityUpdate: any }>(
+    CART_BUYER_IDENTITY_UPDATE_MUTATION,
+    { cartId, buyerIdentity: { countryCode } },
     opts,
   );
-  return result(data.cartCreate);
+  return result(data.cartBuyerIdentityUpdate);
 }
 
 /** Fetch a cart by id; returns null when the cart no longer exists. */

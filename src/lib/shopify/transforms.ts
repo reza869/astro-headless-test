@@ -352,6 +352,7 @@ export function mapCart(c: Raw | null | undefined): Cart | null {
     checkoutUrl: c.checkoutUrl,
     totalQuantity: c.totalQuantity ?? 0,
     note: c.note ?? null,
+    countryCode: c.buyerIdentity?.countryCode ?? null,
     // Hide Shopify's `_`-prefixed internal attributes from the UI.
     attributes: (c.attributes ?? []).filter((a: Raw) => a?.key && !a.key.startsWith('_')),
     discountCodes: c.discountCodes ?? [],

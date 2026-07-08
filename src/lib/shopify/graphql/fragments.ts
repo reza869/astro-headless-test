@@ -178,6 +178,9 @@ export const CART_FRAGMENT = /* GraphQL */ `
     checkoutUrl
     totalQuantity
     note
+    buyerIdentity {
+      countryCode
+    }
     attributes {
       key
       value

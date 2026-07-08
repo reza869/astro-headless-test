@@ -9,6 +9,7 @@
 // mutations) are retried with jittered backoff on transient errors
 // and GraphQL THROTTLED, and may be edge-cached via the Cloudflare
 // Cache API when a caller opts in with `cacheTtl`.
+import { currentCountry } from './context';
 
 /** Read an env var from build-time inline (dev) or runtime process.env (prod node). */
 function env(key: string): string | undefined {
@@ -132,6 +133,23 @@ function unwrap<T>(res: Response, json: GraphQLResponse<T>): T {
 }
 
 /**
+ * Add `@inContext(country: $country)` to a query operation so Shopify prices it
+ * in the active market. Returns the rewritten query, or null when it can't be
+ * localised safely (already localised, or not a recognisable `query …{` form —
+ * e.g. an anonymous query). Mutations are never passed here.
+ */
+function localiseQuery(query: string): string | null {
+  if (/@inContext/.test(query)) return query;
+  const m = query.match(/query(\s+\w+)?\s*(\([^)]*\))?\s*\{/);
+  if (!m) return null;
+  const [full, name = '', vars] = m;
+  const newVars = vars
+    ? vars.replace(/\)\s*$/, ', $country: CountryCode)')
+    : '($country: CountryCode)';
+  return query.replace(full, `query${name} ${newVars} @inContext(country: $country) {`);
+}
+
+/**
  * Execute a Storefront GraphQL operation. Throws ShopifyError on
  * transport or GraphQL errors; otherwise returns the typed `data`.
  */
@@ -146,8 +164,24 @@ export async function shopifyFetch<T>(
     );
   }
 
-  const body = JSON.stringify({ query, variables });
   const mutation = isMutation(query);
+
+  // Localise: when a market country is active, rewrite the operation to add
+  // `@inContext(country:)` so Shopify returns that market's currency. Done here
+  // (not in every query file) and ONLY when a country is selected, so the
+  // default path is byte-for-byte unchanged — important because @inContext with
+  // a null country does NOT fall back to the shop's primary market. The cache
+  // key hashes the final body, so each currency caches separately.
+  const country = currentCountry();
+  if (country && !mutation) {
+    const localised = localiseQuery(query);
+    if (localised) {
+      query = localised;
+      variables = { ...variables, country };
+    }
+  }
+
+  const body = JSON.stringify({ query, variables });
   const cacheApi =
     !mutation && options.cacheTtl && typeof caches !== 'undefined'
       ? (caches as unknown as { default: Cache }).default

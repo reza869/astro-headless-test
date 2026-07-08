@@ -13,12 +13,25 @@ import {
   updateCartLines,
   updateCartNote,
   updateCartAttributes,
+  updateCartBuyerIdentityCountry,
+  type Cart,
   type CartLineAttribute,
   type CartLineInput,
   type CartLineUpdateInput,
   type CartResult,
 } from '~/lib/shopify';
+import { currentCountry } from '~/lib/shopify/context';
 import { clearCartId, getCartId, setCartId } from './cart-cookie';
+
+/** Re-price a cart into the active market when it differs (a fresh cart created
+ *  in that market already matches, so this is a no-op then). Keeps the cart's
+ *  currency in step with the currency the shopper is browsing in. */
+async function repriceToMarket(cart: Cart | null, buyerIp?: string): Promise<Cart | null> {
+  const country = currentCountry();
+  if (!cart || !country || (cart.countryCode ?? '') === country) return cart;
+  const updated = await updateCartBuyerIdentityCountry(cart.id, country, { buyerIp });
+  return updated.cart ?? cart;
+}
 
 export function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -98,8 +111,11 @@ export async function readCart(cookies: AstroCookies, buyerIp?: string): Promise
   const id = getCartId(cookies);
   if (!id) return { cart: null, userErrors: [] };
   const cart = await getCart(id, { buyerIp });
-  if (!cart) clearCartId(cookies); // expired / invalid — forget it
-  return { cart, userErrors: [] };
+  if (!cart) {
+    clearCartId(cookies); // expired / invalid — forget it
+    return { cart: null, userErrors: [] };
+  }
+  return { cart: await repriceToMarket(cart, buyerIp), userErrors: [] };
 }
 
 /**
@@ -114,7 +130,8 @@ export async function addLines(
   const id = getCartId(cookies);
   if (id) {
     const res = await addCartLines(id, lines, { buyerIp });
-    if (res.cart) return res;
+    // Keep an existing cart's currency in step with the browsing market.
+    if (res.cart) return { ...res, cart: await repriceToMarket(res.cart, buyerIp) };
     // Stored cart vanished — fall through and start a fresh one.
     clearCartId(cookies);
   }

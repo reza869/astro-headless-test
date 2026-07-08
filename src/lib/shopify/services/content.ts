@@ -27,6 +27,9 @@ export interface CurrencyOption {
   label: string;
   sym: string;
   iso: string;
+  /** Representative market country (ISO alpha-2) that yields this currency —
+   *  the switcher sets this as the country cookie to price the store in it. */
+  country: string;
 }
 /** A selectable language. `code` is the ISO (e.g. "EN"); `label` the endonym. */
 export interface LanguageOption {
@@ -65,7 +68,9 @@ export async function getLocalization(): Promise<Localization> {
     const { isoCode, name, symbol } = c.currency;
     if (seen.has(isoCode)) continue;
     seen.add(isoCode);
-    currencies.push({ iso: isoCode, code: `${isoCode} ${symbol}`, label: name, sym: symbol });
+    // `c.isoCode` is the country; the first country seen for this currency is a
+    // fine representative (e.g. EUR → the first Eurozone market listed).
+    currencies.push({ iso: isoCode, code: `${isoCode} ${symbol}`, label: name, sym: symbol, country: c.isoCode });
   }
 
   const languages: LanguageOption[] = l.availableLanguages.map((lang) => ({

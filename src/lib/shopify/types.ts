@@ -284,6 +284,8 @@ export interface Cart {
   checkoutUrl: string;
   totalQuantity: number;
   note?: string | null;
+  /** Market country the cart is priced in (from buyerIdentity.countryCode). */
+  countryCode?: string | null;
   /** Cart-level attributes (gift wrap flag, gift message, …). */
   attributes?: { key: string; value: string }[];
   discountCodes?: { applicable: boolean; code: string }[];

@@ -142,3 +142,19 @@ export const CART_ATTRIBUTES_UPDATE_MUTATION = /* GraphQL */ `
     }
   }
 `;
+
+/** Re-price an existing cart into a market by setting the buyer's country. */
+export const CART_BUYER_IDENTITY_UPDATE_MUTATION = /* GraphQL */ `
+  ${CART_FRAGMENTS}
+  mutation CartBuyerIdentityUpdate($cartId: ID!, $buyerIdentity: CartBuyerIdentityInput!) {
+    cartBuyerIdentityUpdate(cartId: $cartId, buyerIdentity: $buyerIdentity) {
+      cart {
+        ...CartFields
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`;
