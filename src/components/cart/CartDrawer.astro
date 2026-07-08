@@ -347,6 +347,8 @@ const { loggedIn = false } = Astro.props;
       const dp = lineDiscount(line);
       const optionText = m.selectedOptions.filter((o) => o.value !== 'Default Title').map((o) => o.value).join(' · ');
       const max = lineMaxQty(line);
+      // Per-unit price, shown as a labelled "Price:" line under the options.
+      const unitPrice = Number(line.cost?.amountPerQuantity?.amount ?? 0);
       const attrs = (line.attributes ?? []).length
         ? `<ul class="mt-1 space-y-0.5">${line
             .attributes!.map(
@@ -381,6 +383,7 @@ const { loggedIn = false } = Astro.props;
             <div class="min-w-0">
               <a href="/products/${esc(m.product.handle)}" data-cart-link class="block truncate text-[15px] font-bold leading-tight text-text-primary hover:text-coral">${esc(m.product.title)}</a>
               ${optionText ? `<p class="mt-1 text-[12.5px] text-text-muted">${esc(optionText)}</p>` : ''}
+              <p class="mt-1 text-[12.5px] text-text-muted"><span class="font-semibold text-text-secondary">Price:</span> ${esc(money(unitPrice, currency))}</p>
               ${attrs}${allocs}
             </div>
             ${priceBlock}
