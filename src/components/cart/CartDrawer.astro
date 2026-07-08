@@ -1,0 +1,680 @@
+---
+// ============================================================
+//  CartDrawer — floating slide-over bag (vanilla island, no React).
+//  Subscribes to the shared $cart nanostore so it stays in sync with
+//  the header badge and every add-to-cart button. Persistent inputs
+//  (order note, promo code) live in the SSR markup and are never
+//  re-rendered; only the dynamic regions are painted on store changes.
+//  Markup/classes match the former React version so the drawer is
+//  visually identical.
+// ============================================================
+import Icon from '~/components/ui/Icon.astro';
+
+interface Props {
+  loggedIn?: boolean;
+}
+const { loggedIn = false } = Astro.props;
+---
+
+{/* Cart live region — announces changes to screen readers (sibling of the drawer) */}
+<div data-cart-live aria-live="polite" role="status" class="sr-only"></div>
+
+{/* Undo-remove toast — floats over any surface after a removal */}
+<div
+  data-undo-toast
+  class="fixed bottom-4 left-4 z-[110] hidden max-w-[calc(100vw-2rem)]"
+  role="status"
+  aria-live="polite"
+>
+  <div class="flex items-center gap-3 rounded-xl bg-dark px-4 py-3 text-white shadow-lg ring-1 ring-white/10">
+    <span class="min-w-0 truncate text-[13px]">Removed <b data-undo-title class="font-semibold"></b></span>
+    <button
+      type="button"
+      data-undo-do
+      class="inline-flex flex-none items-center gap-1.5 rounded-md bg-white/10 px-3 py-1.5 text-[12px] font-bold uppercase tracking-[1px] text-white transition-fluid hover:bg-coral"
+    >
+      <Icon name="rotate" size={13} strokeWidth={2} /> Undo
+    </button>
+    <button
+      type="button"
+      data-undo-dismiss
+      aria-label="Dismiss"
+      class="grid h-6 w-6 flex-none place-items-center rounded-md text-white/60 transition-fluid hover:text-white"
+    >
+      <Icon name="close" size={14} strokeWidth={2} />
+    </button>
+  </div>
+</div>
+
+<div data-cart-root class="pointer-events-none fixed inset-0 z-[100]" aria-hidden="true" inert>
+  <div
+    data-cart-backdrop
+    class="absolute inset-0 bg-dark/50 opacity-0 backdrop-blur-[2px] transition-opacity duration-300"
+  ></div>
+
+  <div
+    data-cart-wrapper
+    class="absolute inset-y-0 right-0 flex w-full max-w-[27rem] translate-x-[105%] p-2 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] sm:p-3"
+  >
+    <div
+      data-cart-panel
+      tabindex="-1"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Shopping bag"
+      class="flex h-full w-full flex-col overflow-hidden rounded-3xl bg-bg-light shadow-2xl outline-none"
+    >
+      {/* Header */}
+      <header class="shrink-0 px-5 pt-5">
+        <div class="flex items-start justify-between gap-3">
+          <h2 class="font-heading text-[26px] font-extrabold leading-none tracking-tight text-text-primary">
+            Your Bag{' '}
+            <span class="align-baseline text-[18px] font-semibold text-text-muted">(<span data-cart-count>0</span>)</span>
+          </h2>
+          <button
+            type="button"
+            data-cart-close
+            class="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-surface text-text-primary shadow-sm ring-1 ring-border transition-fluid hover:bg-surface-cool"
+            aria-label="Close bag"
+          >
+            <Icon name="close" size={19} strokeWidth={1.8} />
+          </button>
+        </div>
+
+        <div data-cart-meter class="mt-4 hidden">
+          <p data-cart-meter-text class="text-[13px] font-semibold text-text-secondary"></p>
+          <div data-cart-meter-track class="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-cool">
+            <div data-cart-meter-bar class="h-full rounded-full bg-coral transition-[width] duration-500 ease-out" style="width:0%"></div>
+          </div>
+        </div>
+      </header>
+
+      {/* EMPTY state */}
+      <div data-cart-empty class="flex flex-1 flex-col items-center justify-center px-8 pb-10 text-center">
+        <span class="mb-4 grid h-16 w-16 place-items-center rounded-full bg-surface text-text-muted ring-1 ring-border">
+          <Icon name="bag" size={26} strokeWidth={1.4} />
+        </span>
+        <p class="font-heading text-[22px] font-bold tracking-tight text-text-primary">Your bag is empty</p>
+        <p class="mt-1 text-sm text-text-secondary">Nothing in here yet — let's change that.</p>
+        <a
+          href="/products"
+          data-cart-shopall
+          class="mt-6 inline-flex h-12 items-center gap-2 rounded-xl bg-dark px-6 text-[13px] font-bold uppercase tracking-[1.2px] text-white transition-fluid hover:bg-dark-hover"
+        >
+          Shop all products
+          <Icon name="arrowRight" size={17} strokeWidth={1.8} />
+        </a>
+        {
+          !loggedIn && (
+            <a
+              href="/account/login"
+              class="mt-3 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-text-secondary transition-fluid hover:text-coral"
+            >
+              <Icon name="login" size={14} strokeWidth={1.8} /> Have an account? Sign in
+            </a>
+          )
+        }
+      </div>
+
+      {/* FILLED state — `contents` so the scroll region + footer are flex children of the panel */}
+      <div data-cart-filled class="hidden contents">
+        <div class="flex-1 overflow-y-auto px-4 pb-4 pt-4">
+          <ul data-cart-lines class="flex flex-col gap-3"></ul>
+
+          {/* Order note (persistent) */}
+          <section class="mt-5 border-t border-border/60 pt-4">
+            <button
+              type="button"
+              data-note-toggle
+              class="flex items-center gap-2 text-[12.5px] font-semibold text-text-secondary transition-fluid hover:text-coral"
+            >
+              <Icon name="pencil" size={15} strokeWidth={1.8} /> Add an order note
+            </button>
+            <div data-note-field class="hidden">
+              <label
+                for="drawer-order-note"
+                class="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[1.6px] text-text-secondary"
+              >
+                <Icon name="pencil" size={14} strokeWidth={1.8} /> Order note
+              </label>
+              <textarea
+                id="drawer-order-note"
+                data-note-input
+                placeholder="Delivery instructions or a gift message…"
+                rows="2"
+                class="w-full resize-y rounded-xl bg-surface px-3.5 py-2.5 text-[13px] leading-[1.55] outline-none ring-1 ring-inset ring-border transition-shadow focus:ring-2 focus:ring-coral"
+              ></textarea>
+            </div>
+          </section>
+
+          {/* Recommendations (built client-side) */}
+          <section data-cart-recs class="mt-8 hidden border-t border-border/60 pt-6">
+            <h3 class="mb-4 flex items-center justify-center gap-2.5 text-[11px] font-bold uppercase tracking-[1.8px] text-text-muted">
+              <span class="h-px w-5 bg-border"></span>
+              You may also like
+              <span class="h-px w-5 bg-border"></span>
+            </h3>
+            <div data-cart-recs-grid class="grid grid-cols-2 gap-3.5"></div>
+          </section>
+        </div>
+
+        {/* Footer — pinned subtotal + checkout */}
+        <footer class="shrink-0 px-3 pb-3">
+          <div class="rounded-2xl bg-surface p-4 shadow-[0_-2px_24px_rgba(9,10,11,0.08)] ring-1 ring-border/70">
+            <p
+              data-cart-error
+              class="mb-3 hidden rounded-md bg-coral-soft px-3 py-2 text-xs font-medium text-coral"
+              role="alert"
+            ></p>
+
+            {/* Promo code (persistent) */}
+            <div class="mb-3">
+              <div class="flex gap-2">
+                <label for="drawer-promo" class="sr-only">Promo code</label>
+                <div class="relative min-w-0 flex-1">
+                  <Icon name="tag" size={14} strokeWidth={1.8} class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted" />
+                  <input
+                    id="drawer-promo"
+                    data-discount-input
+                    type="text"
+                    placeholder="Promo code"
+                    class="h-10 w-full rounded-lg bg-surface-cool pl-8 pr-3 text-[12.5px] uppercase tracking-[0.5px] outline-none ring-1 ring-inset ring-border transition-shadow focus:ring-2 focus:ring-coral"
+                  />
+                </div>
+                <button
+                  type="button"
+                  data-discount-apply
+                  disabled
+                  class="h-10 flex-none rounded-lg bg-dark px-4 text-[11px] font-bold uppercase tracking-[1px] text-white transition-fluid hover:bg-dark-hover disabled:opacity-50"
+                >
+                  Apply
+                </button>
+              </div>
+              <p data-discount-note class="mt-1.5 hidden text-[11.5px] font-medium"></p>
+              <div data-discount-chips class="mt-2 hidden flex-wrap gap-1.5"></div>
+            </div>
+
+            <div data-cart-discount-row class="mb-3 hidden items-baseline justify-between text-[13px] font-medium text-coral">
+              <span data-cart-discount-label>Discount</span>
+              <span data-cart-discount-amount class="tabular"></span>
+            </div>
+
+            <div class="flex items-end justify-between gap-3">
+              <div class="min-w-0">
+                <p data-cart-total-label class="text-[11px] font-bold uppercase tracking-[1.6px] text-text-secondary">Subtotal</p>
+                <p class="mt-1 text-[12.5px] leading-tight text-text-muted">Shipping &amp; taxes calculated at checkout</p>
+              </div>
+              <span data-cart-total class="shrink-0 font-heading text-[30px] font-extrabold leading-none tabular text-text-primary"></span>
+            </div>
+
+            <button
+              type="button"
+              data-cart-checkout
+              class="mt-4 flex h-[54px] w-full items-center justify-center gap-2.5 rounded-xl bg-coral text-[13px] font-bold uppercase tracking-[1.5px] text-white shadow-[0_10px_24px_rgba(217,88,70,0.32)] transition-fluid hover:bg-coral-hover disabled:opacity-60"
+            >
+              <span class="inline-flex items-center gap-2.5">Checkout <Icon name="arrowRight" size={17} strokeWidth={2} /></span>
+            </button>
+
+            <a
+              href="/cart"
+              data-cart-viewcart
+              class="mt-2.5 flex h-[50px] w-full items-center justify-center rounded-xl border border-border text-[12.5px] font-bold uppercase tracking-[1.4px] text-text-primary transition-fluid hover:border-dark hover:text-coral"
+            >
+              View Cart
+            </a>
+          </div>
+        </footer>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  import {
+    $cart,
+    $cartOpen,
+    $cartBusy,
+    $busyLines,
+    $cartError,
+    $lastRemoved,
+    closeCart,
+    updateItem,
+    removeItem,
+    addItem,
+    applyDiscountCode,
+    undoRemove,
+    clearLastRemoved,
+    checkout,
+    setNote,
+  } from '~/stores/cart';
+  import type { CartLine, ProductCard } from '~/lib/shopify/types';
+  import { formatMoney } from '~/lib/utils';
+  import { lineDiscount, lineMaxQty, isFileUpload } from '~/lib/cart-pricing';
+  import { lockScroll, unlockScroll } from '~/lib/scroll-lock';
+  import { SITE } from '~/config/site';
+
+  const esc = (s: string) =>
+    String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+  const ic = (paths: string, size: number, sw = 1.7) =>
+    `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+  const GLYPH = {
+    trash: '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/>',
+    minus: '<path d="M5 12h14"/>',
+    plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>',
+    close: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  };
+  const spinner = (size: number) =>
+    `<svg class="animate-spin" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-opacity="0.25" stroke-width="2.5"/><path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>`;
+
+  function initCartDrawer(): void {
+    const root = document.querySelector<HTMLElement>('[data-cart-root]');
+    if (!root || root.dataset.bound) return;
+    root.dataset.bound = 'true';
+
+    const $ = <T extends HTMLElement = HTMLElement>(s: string) => root.querySelector<T>(s)!;
+    const backdrop = $('[data-cart-backdrop]');
+    const wrapper = $('[data-cart-wrapper]');
+    const panel = $('[data-cart-panel]');
+    const meter = $('[data-cart-meter]');
+    const meterText = $('[data-cart-meter-text]');
+    const meterTrack = $('[data-cart-meter-track]');
+    const meterBar = $('[data-cart-meter-bar]');
+    const emptyEl = $('[data-cart-empty]');
+    const filledEl = $('[data-cart-filled]');
+    const linesEl = $('[data-cart-lines]');
+    const countEl = $('[data-cart-count]');
+    const errorEl = $('[data-cart-error]');
+    const discRow = $('[data-cart-discount-row]');
+    const discLabel = $('[data-cart-discount-label]');
+    const discAmount = $('[data-cart-discount-amount]');
+    const totalLabel = $('[data-cart-total-label]');
+    const totalEl = $('[data-cart-total]');
+    const checkoutBtn = $<HTMLButtonElement>('[data-cart-checkout]');
+    const recsSection = $('[data-cart-recs]');
+    const recsGrid = $('[data-cart-recs-grid]');
+
+    // Persistent inputs
+    const noteToggle = $<HTMLButtonElement>('[data-note-toggle]');
+    const noteField = $('[data-note-field]');
+    const noteInput = $<HTMLTextAreaElement>('[data-note-input]');
+    const discInput = $<HTMLInputElement>('[data-discount-input]');
+    const discApply = $<HTMLButtonElement>('[data-discount-apply]');
+    const discNote = $('[data-discount-note]');
+    const discChips = $('[data-discount-chips]');
+
+    // Live region + toast
+    const liveEl = document.querySelector<HTMLElement>('[data-cart-live]');
+    const toast = document.querySelector<HTMLElement>('[data-undo-toast]');
+
+    const money = (n: number, cur: string) => formatMoney(n, cur);
+
+    // ── Open / close ────────────────────────────────────────
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeCart();
+    let opener: HTMLElement | null = null;
+    $cartOpen.subscribe((open) => {
+      if (open) {
+        opener = document.activeElement as HTMLElement;
+        root.classList.remove('pointer-events-none');
+        root.removeAttribute('aria-hidden');
+        root.removeAttribute('inert');
+        backdrop.classList.replace('opacity-0', 'opacity-100');
+        wrapper.classList.replace('translate-x-[105%]', 'translate-x-0');
+        lockScroll();
+        document.addEventListener('keydown', onKey);
+        panel.focus();
+        loadRecs();
+      } else {
+        root.classList.add('pointer-events-none');
+        root.setAttribute('aria-hidden', 'true');
+        root.setAttribute('inert', '');
+        backdrop.classList.replace('opacity-100', 'opacity-0');
+        wrapper.classList.replace('translate-x-0', 'translate-x-[105%]');
+        unlockScroll();
+        document.removeEventListener('keydown', onKey);
+        opener?.focus();
+      }
+    });
+    backdrop.addEventListener('click', () => closeCart());
+    $('[data-cart-close]').addEventListener('click', () => closeCart());
+    $('[data-cart-shopall]').addEventListener('click', () => closeCart());
+    $('[data-cart-viewcart]').addEventListener('click', () => closeCart());
+
+    // ── Line row markup ─────────────────────────────────────
+    function lineRow(line: CartLine, currency: string, busy: boolean): string {
+      const m = line.merchandise;
+      const image = m.image ?? m.product?.featuredImage ?? null;
+      const dp = lineDiscount(line);
+      const optionText = m.selectedOptions.filter((o) => o.value !== 'Default Title').map((o) => o.value).join(' · ');
+      const max = lineMaxQty(line);
+      const attrs = (line.attributes ?? []).length
+        ? `<ul class="mt-1 space-y-0.5">${line
+            .attributes!.map(
+              (a) =>
+                `<li class="truncate text-[11.5px] text-text-muted"><span class="font-semibold">${esc(a.key)}:</span> ${
+                  isFileUpload(a.value)
+                    ? `<a href="${a.value}" target="_blank" rel="noopener noreferrer" download class="inline-flex items-center gap-1 font-semibold text-coral hover:underline">${ic(GLYPH.download, 11, 2)} Download</a>`
+                    : esc(a.value)
+                }</li>`,
+            )
+            .join('')}</ul>`
+        : '';
+      const allocs = dp.allocations.length
+        ? `<ul class="mt-1 space-y-0.5">${dp.allocations
+            .map((a) => `<li class="truncate text-[11px] font-semibold text-coral">${esc(a.label)} −${esc(money(a.amount, a.currency))}</li>`)
+            .join('')}</ul>`
+        : '';
+      const priceBlock = `<span class="shrink-0 text-right leading-tight">${
+        dp.hasStrike ? `<s class="mr-1.5 align-middle text-[12px] font-medium text-text-muted">${esc(money(dp.original, currency))}</s>` : ''
+      }<span class="align-middle text-[15px] font-bold tabular ${dp.hasStrike ? 'text-coral' : 'text-text-primary'}">${esc(money(dp.finalTotal, currency))}</span></span>`;
+
+      const dec = `<button type="button" data-qty-dec class="grid place-items-center h-9 w-9 rounded-full text-text-primary transition-fluid hover:bg-dark/[0.06] disabled:opacity-30 disabled:pointer-events-none" ${busy || line.quantity <= 1 ? 'disabled' : ''} aria-label="Decrease quantity">${ic(GLYPH.minus, 15, 1.6)}</button>`;
+      const inc = `<button type="button" data-qty-inc class="grid place-items-center h-9 w-9 rounded-full text-text-primary transition-fluid hover:bg-dark/[0.06] disabled:opacity-30 disabled:pointer-events-none" ${busy || line.quantity >= max ? 'disabled' : ''} aria-label="Increase quantity">${ic(GLYPH.plus, 15, 1.6)}</button>`;
+      const stepper = `<div class="inline-flex items-center rounded-full bg-surface-cool ${busy ? 'opacity-60' : ''}" role="group" aria-label="Quantity for ${esc(m.product.title)}">${dec}<span class="min-w-7 text-center font-mono tabular text-sm" aria-live="polite">${line.quantity}</span>${inc}</div>`;
+
+      return `<li data-line-id="${esc(line.id)}" data-qty="${line.quantity}" data-max="${max}" class="flex gap-3 rounded-2xl bg-surface p-3 shadow-xs ring-1 ring-border/70">
+        <a href="/products/${esc(m.product.handle)}" data-cart-link class="relative block h-[94px] w-[78px] shrink-0 overflow-hidden rounded-xl bg-surface-cool">${
+          image ? `<img src="${image.url}" alt="${esc(image.altText ?? m.product.title)}" class="h-full w-full object-cover" loading="lazy">` : ''
+        }${busy ? `<span class="absolute inset-0 grid place-items-center bg-surface/60 text-text-primary">${spinner(18)}</span>` : ''}</a>
+        <div class="flex min-w-0 flex-1 flex-col">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <a href="/products/${esc(m.product.handle)}" data-cart-link class="block truncate text-[15px] font-bold leading-tight text-text-primary hover:text-coral">${esc(m.product.title)}</a>
+              ${optionText ? `<p class="mt-1 text-[12.5px] text-text-muted">${esc(optionText)}</p>` : ''}
+              ${attrs}${allocs}
+            </div>
+            ${priceBlock}
+          </div>
+          <div class="mt-auto flex items-end justify-between pt-2">
+            ${stepper}
+            <button type="button" data-remove class="-mb-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg text-text-muted transition-fluid hover:bg-coral-soft hover:text-coral disabled:opacity-40" ${busy ? 'disabled' : ''} aria-label="Remove ${esc(m.product.title)}">${ic(GLYPH.trash, 16, 1.7)}</button>
+          </div>
+        </div>
+      </li>`;
+    }
+
+    // ── Count-up on the headline total ──────────────────────
+    let lastTotal: number | null = null;
+    let raf = 0;
+    function animateTotal(to: number, cur: string): void {
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.cancelAnimationFrame(raf);
+      if (lastTotal === null || reduce || lastTotal === to) {
+        lastTotal = to;
+        totalEl.textContent = money(to, cur);
+        return;
+      }
+      const from = lastTotal;
+      lastTotal = to;
+      const start = performance.now();
+      const tick = (now: number) => {
+        const p = Math.min(1, (now - start) / 420);
+        const e = 1 - Math.pow(1 - p, 3);
+        totalEl.textContent = money(from + (to - from) * e, cur);
+        if (p < 1) raf = window.requestAnimationFrame(tick);
+      };
+      raf = window.requestAnimationFrame(tick);
+    }
+
+    // ── Paint everything cart-derived ───────────────────────
+    let noteSeededId: string | null = null;
+    let firstLive = true;
+    function paint(): void {
+      const cart = $cart.get();
+      const busyLines = $busyLines.get();
+      const lines = cart?.lines ?? [];
+      const currency = cart?.cost?.subtotalAmount?.currencyCode ?? 'USD';
+      const subtotal = Number(cart?.cost?.subtotalAmount?.amount ?? 0);
+      const total = Number(cart?.cost?.totalAmount?.amount ?? subtotal);
+      const discount = Math.max(0, subtotal - total);
+      const codes = (cart?.discountCodes ?? []).filter((d) => d.applicable).map((d) => d.code);
+      const qty = cart?.totalQuantity ?? 0;
+
+      countEl.textContent = String(qty);
+
+      // Empty / filled
+      const empty = lines.length === 0;
+      emptyEl.classList.toggle('hidden', !empty);
+      filledEl.classList.toggle('hidden', empty);
+
+      // Free-ship meter
+      const threshold = SITE.freeShippingThreshold;
+      const remaining = Math.max(0, threshold - subtotal);
+      const unlocked = remaining <= 0 && subtotal > 0;
+      const progress = threshold > 0 ? Math.min(100, (subtotal / threshold) * 100) : 100;
+      meter.classList.toggle('hidden', empty);
+      if (!empty) {
+        meterText.textContent = unlocked ? "You've unlocked free shipping!" : '';
+        if (!unlocked) {
+          meterText.innerHTML = `You're <span class="tabular text-text-primary">${esc(money(remaining, currency))}</span> away from free shipping.`;
+        }
+        meterText.className = `text-[13px] font-semibold ${unlocked ? 'text-green' : 'text-text-secondary'}`;
+        meterTrack.classList.toggle('cart-ship-unlocked', unlocked);
+        meterBar.className = `h-full rounded-full transition-[width] duration-500 ease-out ${unlocked ? 'bg-green' : 'bg-coral'}`;
+        meterBar.style.width = `${progress}%`;
+      }
+
+      // Lines
+      if (!empty) {
+        linesEl.innerHTML = lines.map((l) => lineRow(l, currency, !!busyLines[l.id])).join('');
+      }
+
+      // Footer discount row + totals
+      discRow.classList.toggle('hidden', !(discount > 0));
+      discRow.classList.toggle('flex', discount > 0);
+      if (discount > 0) {
+        discLabel.textContent = `Discount${codes.length ? ` · ${codes.join(', ')}` : ''}`;
+        discAmount.textContent = `−${money(discount, currency)}`;
+      }
+      totalLabel.textContent = discount > 0 ? 'Total' : 'Subtotal';
+      animateTotal(discount > 0 ? total : subtotal, currency);
+
+      // Applied promo chips
+      const applied = (cart?.discountCodes ?? []).filter((d) => d.applicable);
+      discChips.classList.toggle('hidden', applied.length === 0);
+      discChips.classList.toggle('flex', applied.length > 0);
+      discChips.innerHTML = applied
+        .map(
+          (d) =>
+            `<span class="inline-flex items-center gap-1.5 rounded-md bg-green-soft px-2 py-1 text-[11px] font-bold text-green-hover">${esc(d.code)}<button type="button" data-discount-remove="${esc(d.code)}" aria-label="Remove ${esc(d.code)}" class="transition-fluid hover:text-coral">${ic(GLYPH.close, 12, 2.2)}</button></span>`,
+        )
+        .join('');
+
+      // Seed the order note once per cart id (don't clobber while typing).
+      const id = cart?.id ?? null;
+      if (id && noteSeededId !== id) {
+        noteSeededId = id;
+        noteInput.value = cart?.note ?? '';
+        if (cart?.note) {
+          noteToggle.classList.add('hidden');
+          noteField.classList.remove('hidden');
+        }
+      }
+
+      // Live region (skip first hydration)
+      if (liveEl) {
+        if (firstLive) {
+          firstLive = false;
+        } else if (qty === 0) {
+          liveEl.textContent = 'Your bag is empty.';
+        } else {
+          liveEl.textContent = `Bag updated: ${qty} item${qty === 1 ? '' : 's'}, subtotal ${money(subtotal, currency)}.`;
+        }
+      }
+    }
+
+    $cart.subscribe(paint);
+    $busyLines.subscribe(paint);
+
+    // Busy → checkout button
+    $cartBusy.subscribe((busy) => {
+      checkoutBtn.disabled = busy;
+      checkoutBtn.innerHTML = busy
+        ? spinner(20)
+        : `<span class="inline-flex items-center gap-2.5">Checkout ${ic('<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>', 17, 2)}</span>`;
+    });
+
+    // Error
+    $cartError.subscribe((err) => {
+      errorEl.textContent = err ?? '';
+      errorEl.classList.toggle('hidden', !err);
+    });
+
+    checkoutBtn.addEventListener('click', () => checkout());
+
+    // ── Line interactions (delegated) ───────────────────────
+    linesEl.addEventListener('click', (e) => {
+      const li = (e.target as HTMLElement).closest<HTMLElement>('[data-line-id]');
+      if (!li) return;
+      const id = li.dataset.lineId!;
+      const cur = Number(li.dataset.qty);
+      const max = Number(li.dataset.max);
+      if ((e.target as HTMLElement).closest('[data-cart-link]')) {
+        closeCart();
+        return;
+      }
+      if ((e.target as HTMLElement).closest('[data-qty-dec]')) updateItem(id, Math.max(1, cur - 1));
+      else if ((e.target as HTMLElement).closest('[data-qty-inc]')) updateItem(id, Math.min(max, cur + 1));
+      else if ((e.target as HTMLElement).closest('[data-remove]')) removeItem(id, { trackUndo: true });
+    });
+
+    // ── Order note (persistent, debounced save) ─────────────
+    noteToggle.addEventListener('click', () => {
+      noteToggle.classList.add('hidden');
+      noteField.classList.remove('hidden');
+      noteInput.focus();
+    });
+    let noteTimer = 0;
+    noteInput.addEventListener('input', () => {
+      window.clearTimeout(noteTimer);
+      const v = noteInput.value;
+      noteTimer = window.setTimeout(() => setNote(v), 600);
+    });
+
+    // ── Promo code (persistent) ─────────────────────────────
+    const showNote = (tone: 'ok' | 'err', text: string) => {
+      discNote.textContent = text;
+      discNote.className = `mt-1.5 text-[11.5px] font-medium ${tone === 'ok' ? 'text-green' : 'text-coral'}`;
+      discNote.classList.remove('hidden');
+    };
+    discInput.addEventListener('input', () => {
+      discApply.disabled = !discInput.value.trim();
+    });
+    const applyPromo = async () => {
+      const c = discInput.value.trim().toUpperCase();
+      if (!c) return;
+      discNote.classList.add('hidden');
+      const applied = ($cart.get()?.discountCodes ?? []).filter((d) => d.applicable).map((d) => d.code.toUpperCase());
+      const next = Array.from(new Set([...applied, c]));
+      const res = await applyDiscountCode(next, { open: false });
+      const ok = (res.cart?.discountCodes ?? []).some((d) => d.applicable && d.code.toUpperCase() === c);
+      showNote(ok ? 'ok' : 'err', ok ? 'Code applied.' : "That code isn't valid.");
+      if (ok) {
+        discInput.value = '';
+        discApply.disabled = true;
+      }
+    };
+    discApply.addEventListener('click', applyPromo);
+    discInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        void applyPromo();
+      }
+    });
+    discChips.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-discount-remove]');
+      if (!btn) return;
+      const target = btn.dataset.discountRemove!.toUpperCase();
+      const next = ($cart.get()?.discountCodes ?? [])
+        .filter((d) => d.applicable)
+        .map((d) => d.code)
+        .filter((code) => code.toUpperCase() !== target);
+      void applyDiscountCode(next, { open: false });
+      discNote.classList.add('hidden');
+    });
+
+    // ── Recommendations (lazy on open) ──────────────────────
+    let recKey = '';
+    async function loadRecs(): Promise<void> {
+      const lines = $cart.get()?.lines ?? [];
+      if (lines.length === 0) {
+        recsSection.classList.add('hidden');
+        return;
+      }
+      const seedId = lines[0].merchandise.product.id;
+      if (recKey === seedId) return;
+      recKey = seedId;
+      const inBag = new Set(lines.map((l) => l.merchandise.product.handle));
+      try {
+        const r = await fetch(`/api/recommendations?productId=${encodeURIComponent(seedId)}&limit=6`);
+        const data = (r.ok ? await r.json() : { products: [] }) as { products?: ProductCard[] };
+        const list = (data.products ?? []).filter((p) => !inBag.has(p.handle)).slice(0, 2);
+        renderRecs(list);
+      } catch {
+        renderRecs([]);
+      }
+    }
+    function renderRecs(list: ProductCard[]): void {
+      if (!list.length) {
+        recsSection.classList.add('hidden');
+        recsGrid.innerHTML = '';
+        return;
+      }
+      recsSection.classList.remove('hidden');
+      recsGrid.innerHTML = list
+        .map((p) => {
+          const img = p.featuredImage;
+          const price = p.priceRange.minVariantPrice;
+          const canQuickAdd = p.availableForSale && !p.requiresChoice && !!p.variantId;
+          const cta = canQuickAdd
+            ? `<button type="button" data-rec-add="${esc(p.variantId!)}" data-rec-handle="${esc(p.handle)}" class="mt-2.5 flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-border text-[11px] font-bold uppercase tracking-[1px] text-text-primary transition-fluid hover:border-dark hover:bg-dark hover:text-white disabled:opacity-50" aria-label="Add ${esc(p.title)} to bag">${ic(GLYPH.plus, 13, 2.4)} Add</button>`
+            : `<a href="/products/${esc(p.handle)}" data-cart-link class="mt-2.5 flex h-8 w-full items-center justify-center rounded-lg border border-border text-[11px] font-bold uppercase tracking-[1px] text-text-primary transition-fluid hover:border-dark hover:text-coral">Choose</a>`;
+          return `<div class="group flex flex-col overflow-hidden rounded-2xl bg-surface shadow-xs ring-1 ring-border/70 transition-fluid hover:shadow-md"><a href="/products/${esc(p.handle)}" data-cart-link class="block"><div class="aspect-[4/5] overflow-hidden bg-surface-cool">${
+            img ? `<img src="${img.url}" alt="${esc(img.altText ?? p.title)}" class="h-full w-full object-cover transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105" loading="lazy">` : ''
+          }</div></a><div class="flex flex-1 flex-col p-3"><a href="/products/${esc(p.handle)}" data-cart-link class="block truncate text-[13px] font-semibold leading-tight text-text-primary group-hover:text-coral">${esc(p.title)}</a><p class="mt-1 text-[13px] tabular text-text-secondary">${esc(money(Number(price.amount), price.currencyCode))}</p>${cta}</div></div>`;
+        })
+        .join('');
+    }
+    recsGrid.addEventListener('click', async (e) => {
+      const link = (e.target as HTMLElement).closest('[data-cart-link]');
+      if (link) {
+        closeCart();
+        return;
+      }
+      const add = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-rec-add]');
+      if (!add || add.disabled) return;
+      add.disabled = true;
+      add.innerHTML = spinner(14);
+      try {
+        await addItem(add.dataset.recAdd!, 1, { open: false });
+        add.closest('.group')?.remove();
+        if (!recsGrid.children.length) recsSection.classList.add('hidden');
+      } catch {
+        add.disabled = false;
+      }
+    });
+
+    // ── Undo toast ──────────────────────────────────────────
+    let toastTimer = 0;
+    if (toast) {
+      const title = toast.querySelector<HTMLElement>('[data-undo-title]')!;
+      $lastRemoved.subscribe((last) => {
+        window.clearTimeout(toastTimer);
+        if (!last) {
+          toast.classList.add('hidden');
+          return;
+        }
+        title.textContent = last.title;
+        toast.classList.remove('hidden');
+        toastTimer = window.setTimeout(() => clearLastRemoved(), 6000);
+      });
+      toast.querySelector('[data-undo-do]')?.addEventListener('click', () => undoRemove());
+      toast.querySelector('[data-undo-dismiss]')?.addEventListener('click', () => clearLastRemoved());
+    }
+
+    paint();
+  }
+
+  initCartDrawer();
+  document.addEventListener('astro:page-load', initCartDrawer);
+</script>
