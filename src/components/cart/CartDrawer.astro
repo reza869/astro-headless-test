@@ -307,7 +307,7 @@ const { loggedIn = false } = Astro.props;
     const liveEl = document.querySelector<HTMLElement>('[data-cart-live]');
     const toast = document.querySelector<HTMLElement>('[data-undo-toast]');
 
-    const money = (n: number, cur: string) => formatMoney(n, cur);
+    const money = (n: string | number, cur: string) => formatMoney(n, cur);
 
     // ── Open / close ────────────────────────────────────────
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeCart();
