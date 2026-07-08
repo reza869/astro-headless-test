@@ -1,0 +1,234 @@
+---
+// ============================================================
+//  PredictiveSearch — header search trigger + instant-results
+//  overlay (vanilla island, no React). Debounced /api/search;
+//  Enter goes to the full /search page. Markup/classes match the
+//  former React version so the overlay looks identical.
+// ============================================================
+import Icon from '~/components/ui/Icon.astro';
+
+const TRENDING = ['Linen Blazer', 'Resort Dresses', 'Leather Tote', 'Silk Scarves', 'Wide-Leg Trousers'];
+---
+
+<button
+  type="button"
+  data-search-open
+  class="grid h-[43px] w-[43px] place-items-center rounded-sm text-text-primary transition-fluid hover:bg-surface-cool"
+  aria-label="Search"
+>
+  <Icon name="search" size={20} />
+</button>
+
+<div data-search-overlay class="fixed inset-0 z-[100] hidden" role="dialog" aria-modal="true" aria-label="Search">
+  <div data-search-backdrop class="absolute inset-0 bg-bg-deep/35 backdrop-blur-[5px]"></div>
+
+  {/* Floating search card */}
+  <div
+    data-search-panel
+    class="absolute left-1/2 top-[88px] w-[calc(100%-2rem)] max-w-[880px] -translate-x-1/2 rounded-lg bg-surface p-7 shadow-lg"
+  >
+    <form data-search-form class="flex items-center gap-3.5 rounded-md bg-surface-cool py-1.5 pl-[22px] pr-1.5">
+      <Icon name="search" size={23} class="shrink-0 text-text-muted" />
+      <input
+        data-search-input
+        type="search"
+        placeholder="Search the collection…"
+        autocomplete="off"
+        class="w-full bg-transparent py-[15px] text-[17px] font-medium text-text-primary outline-none placeholder:font-normal placeholder:text-text-muted"
+        aria-label="Search query"
+      />
+      <button
+        type="button"
+        data-search-close
+        class="grid h-[46px] w-[46px] shrink-0 place-items-center rounded-sm bg-dark text-white transition-fluid hover:bg-dark-hover"
+        aria-label="Close search"
+      >
+        <Icon name="close" size={19} strokeWidth={2} />
+      </button>
+    </form>
+
+    {/* Trending pills */}
+    <div class="mt-5 flex flex-wrap items-center gap-2.5">
+      <span class="text-[10.5px] font-semibold uppercase tracking-[1.5px] text-text-muted">Trending</span>
+      {
+        TRENDING.map((tag) => (
+          <button
+            type="button"
+            data-search-trend={tag}
+            class="rounded-pill bg-surface-cool px-4 py-[9px] text-[13px] font-semibold text-text-primary transition-colors hover:bg-coral hover:text-white"
+          >
+            {tag}
+          </button>
+        ))
+      }
+    </div>
+
+    <p data-search-status class="sr-only" role="status" aria-live="polite"></p>
+
+    {/* Results (built client-side) */}
+    <div data-search-resultswrap class="mt-6 hidden max-h-[55vh] overflow-y-auto border-t border-border pt-5">
+      <div data-search-results></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  import { formatMoney } from '~/lib/utils';
+  import { lockScroll, unlockScroll } from '~/lib/scroll-lock';
+
+  interface PredictProduct {
+    id: string;
+    title: string;
+    handle: string;
+    featuredImage?: { url: string; altText?: string | null } | null;
+    priceRange: { minVariantPrice: { amount: string; currencyCode: string } };
+  }
+  interface PredictCollection { id: string; title: string; handle: string }
+  interface Results { products: PredictProduct[]; collections: PredictCollection[] }
+
+  const esc = (s: string) =>
+    s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
+  function initSearch(): void {
+    const overlay = document.querySelector<HTMLElement>('[data-search-overlay]');
+    const trigger = document.querySelector<HTMLButtonElement>('[data-search-open]');
+    if (!overlay || !trigger || overlay.dataset.bound) return;
+    overlay.dataset.bound = 'true';
+
+    const panel = overlay.querySelector<HTMLElement>('[data-search-panel]')!;
+    const input = overlay.querySelector<HTMLInputElement>('[data-search-input]')!;
+    const form = overlay.querySelector<HTMLFormElement>('[data-search-form]')!;
+    const status = overlay.querySelector<HTMLElement>('[data-search-status]')!;
+    const wrap = overlay.querySelector<HTMLElement>('[data-search-resultswrap]')!;
+    const results = overlay.querySelector<HTMLElement>('[data-search-results]')!;
+
+    let timer = 0;
+    let ctrl: AbortController | null = null;
+
+    const render = (data: Results | null, loading: boolean): void => {
+      const q = input.value.trim();
+      if (q.length < 1) {
+        wrap.classList.add('hidden');
+        status.textContent = '';
+        return;
+      }
+      wrap.classList.remove('hidden');
+      const products = data?.products ?? [];
+      const collections = data?.collections ?? [];
+      status.textContent = loading
+        ? 'Searching'
+        : products.length + collections.length === 0
+          ? `No matches for ${q}`
+          : `${products.length} products and ${collections.length} collections found`;
+
+      if (loading && !products.length) {
+        results.innerHTML = '<p class="py-6 text-center text-sm text-text-muted">Searching…</p>';
+        return;
+      }
+      if (!products.length && !collections.length) {
+        results.innerHTML = `<p class="py-6 text-center text-sm text-text-muted">No matches for &ldquo;${esc(q)}&rdquo;.</p>`;
+        return;
+      }
+      const colHtml = collections.length
+        ? `<section><h3 class="mb-2 text-[11px] font-bold uppercase tracking-[1.8px] text-text-secondary">Collections</h3><div class="flex flex-wrap gap-2">${collections
+            .map(
+              (c) =>
+                `<a href="/collections/${c.handle}" class="rounded-md border border-border bg-surface px-3 py-1.5 text-sm transition-fluid hover:border-text-primary">${esc(c.title)}</a>`,
+            )
+            .join('')}</div></section>`
+        : '';
+      const prodHtml = products.length
+        ? `<section><h3 class="mb-2 text-[11px] font-bold uppercase tracking-[1.8px] text-text-secondary">Products</h3><ul class="flex flex-col">${products
+            .map(
+              (p) =>
+                `<li><a href="/products/${p.handle}" class="flex items-center gap-3 rounded-md px-2 py-2 transition-fluid hover:bg-surface-cool"><span class="h-12 w-12 shrink-0 overflow-hidden rounded border border-border bg-surface">${
+                  p.featuredImage
+                    ? `<img src="${p.featuredImage.url}" alt="${esc(p.featuredImage.altText ?? p.title)}" class="h-full w-full object-cover" loading="lazy">`
+                    : ''
+                }</span><span class="min-w-0 flex-1 truncate text-sm text-text-primary">${esc(p.title)}</span><span class="font-mono text-sm tabular text-text-secondary">${esc(
+                  formatMoney(p.priceRange.minVariantPrice.amount, p.priceRange.minVariantPrice.currencyCode),
+                )}</span></a></li>`,
+            )
+            .join('')}</ul></section>`
+        : '';
+      results.innerHTML = `<div class="flex flex-col gap-5">${colHtml}${prodHtml}</div>`;
+    };
+
+    const runSearch = (): void => {
+      const q = input.value.trim();
+      window.clearTimeout(timer);
+      ctrl?.abort();
+      if (q.length < 1) {
+        render(null, false);
+        return;
+      }
+      render(null, true);
+      ctrl = new AbortController();
+      const signal = ctrl.signal;
+      timer = window.setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal });
+          const data = (await res.json()) as Results;
+          if (!signal.aborted) render(data, false);
+        } catch {
+          if (!signal.aborted) render({ products: [], collections: [] }, false);
+        }
+      }, 220);
+    };
+
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') {
+        close();
+        return;
+      }
+      if (e.key === 'Tab') {
+        const items = Array.from(
+          panel.querySelectorAll<HTMLElement>('a[href],button,input,[tabindex]:not([tabindex="-1"])'),
+        ).filter((el) => !el.hasAttribute('disabled') && el.offsetParent !== null);
+        if (!items.length) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    function open(): void {
+      overlay!.classList.remove('hidden');
+      lockScroll();
+      document.addEventListener('keydown', onKey);
+      input.focus();
+    }
+    function close(): void {
+      overlay!.classList.add('hidden');
+      unlockScroll();
+      document.removeEventListener('keydown', onKey);
+      trigger!.focus();
+    }
+
+    trigger.addEventListener('click', open);
+    overlay.querySelector('[data-search-close]')?.addEventListener('click', close);
+    overlay.querySelector('[data-search-backdrop]')?.addEventListener('click', close);
+    input.addEventListener('input', runSearch);
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const q = input.value.trim();
+      if (q) window.location.href = `/search?q=${encodeURIComponent(q)}`;
+    });
+    overlay.querySelectorAll<HTMLButtonElement>('[data-search-trend]').forEach((pill) => {
+      pill.addEventListener('click', () => {
+        input.value = pill.dataset.searchTrend ?? '';
+        input.focus();
+        runSearch();
+      });
+    });
+  }
+
+  initSearch();
+  document.addEventListener('astro:page-load', initSearch);
+</script>

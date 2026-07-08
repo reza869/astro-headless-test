@@ -11,7 +11,7 @@ import type { ImageMetadata } from 'astro';
 import Icon from '~/components/ui/Icon.astro';
 import Logo from '~/components/global/Logo.astro';
 import CartButton from '~/components/cart/CartButton.astro';
-import PredictiveSearch from '~/components/react/PredictiveSearch.tsx';
+import PredictiveSearch from '~/components/cart/PredictiveSearch.astro';
 import { getTokens } from '~/lib/shopify/customer';
 import { getMenu } from '~/lib/shopify';
 import { SITE, USE_SHOPIFY_MENU, MEGA_MENU_PARENTS } from '~/config/site';
@@ -364,7 +364,7 @@ const mobileGroups = (item: NavItem): MobileGroup[] =>
 
       {/* Right — 43px action row */}
       <div class="flex items-center justify-end gap-[3px]">
-        <PredictiveSearch client:idle />
+        <PredictiveSearch />
 
         {/* Wishlist — green active dot */}
         <a
