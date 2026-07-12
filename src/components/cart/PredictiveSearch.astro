@@ -95,6 +95,15 @@ const TRENDING = ['Linen Blazer', 'Resort Dresses', 'Leather Tote', 'Silk Scarve
     if (!overlay || !trigger || overlay.dataset.bound) return;
     overlay.dataset.bound = 'true';
 
+    // Portal the overlay to <body>. It renders inside <header>, but the header
+    // has `backdrop-filter` (backdrop-blur), which makes it the containing block
+    // for position:fixed descendants — so a `fixed inset-0` overlay would be
+    // clipped to the header box instead of the viewport. Moving it to <body>
+    // (where the cart drawer / quick-view modals already live) lets it cover the
+    // full screen. The trigger button stays in the header. Guarded so it's a
+    // no-op if already relocated.
+    if (overlay.parentElement !== document.body) document.body.appendChild(overlay);
+
     const panel = overlay.querySelector<HTMLElement>('[data-search-panel]')!;
     const input = overlay.querySelector<HTMLInputElement>('[data-search-input]')!;
     const form = overlay.querySelector<HTMLFormElement>('[data-search-form]')!;
