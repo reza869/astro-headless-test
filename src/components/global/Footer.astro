@@ -163,7 +163,10 @@ const legal = [
     </div>
 
     {/* ── Bottom: legal + payments ──────────────────────────── */}
-    <div class="flex flex-wrap items-center justify-between gap-5 pt-6" data-reveal>
+    {/* No scroll-reveal here: as the page's very last element, its top can't
+        reach the reveal trigger line, so a `data-reveal` would stay stuck
+        hidden (only a reload, restoring scroll to the footer, revealed it). */}
+    <div class="flex flex-wrap items-center justify-between gap-5 pt-6">
       <p class="text-[12.5px] text-white/72">© {year} {SITE.name}. All rights reserved.</p>
       <nav aria-label="Legal" class="flex gap-[18px]">
         {
