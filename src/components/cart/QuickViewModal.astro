@@ -115,7 +115,9 @@ import Icon from '~/components/ui/Icon.astro';
       const onSale = isOnSale(variant?.price, variant?.compareAtPrice);
       const off = discountPercent(variant?.price, variant?.compareAtPrice);
       const category = p.productType || p.vendor || '';
-      const image = p.featuredImage ?? p.images?.[0] ?? null;
+      // Option B — the selected variant drives the image once a full choice is
+      // made; until then show the featured image (what the card displayed).
+      const image = variant?.image ?? p.featuredImage ?? p.images?.[0] ?? null;
       panel.setAttribute('aria-label', p.title);
 
       const valueAvailable = (optName: string, value: string) =>
@@ -141,11 +143,15 @@ import Icon from '~/components/ui/Icon.astro';
             })
             .join('');
 
-      const priceHtml = `<span class="text-2xl font-bold tabular text-text-primary">${variant ? esc(formatMoney(variant.price.amount, currency)) : '—'}</span>${
-        onSale && variant?.compareAtPrice
-          ? `<s class="text-base text-text-muted tabular">${esc(formatMoney(variant.compareAtPrice.amount, currency))}</s>${off != null ? `<span class="rounded-sm bg-coral px-2 py-1 text-[11px] font-bold uppercase leading-none tracking-[1px] text-white">−${off}%</span>` : ''}`
-          : ''
-      }`;
+      // Resolved variant → its exact price (+ any sale). No full selection yet →
+      // the card's "From {min}" range price, so the modal opens matching the card.
+      const priceHtml = variant
+        ? `<span class="text-2xl font-bold tabular text-text-primary">${esc(formatMoney(variant.price.amount, currency))}</span>${
+            onSale && variant.compareAtPrice
+              ? `<s class="text-base text-text-muted tabular">${esc(formatMoney(variant.compareAtPrice.amount, currency))}</s>${off != null ? `<span class="rounded-sm bg-coral px-2 py-1 text-[11px] font-bold uppercase leading-none tracking-[1px] text-white">−${off}%</span>` : ''}`
+              : ''
+          }`
+        : `<span class="text-2xl font-bold tabular text-text-primary"><span class="mr-1.5 align-middle text-[11px] font-semibold uppercase tracking-[1px] text-text-muted">From</span>${esc(formatMoney(p.priceRange.minVariantPrice.amount, currency))}</span>`;
 
       body.innerHTML =
         `<div class="overflow-hidden rounded-2xl bg-surface-cool">${
@@ -159,7 +165,7 @@ import Icon from '~/components/ui/Icon.astro';
         `<div class="mt-4 flex items-center gap-3">${priceHtml}</div>` +
         (p.description ? `<p class="mt-4 line-clamp-3 text-sm leading-relaxed text-text-secondary">${esc(p.description)}</p>` : '') +
         optionsHtml +
-        `<button type="button" data-qv-add ${!available || adding ? 'disabled' : ''} class="mt-7 flex h-14 w-full items-center justify-center gap-2 rounded-md bg-coral text-base font-bold uppercase tracking-[1px] text-white transition-fluid hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">${adding ? spinner(20) : available ? 'Add to Bag' : 'Sold out'}</button>` +
+        `<button type="button" data-qv-add ${adding || !variant || !available ? 'disabled' : ''} class="mt-7 flex h-14 w-full items-center justify-center gap-2 rounded-md bg-coral text-base font-bold uppercase tracking-[1px] text-white transition-fluid hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">${adding ? spinner(20) : !variant ? 'Select options' : available ? 'Add to Bag' : 'Sold out'}</button>` +
         `<a href="/products/${p.handle}" class="mt-3 text-center text-sm text-text-secondary underline-offset-4 transition-fluid hover:text-text-primary hover:underline">View full details</a></div>`;
 
       // Restore focus to the just-picked option so keyboard users aren't dropped.
@@ -192,9 +198,19 @@ import Icon from '~/components/ui/Icon.astro';
         if (signal.aborted) return;
         if (data.product) {
           product = data.product as Product;
-          const base = product.variants.find((v) => v.availableForSale) ?? product.variants[0];
           selected = {};
-          base?.selectedOptions.forEach((o) => (selected[o.name] = o.value));
+          // Option B — mirror the product card: open on the featured image with a
+          // "From {min}" price and NO variant pre-picked, so the shopper chooses
+          // colour/material before a concrete price + Add. Only auto-select when
+          // there's genuinely nothing to choose (a single/optionless variant),
+          // so those still add in one click.
+          const singleVariant =
+            product.options.length === 0 ||
+            (product.options.length === 1 && product.options[0].name === 'Title');
+          if (singleVariant) {
+            const base = product.variants.find((v) => v.availableForSale) ?? product.variants[0];
+            base?.selectedOptions.forEach((o) => (selected[o.name] = o.value));
+          }
         } else {
           error = data.error ?? 'Product unavailable';
         }

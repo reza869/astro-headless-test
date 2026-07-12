@@ -266,8 +266,18 @@ const sizes = (sizeOption?.optionValues ?? []).map((ov) => ({
   ok: availableSizes.has(ov.name),
 }));
 
-const defaultColor = colors[0]?.label ?? '';
-const defaultSize = sizes.find((s) => s.ok)?.label ?? sizes[0]?.label ?? '';
+// Option B — mirror the product card: when the shopper has a real choice, don't
+// pre-pick a variant. The PDP then opens on the featured image with a "From
+// {min}" price (exactly what the card shows) and the shopper resolves a concrete
+// variant. Only options with a single value (no real choice) are auto-selected,
+// so genuinely single-variant products still add in one tap.
+const soleValueOf = (opt: typeof colorOption) =>
+  opt && opt.optionValues.length === 1 ? (opt.optionValues[0]?.name ?? '') : '';
+const defaultColor = soleValueOf(colorOption);
+const defaultSize = soleValueOf(sizeOption);
+// Some option still needs a choice → headline shows "From {min}" and Add stays
+// gated until a concrete variant is resolved.
+const needsChoice = realOptions.some((o) => o.optionValues.length > 1);
 
 // Compact variant index handed to the client to resolve a selection → id.
 const variantData = product.variants.map((v) => ({
@@ -458,6 +468,7 @@ const addPriceLabel = formatMoney(
             )}
           </div>
           <div class="pdp-price">
+            <span class="from" data-price-from hidden={!needsChoice}>From</span>
             <span class="now" data-price-now>{priceNow}</span>
             <span class="was" data-price-was hidden={!priceWas}>{priceWas}</span>
             <span class="off" data-price-off hidden={!off}>{off ? `Save ${off}%` : ''}</span>
@@ -498,15 +509,15 @@ const addPriceLabel = formatMoney(
                 <span class="sel" data-color-label>{defaultColor}</span>
               </div>
               <div class="opt-colors">
-                {colors.map((c, i) => (
+                {colors.map((c) => (
                   <span
-                    class:list={['opt-color', c.image && 'has-img', i === 0 && 'on']}
+                    class:list={['opt-color', c.image && 'has-img', c.label === defaultColor && 'on']}
                     data-color={c.label}
                     title={c.label}
                     role="button"
                     tabindex="0"
                     aria-label={`Colour: ${c.label}`}
-                    aria-pressed={i === 0 ? 'true' : 'false'}
+                    aria-pressed={c.label === defaultColor ? 'true' : 'false'}
                     style={c.image
                       ? `background-image:url(${c.image})`
                       : `background:${c.hex}`}
@@ -567,8 +578,11 @@ const addPriceLabel = formatMoney(
               <span data-qval>1</span>
               <button data-qinc aria-label="Increase">+</button>
             </div>
-            <button class="buy-add" data-pdp-add>
-              <span data-add-label>Add to Bag</span> · <span data-add-price>{addPriceLabel}</span>
+            <button class="buy-add" data-pdp-add disabled={needsChoice}>
+              <span data-add-label>{needsChoice ? 'Select options' : 'Add to Bag'}</span><span
+                data-add-price-wrap
+                hidden={needsChoice}
+              > · <span data-add-price>{addPriceLabel}</span></span>
               <Icon name="bag" size={18} />
             </button>
           </div>
@@ -1262,6 +1276,15 @@ const addPriceLabel = formatMoney(
     gap: 12px;
     margin-bottom: 8px;
     flex-wrap: wrap;
+  }
+  .pdp-price .from {
+    align-self: center;
+    margin-right: -6px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
   }
   .pdp-price .now {
     font-family: var(--font-heading);
@@ -3257,6 +3280,11 @@ const addPriceLabel = formatMoney(
       const cmp = v?.compareAt != null ? Number(v.compareAt) : null;
       const onSale = cmp != null && Number.isFinite(cmp) && cmp > unit;
 
+      // Option B — show the "From" prefix while the price is the min-variant
+      // placeholder (no concrete variant resolved yet); drop it once resolved.
+      const fromEl = $<HTMLElement>('[data-price-from]');
+      if (fromEl) fromEl.hidden = !!v;
+
       const ap = $('[data-add-price]');
       if (ap) ap.textContent = money(unit * state.qty);
 
@@ -3284,7 +3312,14 @@ const addPriceLabel = formatMoney(
     // Swap the hero image to the resolved variant's own image when it has one
     // (colour changes drive the gallery, matching real fashion PDP behaviour).
     const syncMedia = () => {
-      const v = resolve();
+      // Prefer the fully-resolved variant's image; otherwise, once a colour is
+      // chosen, swap to that colour's first imaged variant so the gallery tracks
+      // the colour even before the size/material is picked (Option B).
+      const v =
+        resolve() ??
+        (cfg.hasColor && state.color
+          ? cfg.variants.find((x) => x.color === state.color && x.img)
+          : null);
       if (v?.img) setMainImage(v.img);
     };
 
@@ -3292,38 +3327,51 @@ const addPriceLabel = formatMoney(
     const stockEl = $<HTMLElement>('[data-pdp-stock]');
     const addBtn = $<HTMLButtonElement>('[data-pdp-add]');
     const addLabelEl = $<HTMLElement>('[data-add-label]');
+    const priceWrap = $<HTMLElement>('[data-add-price-wrap]');
     const syncStock = () => {
       const v = resolve();
       const q = v?.qty ?? null;
       const buyable = !!v && v.available;
+      // Option B — no concrete variant resolved yet (the shopper still owes a
+      // choice). Prompt for it instead of a misleading "Sold out"/price.
+      const needsPick = !v;
 
-      // Availability line — always shows a status for the resolved variant.
+      // Availability line — a status for the resolved variant; hidden until then.
       if (stockEl) {
         stockEl.classList.remove('is-in', 'is-low', 'is-order', 'is-out');
-        if (v && v.available && typeof q === 'number' && q > 0 && q <= cfg.lowStockThreshold) {
+        if (needsPick) {
+          stockEl.hidden = true;
+        } else if (v && v.available && typeof q === 'number' && q > 0 && q <= cfg.lowStockThreshold) {
           stockEl.textContent = q === 1 ? 'Only 1 left in stock' : `Only ${q} left — selling fast`;
           stockEl.classList.add('is-low');
+          stockEl.hidden = false;
         } else if (v && v.continueSelling) {
           stockEl.textContent = 'Made to order · ships when restocked';
           stockEl.classList.add('is-order');
+          stockEl.hidden = false;
         } else if (buyable) {
           stockEl.textContent = 'In stock';
           stockEl.classList.add('is-in');
+          stockEl.hidden = false;
         } else {
           stockEl.textContent = 'Out of stock';
           stockEl.classList.add('is-out');
+          stockEl.hidden = false;
         }
-        stockEl.hidden = false;
       }
 
-      // Add button: pre-order on continue-selling, sold out when unbuyable.
+      // Add button: prompt to choose → pre-order → sold out → add. The price tag
+      // beside the label only makes sense once a concrete variant is priced.
       if (addLabelEl) {
-        addLabelEl.textContent = v?.continueSelling
-          ? 'Pre-order'
-          : buyable
-            ? 'Add to Bag'
-            : 'Sold out';
+        addLabelEl.textContent = needsPick
+          ? 'Select options'
+          : v?.continueSelling
+            ? 'Pre-order'
+            : buyable
+              ? 'Add to Bag'
+              : 'Sold out';
       }
+      if (priceWrap) priceWrap.hidden = needsPick;
       if (addBtn) addBtn.disabled = !buyable;
       const stickyAddEl = $<HTMLButtonElement>('[data-sticky-add]');
       if (stickyAddEl) stickyAddEl.disabled = !buyable;
